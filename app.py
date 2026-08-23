@@ -6,7 +6,7 @@ import yfinance as yf
 import streamlit as st
 import plotly.graph_objects as go
 
-# 1. 网页全局设置
+# Page Configuration
 st.set_page_config(page_title="Universal Quant Terminal V4.6", page_icon="📈", layout="wide")
 
 class UniversalQuantEngine:
@@ -75,12 +75,12 @@ class UniversalQuantEngine:
                 response = requests.get(api_url, headers=headers, timeout=3)
                 if response.status_code == 200:
                     self.rf = 0.0376
-                    self.api_status = "[API 成功] 已获取最新 BNM Base Rate: 3.76%"
+                    self.api_status = "[API SUCCESS] Retrieved latest BNM Base Rate: 3.76%"
                 else:
                     raise Exception()
             except Exception:
                 self.rf = 0.038
-                self.api_status = "[API 提示] 采用默认马股无风险利率: 3.80%"
+                self.api_status = "[API NOTICE] Using default Malaysia Risk-Free Rate: 3.80%"
             self.mrp = 0.06
             self.tax_rate = 0.24
             self.market_name = 'Bursa Malaysia (KLSE)'
@@ -88,10 +88,10 @@ class UniversalQuantEngine:
             try:
                 tnx = yf.Ticker('^TNX').history(period='1d')
                 self.rf = tnx['Close'].iloc[-1] / 100
-                self.api_status = f"[API 成功] 已获取最新 US Treasury 10-Yr Yield: {self.rf*100:.2f}%"
+                self.api_status = f"[API SUCCESS] Retrieved latest US Treasury 10-Yr Yield: {self.rf*100:.2f}%"
             except Exception:
-                self.rf = 0.042
-                self.api_status = "[API 提示] 采用默认美国无风险利率: 4.20%"
+                self.rf = 0.0474
+                self.api_status = "[API NOTICE] Using default US Risk-Free Rate: 4.74%"
             self.mrp = 0.05
             self.tax_rate = 0.21
             self.market_name = 'US Market'
@@ -162,7 +162,7 @@ class UniversalQuantEngine:
         if not self.is_malaysia and self.g1 > 0.30:
             self.g1 = 0.30
 
-        self.g2 = 0.02  # 永续增长率
+        self.g2 = 0.02  # Terminal growth rate
 
     def run_valuation_math(self, test_g1):
         if self.base_cf <= 0 or self.discount_rate <= self.g2:
@@ -197,8 +197,7 @@ class UniversalQuantEngine:
                 high = mid
         return (low + high) / 2
 
-
-# --- 绘图函数 ---
+# Chart helper
 def draw_beta_scatter(engine):
     if engine.scatter_data is None: return None
     stock_ret = engine.scatter_data.iloc[:, 0]
@@ -210,70 +209,67 @@ def draw_beta_scatter(engine):
     fig.add_trace(go.Scatter(x=x_range, y=engine.beta * x_range, mode='lines', line=dict(color='#ef4444', width=2), name='Regression Line'))
     
     fig.update_layout(
-        xaxis_title="Market Return (^KLSE / ^GSPC)", yaxis_title="Stock Return", plot_bgcolor='rgba(0,0,0,0)',
+        xaxis_title="Market Return Benchmark", yaxis_title="Stock Return", plot_bgcolor='rgba(0,0,0,0)',
         xaxis=dict(showgrid=True, gridcolor='#e5e7eb', tickformat=".0%"), yaxis=dict(showgrid=True, gridcolor='#e5e7eb', tickformat=".0%"),
         showlegend=False, height=280, margin=dict(l=0, r=0, t=10, b=0)
     )
     return fig
 
-
-# ==========================================
-# 🎨 网页前端渲染层 (原汁原味输出 + 专业大白话解释)
-# ==========================================
+# Main Streamlit App
 def main():
     st.markdown("<h1 style='text-align: center; color: #1e3a8a;'>🌐 Universal Quant Terminal V4.6</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #6b7280;'>Institutional-Grade Valuation Engine with Endogenous ROE & CAPM Regression</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #6b7280;'>Professional Financial Terminal & Valuation Dashboard</p>", unsafe_allow_html=True)
     
     col_spacer1, col_search, col_spacer2 = st.columns([1, 2, 1])
     with col_search:
-        ticker_input = st.text_input("Enter Stock Code (e.g., 1155.KL, NVDA, AAPL, 1295.KL):", "1155.KL")
+        ticker_input = st.text_input("Enter Stock Code (e.g., 1155.KL, NVDA, AAPL):", "NVDA")
     
     if ticker_input:
-        with st.spinner(f"Running computation for {ticker_input.upper()}..."):
+        with st.spinner(f"Computing quantitative model for {ticker_input.upper()}..."):
             engine = UniversalQuantEngine(ticker_input)
             engine.adaptive_model_setup()
             val = engine.run_valuation_math(engine.g1)
             implied_g1 = engine.find_implied_growth()
             target_buy_price = val * 0.80
 
-            # 1. API 状态提示
+            # API Status Banner
             st.success(engine.api_status)
             
-            # 头部大标题
+            # Header info
             st.markdown(f"### 🌐 UNIVERSAL QUANT TERMINAL: {engine.name} ({engine.ticker})")
             st.markdown(f"🏢 **Sector:** {engine.sector} | **Market:** {engine.market_name}")
             st.divider()
 
-            # [1. DYNAMIC MACRO & COST OF CAPITAL]
+            # --- [1. DYNAMIC MACRO & COST OF CAPITAL] ---
             st.markdown("### [1. DYNAMIC MACRO & COST OF CAPITAL]")
             c1, c2, c3 = st.columns(3)
             c1.metric("Beta Risk", f"{engine.beta:.2f}", delta=engine.beta_source, delta_color="off")
             c2.metric("Risk-Free Rate (Rf)", f"{engine.rf * 100:.2f}%")
-            c3.metric("Discount Rate (WACC/Ke)", f"{engine.discount_rate * 100:.2f}%")
-            st.info("💡 **通俗解释 (Explanation):** Beta 代表个股相对于大盘的波动风险。无风险利率 (Rf) 采用国债收益率。折现率则是投资者要求的最低回报率，风险越高折现率越大。")
+            c3.metric("Discount Rate", f"{engine.discount_rate * 100:.2f}%")
+            st.info("💡 **Plain English Explanation:** Beta measures stock volatility compared to the market. Rf is the benchmark government bond yield. The Discount Rate is your hurdle rate / minimum required rate of return.")
 
-            # [2. UNIVERSAL ENGINE]
+            # --- [2. UNIVERSAL ENGINE] ---
             st.markdown(f"### [2. UNIVERSAL ENGINE: {engine.model_type}]")
             c1, c2, c3 = st.columns(3)
             c1.metric("Stage 1 Growth Period", f"{engine.stage1_years} Years")
             c2.metric("Baseline Growth Rate (g1)", f"{engine.g1 * 100:.2f}%", delta=engine.growth_source, delta_color="off")
             c3.metric("Terminal Rate (g2)", f"{engine.g2 * 100:.2f}%")
-            st.info("💡 **通俗解释 (Explanation):** 引擎根据企业行业自动匹配预测年限。g1 为第一阶段内生可持续增长率（基于 ROE 与派息率计算），g2 为长期永续稳定增长率。")
+            st.info("💡 **Plain English Explanation:** The model automatically adjusts projection length. g1 is the sustainable growth rate derived from ROE and payout ratio, and g2 is the long-term stable perpetuity rate.")
 
-            # 核心价格对比卡片
+            # Valuation Summary Cards
             st.markdown("---")
             col_p1, col_p2, col_p3 = st.columns(3)
             col_p1.metric("Current Market Price", f"{engine.price:.2f}")
             col_p2.metric("Calculated Value", f"{val:.2f}")
-            col_p3.metric("Safe Buy Target (20% MoS)", f"{target_buy_price:.2f}")
+            col_p3.metric("Safe Buy Target", f"{target_buy_price:.2f}", "20% Margin of Safety")
 
             if val > 0 and engine.price > 0:
                 price_to_val_ratio = engine.price / val
                 
-                # [3. MARKET PSYCHOLOGY (LIE DETECTOR)]
+                # --- [3. MARKET PSYCHOLOGY (LIE DETECTOR)] ---
                 st.markdown("### [3. 💡 MARKET PSYCHOLOGY (LIE DETECTOR)]")
                 implied_g1_str = f"{implied_g1 * 100:.2f}%" if implied_g1 is not None else "N/A"
-                st.warning(f"To justify the current price of **{engine.price:.2f}**, the market implies **g1 = {implied_g1_str}**.")
+                st.warning(f"To justify the current price of **{engine.price:.2f}**, the market implies a Stage 1 Growth Rate of **{implied_g1_str} per year for {engine.stage1_years} years**.")
                 
                 if implied_g1 is not None:
                     if implied_g1 > 0.40:
@@ -283,9 +279,9 @@ def main():
                     else:
                         diagnosis = "-> **Diagnosis: MODERATE EXPECTATIONS.** Balanced market sentiment."
                     st.write(diagnosis)
-                st.info("💡 **通俗解释 (Explanation):** 测谎仪通过二分法反推：如果想撑起现在的股票市价，市场必须预期公司未来每年保持这个恐怖的增速。以此判断泡沫或悲观情绪。")
+                st.info("💡 **Plain English Explanation:** The lie detector uses reverse-engineering (binary search) to find out what growth rate investors are currently pricing into the stock.")
 
-                # [4. DUAL-PERSPECTIVE AI ADVISORY]
+                # --- [4. DUAL-PERSPECTIVE AI ADVISORY] ---
                 st.markdown("### [4. 🤖 DUAL-PERSPECTIVE AI ADVISORY]")
                 div_rate = engine.info.get('dividendRate') or engine.info.get('trailingAnnualDividendRate') or 0
                 div_yield = (div_rate / engine.price) * 100 if engine.price > 0 else 0
@@ -310,7 +306,7 @@ def main():
                         else:
                             st.info("-> **Verdict:** 🟢 / 🟡 FAIRLY PRICED or Growth Opportunity based on model thresholds.")
 
-                # [5. FINAL EXECUTIVE SUMMARY & RATING]
+                # --- [5. FINAL EXECUTIVE SUMMARY & RATING] ---
                 st.markdown("### [5. 🎯 FINAL EXECUTIVE SUMMARY & RATING]")
                 if price_to_val_ratio <= 0.70 and (implied_g1 is not None and implied_g1 < 0.0):
                     rating, reason = '🟢 STRONG BUY', f'Extreme pessimism creates massive margin of safety. Price ({engine.price:.2f}) is heavily discounted relative to intrinsic value ({val:.2f}).'
@@ -327,7 +323,7 @@ def main():
                     st.markdown(f"- **Final Investment Rating : {rating}**")
                     st.markdown(f"- **Core Justification : {reason}**")
 
-                # [6. PLAIN ENGLISH TRANSLATOR]
+                # --- [6. PLAIN ENGLISH TRANSLATOR] ---
                 st.markdown("### [6. 🗣️ PLAIN ENGLISH TRANSLATOR]")
                 with st.container(border=True):
                     st.markdown(f"- **Required Hurdle Rate / Discount Rate:** {engine.discount_rate * 100:.2f}%")
@@ -341,19 +337,19 @@ def main():
                         else:
                             st.markdown("  👉 **【⚖️ BALANCED & RATIONAL】** Market sentiment is calm, and pricing is reasonable—neither overly hyped nor panicked.")
 
-                # [7. CROSS-BORDER FX RISK ADVISORY]
+                # --- [7. CROSS-BORDER FX RISK ADVISORY] ---
                 if not engine.is_malaysia:
                     st.markdown("### [7. 💱 CROSS-BORDER FX RISK ADVISORY]")
                     st.warning("- **Note:** USD-denominated asset; monitor USD/MYR exchange rate fluctuations.")
 
             st.markdown("---")
             
-            # 额外附赠：Beta 回归图表 (让页面不单调)
+            # Extra Visual: Regression scatter chart
             with st.expander("📊 View Advanced Beta Historical K-Line Regression Chart"):
                 scatter_fig = draw_beta_scatter(engine)
                 if scatter_fig:
                     st.plotly_chart(scatter_fig, use_container_width=True)
-                    st.caption("Historical monthly return scatter plot against benchmark (^KLSE or ^GSPC) with Blume-adjusted Beta regression slope.")
+                    st.caption("Historical monthly return scatter plot against benchmark index with Blume-adjusted Beta regression slope.")
 
 if __name__ == '__main__':
     main()
