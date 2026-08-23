@@ -197,7 +197,7 @@ class UniversalQuantEngine:
                 high = mid
         return (low + high) / 2
 
-# Chart helper
+# Chart helper function
 def draw_beta_scatter(engine):
     if engine.scatter_data is None: return None
     stock_ret = engine.scatter_data.iloc[:, 0]
@@ -289,7 +289,7 @@ def main():
                 col_a, col_b = st.columns(2)
                 with col_a:
                     with st.container(border=True):
-                        st.markdown("🔸 **Perspective A: Conservative Income (收息与防御)**")
+                        st.markdown("🔸 **Perspective A: Conservative Income**")
                         st.write(f"- Current Dividend Yield: {div_yield:.2f}% | Beta Risk: {engine.beta:.2f}")
                         if engine.sector in ['Financial Services', 'Utilities', 'Real Estate'] and div_yield > 3.0:
                             st.success("-> **Verdict:** 🟢 SUITABLE FOR INCOME. Strong cash-flow profile and defensive beta.")
@@ -297,7 +297,7 @@ def main():
                             st.error("-> **Verdict:** 🔴 NOT IDEAL FOR INCOME. Low dividend yield or erratic payout structure.")
                 with col_b:
                     with st.container(border=True):
-                        st.markdown("🔹 **Perspective B: Aggressive Capital Appreciation (资本增值)**")
+                        st.markdown("🔹 **Perspective B: Capital Appreciation**")
                         st.write(f"- Market Implied Growth: {implied_g1_str} | Model Valuation: {val:.2f}")
                         if implied_g1 is not None and implied_g1 < 0.0 and engine.price < val:
                             st.success("-> **Verdict:** 🟢 MULTI-BAGGER POTENTIAL. Extreme market pessimism creates deep value mispricing.")
@@ -344,12 +344,31 @@ def main():
 
             st.markdown("---")
             
-            # Extra Visual: Regression scatter chart
+            # Extra Visual: Regression scatter chart + Professional English Summary Cards
             with st.expander("📊 View Advanced Beta Historical K-Line Regression Chart"):
                 scatter_fig = draw_beta_scatter(engine)
                 if scatter_fig:
                     st.plotly_chart(scatter_fig, use_container_width=True)
                     st.caption("Historical monthly return scatter plot against benchmark index with Blume-adjusted Beta regression slope.")
+                    
+                    st.markdown("#### 📉 Regression Chart Summary & Key Takeaways")
+                    
+                    col_sum1, col_sum2 = st.columns(2)
+                    
+                    with col_sum1:
+                        with st.container(border=True):
+                            st.markdown("**1. Volatility & Risk Profile (Beta)**")
+                            st.markdown(f"- **Final Beta:** **{engine.beta:.2f}** ({engine.beta_source})")
+                            if engine.beta > 1.0:
+                                st.write("👉 *High Volatility:* The stock is more sensitive and riskier than the overall market.")
+                            else:
+                                st.write("👉 *Defensive:* The stock is less volatile and more stable than the overall market.")
+                    
+                    with col_sum2:
+                        with st.container(border=True):
+                            st.markdown("**2. How to Read the Scatter Plot**")
+                            st.markdown("- **The Red Line:** Shows the average trend between the stock and the market.")
+                            st.markdown("- **The Blue Dots:** Each dot represents one month's historical return comparison.")
 
 if __name__ == '__main__':
     main()
