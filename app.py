@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 # Page Configuration
 st.set_page_config(page_title="Universal Quant Terminal V4.6", page_icon="📈", layout="wide")
 
-# --- NEW: Anti-Rate Limit Session ---
+# --- Anti-Rate Limit Session (This keeps you from getting blocked) ---
 @st.cache_resource
 def get_yf_session():
     """Create a persistent session with a browser disguise to prevent Yahoo blocks."""
@@ -27,14 +27,14 @@ class UniversalQuantEngine:
         # Pass the custom session to yfinance
         self.stock = yf.Ticker(self.ticker, session=self.session)
         
-        # Graceful error handling if Yahoo still blocks it
+        # Graceful error handling if Yahoo data is missing
         try:
             self.info = self.stock.info
             if not self.info or 'symbol' not in self.info:
                 raise ValueError("Incomplete data received.")
         except Exception as e:
-            st.error(f"⚠️ Yahoo Finance API is currently rate-limiting this server. Please wait a moment and try again. ({e})")
-            st.stop() # Stops the app from crashing into a red screen
+            st.error(f"⚠️ Yahoo Finance data is currently unavailable for this ticker. Please check the stock code or try again later. ({e})")
+            st.stop() 
 
         self.name = self.info.get('longName', 'Unknown Company')
         self.sector = self.info.get('sector', 'Unknown')
@@ -55,7 +55,6 @@ class UniversalQuantEngine:
 
         try:
             market_symbol = '^KLSE' if self.is_malaysia else '^GSPC'
-            # Added session here as well for historical data
             stock_hist = yf.Ticker(self.ticker, session=self.session).history(period='3y', interval='1mo')
             market_hist = yf.Ticker(market_symbol, session=self.session).history(period='3y', interval='1mo')
 
@@ -238,15 +237,13 @@ def draw_beta_scatter(engine):
     )
     return fig
 
-# --- NEW: Streamlit caching to prevent repeat API requests ---
-@st.cache_data(ttl=3600) # Cache the result for 1 hour
+# Clean valuation execution function (No caching to avoid errors)
 def process_valuation(ticker_input):
     engine = UniversalQuantEngine(ticker_input)
     engine.adaptive_model_setup()
     val = engine.run_valuation_math(engine.g1)
     implied_g1 = engine.find_implied_growth()
     return engine, val, implied_g1
-
 
 # Main Streamlit App
 def main():
@@ -260,7 +257,7 @@ def main():
     if ticker_input:
         with st.spinner(f"Computing quantitative model for {ticker_input.upper()}..."):
             
-            # Call the cached function instead of running it raw
+            # Safely process data without throwing the memory error
             engine, val, implied_g1 = process_valuation(ticker_input)
             target_buy_price = val * 0.80
 
