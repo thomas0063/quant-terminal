@@ -9,11 +9,33 @@ import plotly.graph_objects as go
 # Page Configuration
 st.set_page_config(page_title="Universal Quant Terminal V4.6", page_icon="📈", layout="wide")
 
+# --- NEW: Anti-Rate Limit Session ---
+@st.cache_resource
+def get_yf_session():
+    """Create a persistent session with a browser disguise to prevent Yahoo blocks."""
+    session = requests.Session()
+    session.headers.update({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
+    })
+    return session
+
 class UniversalQuantEngine:
     def __init__(self, ticker):
         self.ticker = ticker.strip().upper()
-        self.stock = yf.Ticker(self.ticker)
-        self.info = self.stock.info
+        self.session = get_yf_session()
+        
+        # Pass the custom session to yfinance
+        self.stock = yf.Ticker(self.ticker, session=self.session)
+        
+        # Graceful error handling if Yahoo still blocks it
+        try:
+            self.info = self.stock.info
+            if not self.info or 'symbol' not in self.info:
+                raise ValueError("Incomplete data received.")
+        except Exception as e:
+            st.error(f"⚠️ Yahoo Finance API is currently rate-limiting this server. Please wait a moment and try again. ({e})")
+            st.stop() # Stops the app from crashing into a red screen
+
         self.name = self.info.get('longName', 'Unknown Company')
         self.sector = self.info.get('sector', 'Unknown')
         self.is_malaysia = self.ticker.endswith('.KL')
@@ -33,8 +55,9 @@ class UniversalQuantEngine:
 
         try:
             market_symbol = '^KLSE' if self.is_malaysia else '^GSPC'
-            stock_hist = self.stock.history(period='3y', interval='1mo')
-            market_hist = yf.Ticker(market_symbol).history(period='3y', interval='1mo')
+            # Added session here as well for historical data
+            stock_hist = yf.Ticker(self.ticker, session=self.session).history(period='3y', interval='1mo')
+            market_hist = yf.Ticker(market_symbol, session=self.session).history(period='3y', interval='1mo')
 
             if stock_hist.empty or market_hist.empty:
                 return fallback_beta, 'sector_fallback'
@@ -86,7 +109,7 @@ class UniversalQuantEngine:
             self.market_name = 'Bursa Malaysia (KLSE)'
         else:
             try:
-                tnx = yf.Ticker('^TNX').history(period='1d')
+                tnx = yf.Ticker('^TNX', session=self.session).history(period='1d')
                 self.rf = tnx['Close'].iloc[-1] / 100
                 self.api_status = f"[API SUCCESS] Retrieved latest US Treasury 10-Yr Yield: {self.rf*100:.2f}%"
             except Exception:
@@ -215,6 +238,16 @@ def draw_beta_scatter(engine):
     )
     return fig
 
+# --- NEW: Streamlit caching to prevent repeat API requests ---
+@st.cache_data(ttl=3600) # Cache the result for 1 hour
+def process_valuation(ticker_input):
+    engine = UniversalQuantEngine(ticker_input)
+    engine.adaptive_model_setup()
+    val = engine.run_valuation_math(engine.g1)
+    implied_g1 = engine.find_implied_growth()
+    return engine, val, implied_g1
+
+
 # Main Streamlit App
 def main():
     st.markdown("<h1 style='text-align: center; color: #1e3a8a;'>🌐 Universal Quant Terminal V4.6</h1>", unsafe_allow_html=True)
@@ -226,10 +259,9 @@ def main():
     
     if ticker_input:
         with st.spinner(f"Computing quantitative model for {ticker_input.upper()}..."):
-            engine = UniversalQuantEngine(ticker_input)
-            engine.adaptive_model_setup()
-            val = engine.run_valuation_math(engine.g1)
-            implied_g1 = engine.find_implied_growth()
+            
+            # Call the cached function instead of running it raw
+            engine, val, implied_g1 = process_valuation(ticker_input)
             target_buy_price = val * 0.80
 
             # API Status Banner
