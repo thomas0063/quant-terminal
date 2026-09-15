@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 # ==============================================================================
 # 1. 页面基本配置与反爬虫会话
 # ==============================================================================
-st.set_page_config(page_title="Universal Quant Terminal V8.1", page_icon="💹", layout="wide")
+st.set_page_config(page_title="Universal Quant Terminal V8.2", page_icon="💹", layout="wide")
 
 @st.cache_resource
 def get_yf_session():
@@ -20,24 +20,26 @@ def get_yf_session():
     return session
 
 # ==============================================================================
-# 2. 国际化多语言字典 (已补全所有缺失的 Key)
+# 2. 国际化多语言字典 (包含全新加入的 Beta 解释、词典与参数提示)
 # ==============================================================================
 TEXTS = {
     "zh": {
         "title": "🌐 智能量化金融终端 (ESG 双语旗舰版)",
         "subtitle": "融合 CAPM、DCF、WACC 与市场情绪测谎仪的专业机构级估值平台",
-        "lang_label": "🌐 语言 / Language",
         "quick_tag": "🔥 热门快捷测评：",
         "input_label": "输入股票代码 (如 1155.KL, NVDA, AAPL)：",
-        "param_header": "⚙️ 估值核心宏观参数设定",
-        "erp_label": "股市风险溢价要求 (ERP)",
-        "g2_label": "长期永续增长率 (Terminal g)",
+        
+        # 参数设定说明
+        "param_title": "⚙️ 步骤 2：估值核心参数设定 (可保持默认) 👈 (小白用户建议直接保持默认，无需改动)",
+        "param_tip": "💡 **何时建议手动调整？**\n* **永续增长率 (g)**：当您预期该行业未来长期通胀或名义GDP增速显著高于/低于历史常态时可微调。\n* **风险溢价 (ERP)**：当市场处于极端恐慌（调高ERP）或极度狂热（调低ERP）周期时可手动修正。",
+        "erp_label": "股市风险溢价要求 (Equity Risk Premium)",
+        "g2_label": "长期永续通胀增长率 (Terminal Growth Rate)",
         "esg_caption": "🌿 本系统已自动结合可持续金融 (Sustainable Finance) 与 ESG 行业风险溢价进行折现率修正。",
         
         # 结果面板
         "macro_title": "[1. 动态宏观与资本成本 (DYNAMIC MACRO & COST OF CAPITAL)]",
         "macro_exp": "💡 **通俗解释 (Plain English)：** Beta 衡量股票相对于大盘的波动率。Rf 是无风险国债利率。WACC / 折现率是你作为投资者要求的最低及格线回报率。",
-        "engine_title": "[2. 智能自适应估值引擎 (UNIVERSAL ADAPTIVE ENGINE)]",
+        "engine_title": "[2. 智能自适应估值引擎]",
         "engine_exp": "💡 **通俗解释 (Plain English)：** 系统根据行业特性自动调整预测周期。g1 是基于 ROE 算出的可持续增长率，g2 是长期永续增长率。",
         "price": "当前市场价格",
         "wacc": "WACC / 折现率",
@@ -56,15 +58,21 @@ TEXTS = {
         "plain_title": "[6. 🗣️ 小白通俗翻译器 (PLAIN ENGLISH TRANSLATOR)]",
         "fx_title": "[7. 💱 跨境汇率风险提示 (CROSS-BORDER FX RISK)]",
         "fx_content": "- **提示：** 此乃美元计价资产，请注意美元兑马币 (USD/MYR) 的汇率波动风险。",
-        "chart_title": "[8. 📈 高级盘面与波动率回归分析]"
+        
+        # 图表与词典
+        "chart_title": "[8. 📈 高级盘面与波动率回归分析]",
+        "beta_desc": "📊 **Beta 收益率特征线散点分布说明：** 每个点代表过往某一周的收益率联动。红线斜率即为真实 Beta（马股对标 MSCI Malaysia ETF，美股对标 S&P 500）。",
+        "glossary_title": "[9. 📖 小白通俗金融词典：这些数据代表什么？]"
     },
     "en": {
         "title": "🌐 Universal Quant Terminal (Bilingual ESG Edition)",
         "subtitle": "Institutional-Grade Valuation Platform integrating CAPM, DCF, WACC & Market Lie Detector",
-        "lang_label": "🌐 Language / 语言",
         "quick_tag": "🔥 Quick Select:",
         "input_label": "Enter Stock Ticker (e.g., 1155.KL, NVDA, AAPL):",
-        "param_header": "⚙️ Core Macro Assumptions",
+        
+        # Parameter Settings
+        "param_title": "⚙️ Step 2: Macro & Valuation Parameters (Defaults Recommended) 👈 (Keep default unless necessary)",
+        "param_tip": "💡 **When to adjust manually?**\n* **Terminal Growth (g)**: Adjust if you expect long-term structural inflation or GDP growth to deviate from historical norms.\n* **Equity Risk Premium (ERP)**: Adjust during extreme market cycles (higher ERP during panics, lower during bubbles).",
         "erp_label": "Equity Risk Premium (ERP)",
         "g2_label": "Terminal Growth Rate (g)",
         "esg_caption": "🌿 Sustainable Finance & ESG Sector Risk Premium automatically integrated into discount rate adjustments.",
@@ -91,16 +99,13 @@ TEXTS = {
         "plain_title": "[6. 🗣️ PLAIN ENGLISH TRANSLATOR]",
         "fx_title": "[7. 💱 CROSS-BORDER FX RISK ADVISORY]",
         "fx_content": "- **Note:** USD-denominated asset; monitor USD/MYR exchange rate fluctuations.",
-        "chart_title": "[8. 📈 Advanced Price Action & Regression Analysis]"
+        
+        # Charts & Glossary
+        "chart_title": "[8. Advanced Price Action & Regression Analysis]",
+        "beta_desc": "📊 **Beta Scatter Plot Explanation:** Each dot represents past weekly return correlation. The red line slope represents the true Beta (Bursa benchmarks against MSCI Malaysia ETF, US equities against S&P 500).",
+        "glossary_title": "[9. Beginner's Financial Glossary]"
     }
 }
-
-# 自动把缺失的两个词补齐到字典中，防止任何遗漏
-for k in TEXTS:
-    if "engine_title" not in TEXTS[k]:
-        TEXTS[k]["engine_title"] = "[2. 智能自适应估值引擎]" if k == "zh" else "[2. UNIVERSAL ADAPTIVE ENGINE]"
-    if "engine_exp" not in TEXTS[k]:
-        TEXTS[k]["engine_exp"] = "💡 **通俗解释：** 系统根据行业特性自动调整预测周期。" if k == "zh" else "💡 **Plain English Explanation:** The model automatically adjusts projection length."
 
 # ==============================================================================
 # 3. 防崩溃财报提取函数
@@ -255,7 +260,7 @@ def draw_beta_scatter(engine):
     fig.add_trace(go.Scatter(x=market_ret, y=stock_ret, mode='markers', marker=dict(color='#6366f1', size=7, opacity=0.8), name='Returns'))
     x_range = np.linspace(market_ret.min(), market_ret.max(), 100)
     fig.add_trace(go.Scatter(x=x_range, y=engine.beta * x_range, mode='lines', line=dict(color='#ef4444', width=2), name='Beta Regression'))
-    fig.update_layout(xaxis_title="Market Benchmark", yaxis_title="Stock Return", plot_bgcolor='rgba(0,0,0,0)', showlegend=False, height=350, margin=dict(l=0, r=0, t=10, b=0))
+    fig.update_layout(xaxis_title="Market Benchmark (MSCI Malaysia / S&P 500)", yaxis_title="Stock Return (%)", plot_bgcolor='rgba(0,0,0,0)', showlegend=False, height=330, margin=dict(l=0, r=0, t=10, b=0))
     return fig
 
 # ==============================================================================
@@ -274,6 +279,7 @@ def main():
 
     st.divider()
 
+    # 快捷输入与选股面板
     with st.container(border=True):
         if "ticker_input" not in st.session_state: st.session_state.ticker_input = "NVDA"
         def set_ticker(t): st.session_state.ticker_input = t
@@ -285,13 +291,16 @@ def main():
         q3.button("🇲🇾 MAYBANK (1155.KL)", on_click=set_ticker, args=("1155.KL",), use_container_width=True)
         q4.button("🇲🇾 TENAGA (5347.KL)", on_click=set_ticker, args=("5347.KL",), use_container_width=True)
         
-        col_in1, col_in2, col_in3 = st.columns([2, 1, 1])
+        col_in1, col_in2 = st.columns([2, 2])
         with col_in1:
             ticker_input = st.text_input(T['input_label'], key="ticker_input")
-        with col_in2:
-            custom_erp = st.slider(T['erp_label'], 4.0, 7.0, 5.0, 0.1) / 100
-        with col_in3:
-            custom_g2 = st.slider(T['g2_label'], 1.0, 3.5, 2.0, 0.1) / 100
+        
+        # 新增：带详细说明与修改建议的折叠参数设定
+        with st.expander(T['param_title'], expanded=False):
+            st.info(T['param_tip'])
+            c_erp, c_g2 = st.columns(2)
+            custom_erp = c_erp.slider(T['erp_label'], 4.0, 7.0, 5.0, 0.1) / 100
+            custom_g2 = c_g2.slider(T['g2_label'], 1.0, 3.5, 2.0, 0.1) / 100
         
         st.caption(T['esg_caption'])
 
@@ -413,6 +422,27 @@ def main():
                 with st.container(border=True):
                     st.markdown(f"**3-Year Beta Regression (β = {engine.beta:.2f})**")
                     st.plotly_chart(draw_beta_scatter(engine), use_container_width=True)
+                    st.info(T['beta_desc'])
+
+            # [9. 小白金融词典 (Beginner's Glossary Cards)]
+            st.markdown(f"### {T['glossary_title']}")
+            g1, g2, g3, g4 = st.columns(4)
+            with g1:
+                with st.container(border=True):
+                    st.markdown("##### 🎯 Beta (波动敏感度)")
+                    st.caption("衡量这只股票相对于大盘是更活泼还是更稳健。Beta > 1 涨跌比大盘更猛，Beta < 1 走势更抗跌防守。")
+            with g2:
+                with st.container(border=True):
+                    st.markdown("##### 🚀 Growth (预期增长率)")
+                    st.caption("未来公司现金流或盈利预计每年递增的比例。增长越快，股票当前公道身价就越高。")
+            with g3:
+                with st.container(border=True):
+                    st.markdown("##### 🛡️ WACC / 折现率")
+                    st.caption("你买入这家公司所要求的最低年化回报门槛。风险越高、借钱越多的公司，要求越高。")
+            with g4:
+                with st.container(border=True):
+                    st.markdown("##### 💎 Fair Value (内在公道价)")
+                    st.caption("剥离市场的短期情绪狂热与恐慌，根据公司真实资产、欠债与赚钱能力算出的厂牌公道价。")
 
 if __name__ == '__main__':
     main()
