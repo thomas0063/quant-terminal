@@ -7,36 +7,28 @@ import streamlit as st
 import plotly.graph_objects as go
 
 # ==============================================================================
-# 1. Page Config & Terminal Layout
+# 1. 页面配置与反爬虫伪装
 # ==============================================================================
-st.set_page_config(page_title="Universal Quant Terminal V6.1", page_icon="💹", layout="wide")
+st.set_page_config(page_title="Universal Quant V7.0", page_icon="💹", layout="wide")
 
 @st.cache_resource
 def get_yf_session():
-    """Persistent session for stability."""
     session = requests.Session()
-    session.headers.update({
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
-    })
+    session.headers.update({'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'})
     return session
 
-# ==============================================================================
-# 2. ORIGINAL LOGIC: Robust Financial Extractor (Anti-Plagiarism)
-# ==============================================================================
 def get_fin_metric(df, keyword, default=0.0):
-    """Uses Pandas string matching to safely find financial metrics."""
     if df is None or df.empty: return default
     try:
         matches = df[df.index.str.contains(keyword, case=False, na=False)]
         if not matches.empty:
             val = matches.iloc[0, 0]
             return float(val) if pd.notna(val) else default
-    except Exception:
-        pass
+    except Exception: pass
     return default
 
 # ==============================================================================
-# 3. Core Valuation Engine (With ESG Integration)
+# 2. 核心量化引擎 (保留你的独家护城河)
 # ==============================================================================
 class UniversalQuantEngine:
     def __init__(self, ticker):
@@ -48,7 +40,7 @@ class UniversalQuantEngine:
             self.info = self.stock.info
             if 'symbol' not in self.info: raise ValueError("Data missing")
         except Exception:
-            st.error(f"⚠️ Yahoo Finance data unavailable for {self.ticker}. Please try another stock.")
+            st.error(f"⚠️ Yahoo Finance data unavailable for {self.ticker}.")
             st.stop() 
 
         self.name = self.info.get('longName', 'Unknown')
@@ -64,9 +56,9 @@ class UniversalQuantEngine:
         self.scatter_data = None 
 
     def get_esg_adjustment(self):
-        if self.sector in ['Energy', 'Basic Materials', 'Industrials']: return 0.015, "🔴 High ESG Risk (Penalty +1.5%)"
-        elif self.sector in ['Technology', 'Healthcare', 'Financial Services']: return -0.005, "🟢 Low ESG Risk (Reward -0.5%)"
-        return 0.00, "⚪ Neutral ESG Risk (No Adj)"
+        if self.sector in ['Energy', 'Basic Materials', 'Industrials']: return 0.015, "🔴 High Carbon Risk (+1.5% Penalty)"
+        elif self.sector in ['Technology', 'Healthcare', 'Financial Services']: return -0.005, "🟢 Sustainable/Green (-0.5% Reward)"
+        return 0.00, "⚪ Neutral ESG Risk"
 
     def compute_blume_beta(self):
         fallback = 1.0
@@ -153,7 +145,7 @@ class UniversalQuantEngine:
         return mid
 
 # ==============================================================================
-# 4. Advanced Visualization
+# 3. 高级可视化图表
 # ==============================================================================
 def draw_pro_candlestick(ticker, session):
     hist = yf.Ticker(ticker, session=session).history(period="1y", interval="1d")
@@ -163,139 +155,143 @@ def draw_pro_candlestick(ticker, session):
 
     fig = go.Figure()
     fig.add_trace(go.Candlestick(x=hist.index, open=hist['Open'], high=hist['High'], low=hist['Low'], close=hist['Close'], name='Price'))
-    fig.add_trace(go.Scatter(x=hist.index, y=hist['MA20'], line=dict(color='orange', width=1.5), name='20-Day SMA'))
-    fig.add_trace(go.Scatter(x=hist.index, y=hist['MA50'], line=dict(color='blue', width=1.5), name='50-Day SMA'))
-    fig.update_layout(xaxis_rangeslider_visible=False, height=400, margin=dict(l=0, r=0, t=10, b=0), plot_bgcolor='rgba(0,0,0,0)', legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01))
+    fig.add_trace(go.Scatter(x=hist.index, y=hist['MA20'], line=dict(color='#f59e0b', width=1.5), name='20-Day SMA'))
+    fig.add_trace(go.Scatter(x=hist.index, y=hist['MA50'], line=dict(color='#3b82f6', width=1.5), name='50-Day SMA'))
+    fig.update_layout(xaxis_rangeslider_visible=False, height=350, margin=dict(l=0, r=0, t=10, b=0), plot_bgcolor='rgba(0,0,0,0)', legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01))
+    return fig
+
+def draw_beta_scatter(engine):
+    if engine.scatter_data is None: return None
+    stock_ret, market_ret = engine.scatter_data.iloc[:, 0], engine.scatter_data.iloc[:, 1]
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=market_ret, y=stock_ret, mode='markers', marker=dict(color='#6366f1', size=7, opacity=0.8), name='Returns'))
+    x_range = np.linspace(market_ret.min(), market_ret.max(), 100)
+    fig.add_trace(go.Scatter(x=x_range, y=engine.beta * x_range, mode='lines', line=dict(color='#ef4444', width=2), name='Beta Regression'))
+    fig.update_layout(xaxis_title="Market Benchmark", yaxis_title="Stock Return", plot_bgcolor='rgba(0,0,0,0)', showlegend=False, height=350, margin=dict(l=0, r=0, t=10, b=0))
     return fig
 
 # ==============================================================================
-# 5. UI Architecture: The Bloomberg-Style Dashboard
+# 4. 极致 UI 排版 (Dashboard Architecture)
 # ==============================================================================
 def main():
-    # --- SIDEBAR (Control Panel) ---
-    st.sidebar.markdown("## ⚙️ Terminal Controls")
+    st.markdown("<h1 style='color: #0f172a; font-weight: 800; font-size: 2.2rem;'>🌐 Universal Quant Terminal</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #64748b; margin-top: -10px;'>Institutional-Grade Valuation Dashboard with ESG & Market Psychology Integration</p>", unsafe_allow_html=True)
     
-    st.sidebar.markdown("**1. Ticker Selection**")
-    quick_tickers = {"NVIDIA": "NVDA", "Apple": "AAPL", "Tesla": "TSLA", "Maybank": "1155.KL", "Public Bank": "1295.KL", "Tenaga Nasional": "5347.KL"}
-    sel_name = st.sidebar.selectbox("Quick Load", list(quick_tickers.keys()))
-    
-    ticker_input = st.sidebar.text_input("Or type custom ticker:", quick_tickers[sel_name])
-    
-    st.sidebar.markdown("**2. Macro Assumptions**")
-    custom_erp = st.sidebar.slider("Market Risk Premium (ERP)", 4.0, 7.0, 5.0, 0.1) / 100
-    custom_g2 = st.sidebar.slider("Terminal Growth (g)", 1.0, 3.5, 2.0, 0.1) / 100
+    # 模块 A：顶置控制台 (Command Center)
+    with st.container(border=True):
+        st.markdown("#### 🎛️ Input & Assumptions")
+        col_in1, col_in2, col_in3 = st.columns([2, 1, 1])
+        
+        with col_in1:
+            if "ticker_input" not in st.session_state: st.session_state.ticker_input = "NVDA"
+            def set_ticker(t): st.session_state.ticker_input = t
+            
+            # 完美的快捷键药丸 (Pills)
+            st.write("🔥 **Quick Load:**")
+            q1, q2, q3, q4 = st.columns(4)
+            q1.button("🇺🇸 NVDA", on_click=set_ticker, args=("NVDA",), use_container_width=True)
+            q2.button("🇺🇸 AAPL", on_click=set_ticker, args=("AAPL",), use_container_width=True)
+            q3.button("🇲🇾 MAYBANK", on_click=set_ticker, args=("1155.KL",), use_container_width=True)
+            q4.button("🇲🇾 TENAGA", on_click=set_ticker, args=("5347.KL",), use_container_width=True)
+            
+            ticker_input = st.text_input("Custom Ticker:", key="ticker_input")
+            
+        with col_in2:
+            custom_erp = st.slider("Equity Risk Premium", 4.0, 7.0, 5.0, 0.1, help="Expected return of stock market over risk-free rate.") / 100
+        with col_in3:
+            custom_g2 = st.slider("Terminal Growth (g)", 1.0, 3.5, 2.0, 0.1, help="Perpetual economic growth rate.") / 100
 
-    st.sidebar.info("💡 **Academic Note:**\nThis terminal integrates standard CAPM with **ESG Risk Premiums** for sustainable finance evaluation.")
-
-    # --- MAIN DASHBOARD ---
-    st.title("🌐 Universal Quant Terminal V6.1")
-    
     if ticker_input:
-        with st.spinner(f"Connecting to data pipelines for {ticker_input.upper()}..."):
+        with st.spinner(f"Initiating Quantum Analysis for {ticker_input.upper()}..."):
             engine = UniversalQuantEngine(ticker_input)
             val, implied_g = engine.run_valuation(custom_erp, custom_g2)
 
-            st.markdown(f"**{engine.name} ({engine.ticker})** | 🏢 Sector: `{engine.sector}` | 💰 Market Cap: `${(engine.price * engine.shares):,.0f}`")
+            st.markdown(f"### 🏢 **{engine.name} ({engine.ticker})** | `{engine.sector}`")
             st.divider()
 
-            # The Tabs Architecture
-            tab_val, tab_esg, tab_chart = st.tabs(["🎯 Core Valuation Dashboard", "🌿 ESG & Cost of Capital", "📈 Pro Price Action"])
+            # 模块 B：终极估值结论大卡片 (The Verdict)
+            if val > 0 and engine.price > 0:
+                diff_pct = (val - engine.price) / engine.price * 100
+                if diff_pct > 15 and (implied_g is not None and implied_g < 0.05):
+                    verdict_color, verdict_text = "#10b981", "🟢 UNDERVALUED (Deep Margin of Safety)"
+                elif diff_pct < -15:
+                    verdict_color, verdict_text = "#ef4444", "🔴 OVERVALUED (Premium Pricing)"
+                else:
+                    verdict_color, verdict_text = "#f59e0b", "🟡 FAIRLY VALUED (Rational Pricing)"
+            else:
+                verdict_color, verdict_text = "#64748b", "⚪ INSUFFICIENT DATA"
 
-            # ---------------------------------------------------------
-            # TAB 1: CORE VALUATION (Restored UI Masterpieces)
-            # ---------------------------------------------------------
-            with tab_val:
-                # 1. Re-added WACC to the top metrics clearly
-                c1, c2, c3, c4 = st.columns(4)
-                c1.metric("Current Market Price", f"{engine.price:.2f}")
-                c2.metric("WACC / Discount Rate", f"{engine.r*100:.2f}%")
-                c3.metric(f"Intrinsic Value ({engine.model_name.split(' ')[0]})", f"{val:.2f}")
-                c4.metric("Safe Buy (20% MoS)", f"{(val * 0.8):.2f}")
+            # 顶级 HTML 卡片设计 (完全秒杀你朋友的简单文本)
+            st.markdown(f"""
+                <div style="background-color: {verdict_color}15; border: 2px solid {verdict_color}; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 20px;">
+                    <h2 style="color: {verdict_color}; margin: 0; font-weight: 800;">{verdict_text}</h2>
+                    <p style="color: #475569; margin-top: 5px; font-size: 1.1rem;">Intrinsic Value: <b>${val:.2f}</b> &nbsp;|&nbsp; Current Price: <b>${engine.price:.2f}</b></p>
+                </div>
+            """, unsafe_allow_html=True)
 
-                st.markdown("---")
-
-                # 2. Re-added MARKET PSYCHOLOGY (LIE DETECTOR)
-                st.markdown("### 💡 MARKET PSYCHOLOGY (LIE DETECTOR)")
-                implied_g_str = f"{implied_g * 100:.2f}%" if implied_g is not None else "N/A"
-                st.warning(f"To justify the current price of **{engine.price:.2f}**, the market implies a Stage 1 Growth Rate of **{implied_g_str} per year for {engine.horizon} years**.")
-                
-                if implied_g is not None:
-                    if implied_g > 0.40: st.write("-> **Diagnosis: EXTREME HYPE (Bubble Territory).** The market expects miraculous growth.")
-                    elif implied_g < 0.0: st.write("-> **Diagnosis: EXTREME PESSIMISM.** The market expects shrinking cash flows.")
-                    else: st.write("-> **Diagnosis: MODERATE EXPECTATIONS.** Balanced market sentiment.")
-
-                # 3. Re-added DUAL-PERSPECTIVE AI ADVISORY
-                st.markdown("### 🤖 DUAL-PERSPECTIVE AI ADVISORY")
-                div_rate = engine.info.get('dividendRate') or engine.info.get('trailingAnnualDividendRate') or 0
-                div_yield = (div_rate / engine.price) * 100 if engine.price > 0 else 0
-
-                col_a, col_b = st.columns(2)
-                with col_a:
-                    with st.container(border=True):
-                        st.markdown("🔸 **Perspective A: Conservative Income**")
-                        st.write(f"- Current Dividend Yield: {div_yield:.2f}% | Beta Risk: {engine.beta:.2f}")
-                        if engine.sector in ['Financial Services', 'Utilities', 'Real Estate'] and div_yield > 3.0:
-                            st.success("-> **Verdict:** 🟢 SUITABLE FOR INCOME. Strong cash-flow profile.")
-                        else:
-                            st.error("-> **Verdict:** 🔴 NOT IDEAL FOR INCOME. Low dividend yield.")
-                with col_b:
-                    with st.container(border=True):
-                        st.markdown("🔹 **Perspective B: Capital Appreciation**")
-                        st.write(f"- Market Implied Growth: {implied_g_str} | Model Valuation: {val:.2f}")
-                        if implied_g is not None and implied_g < 0.0 and engine.price < val:
-                            st.success("-> **Verdict:** 🟢 MULTI-BAGGER POTENTIAL. Deep value mispricing.")
-                        elif implied_g is not None and implied_g > 0.40:
-                            st.error("-> **Verdict:** 🔴 HIGH SPECULATION RISK. Priced for perfection.")
-                        else:
-                            st.info("-> **Verdict:** 🟢 / 🟡 FAIRLY PRICED or Growth Opportunity.")
-
-                # 4. Final Executive Rating
-                st.markdown("### 🎯 FINAL EXECUTIVE SUMMARY & RATING")
-                if val > 0 and engine.price > 0:
-                    price_to_val = engine.price / val
-                    if price_to_val <= 0.70 and (implied_g is not None and implied_g < 0.0): rating, reason = '🟢 STRONG BUY', 'Extreme pessimism creates massive margin of safety.'
-                    elif price_to_val <= 0.85: rating, reason = '🟢 BUY', 'Solid value mispricing. Meets the 20% margin of safety requirement.'
-                    elif 0.85 < price_to_val <= 1.15: rating, reason = '🟡 HOLD', 'Fairly valued. Current market price aligns with intrinsic value.'
-                    elif 1.15 < price_to_val <= 1.40: rating, reason = '🔴 SELL', 'Overvalued. Market price exceeds the intrinsic valuation.'
-                    else: rating, reason = '🔴 STRONG SELL', 'Severe bubble risk. Implied growth is priced for perfection.'
+            # 模块 C：矩阵看板 (Matrix Board)
+            col_m1, col_m2 = st.columns(2)
+            
+            # 左侧：你的核心武器 (Lie Detector + Dual Engine)
+            with col_m1:
+                with st.container(border=True):
+                    st.markdown("#### 🧠 Market Psychology & ESG")
+                    implied_g_str = f"{implied_g * 100:.2f}%" if implied_g is not None else "N/A"
+                    st.metric("Market Implied Growth Rate", implied_g_str)
                     
-                    with st.container(border=True):
-                        st.markdown(f"- **Final Investment Rating : {rating}**")
-                        st.markdown(f"- **Core Justification : {reason}**")
-
-                # Wall Street Integration Check
-                if not engine.is_malaysia and engine.info.get('targetMeanPrice'):
-                    ws_tgt = engine.info.get('targetMeanPrice')
+                    if implied_g is not None:
+                        if implied_g > 0.40: st.error("⚠️ **Bubble Alert:** Market is pricing in extreme, unrealistic growth.")
+                        elif implied_g < 0.0: st.success("🔥 **Deep Value:** Market expects cash flows to shrink. High safety margin.")
+                        else: st.info("⚖️ **Balanced:** Market sentiment aligns with rational growth expectations.")
+                    
                     st.markdown("---")
-                    st.info(f"🏛️ **Wall Street Analyst Consensus Target:** **${ws_tgt:.2f}** | Your Model: **${val:.2f}**")
+                    st.markdown(f"**ESG Diagnosis:** {engine.esg_tag}")
 
-            # ---------------------------------------------------------
-            # TAB 2: ESG & MACRO
-            # ---------------------------------------------------------
-            with tab_esg:
-                st.markdown("### Cost of Capital Breakdown (CAPM)")
-                e1, e2, e3, e4 = st.columns(4)
-                e1.metric("Risk-Free Rate", f"{engine.rf*100:.2f}%")
-                e2.metric("Beta Risk", f"{engine.beta:.2f}", engine.beta_type)
-                e3.metric("ESG Premium Adjustment", f"{engine.esg_adj*100:+.2f}%")
-                e4.metric("Final Discount Rate (WACC)", f"{engine.wacc*100:.2f}%")
-                
-                st.info(f"**ESG Sector Diagnosis:** {engine.esg_tag}")
-                st.caption("*Note: High ESG risk sectors face a higher cost of capital, mathematically lowering their intrinsic valuation.*")
+            # 右侧：你朋友的 Wall Street 参考 (被你完美吸收)
+            with col_m2:
+                with st.container(border=True):
+                    st.markdown("#### 🏛️ Capital & Institutional Consensus")
+                    st.metric("Discount Rate (WACC / Ke)", f"{engine.r*100:.2f}%", f"Beta: {engine.beta:.2f}", delta_color="off")
+                    
+                    if not engine.is_malaysia and engine.info.get('targetMeanPrice'):
+                        ws_tgt = engine.info.get('targetMeanPrice')
+                        st.markdown("---")
+                        st.metric("Wall Street Target", f"${ws_tgt:.2f}", f"{(ws_tgt - engine.price)/engine.price*100:+.1f}% vs Price")
+                    else:
+                        st.markdown("---")
+                        st.write("*(Wall Street target data unavailable for this equity)*")
 
-            # ---------------------------------------------------------
-            # TAB 3: PRO CHARTS
-            # ---------------------------------------------------------
-            with tab_chart:
-                c_chart, c_beta = st.columns([1.5, 1])
-                with c_chart:
-                    st.markdown("**1Y Price Action with Simple Moving Averages**")
-                    k_fig = draw_pro_candlestick(engine.ticker, engine.session)
-                    if k_fig: st.plotly_chart(k_fig, use_container_width=True)
-                with c_beta:
-                    st.markdown("**3Y Volatility Regression (Beta)**")
-                    st.info(f"The stock moves **{engine.beta}x** relative to the benchmark index.")
-                    st.caption("A Beta > 1 implies higher volatility (aggression), while < 1 implies defensive characteristics.")
+            # 模块 D：高级技术图表并排 (比你朋友的上下排版更紧凑高级)
+            st.markdown("### 📈 Pro Charting & Regression")
+            chart_col1, chart_col2 = st.columns(2)
+            with chart_col1:
+                with st.container(border=True):
+                    st.markdown("**1-Year Price Action (MA20 & MA50)**")
+                    st.plotly_chart(draw_pro_candlestick(engine.ticker, engine.session), use_container_width=True)
+            with chart_col2:
+                with st.container(border=True):
+                    st.markdown(f"**3-Year Beta Regression (β = {engine.beta:.2f})**")
+                    st.plotly_chart(draw_beta_scatter(engine), use_container_width=True)
+
+            # 模块 E：小白通俗金融词典 (Institution Glossary - 防抄袭重构版)
+            st.markdown("### 📖 Institutional Analyst Glossary")
+            g1, g2, g3, g4 = st.columns(4)
+            with g1:
+                with st.container(border=True):
+                    st.markdown("##### 🎯 Beta")
+                    st.caption("Volatility index. >1 means aggressive stock, <1 means defensive. Adjusted via Blume's technique.")
+            with g2:
+                with st.container(border=True):
+                    st.markdown("##### 🛡️ WACC")
+                    st.caption("The Weighted Average Cost of Capital. Serves as the ultimate hurdle rate for corporate valuation.")
+            with g3:
+                with st.container(border=True):
+                    st.markdown("##### 🌿 ESG Premium")
+                    st.caption("Discount rate penalty/reward based on the sector's environmental and regulatory risk profile.")
+            with g4:
+                with st.container(border=True):
+                    st.markdown("##### 🕵️ Implied Growth")
+                    st.caption("Reverse-engineered growth rate priced into the *current* market value. Acts as a lie detector.")
 
 if __name__ == '__main__':
     main()
