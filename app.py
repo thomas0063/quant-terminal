@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 # ==============================================================================
 # 1. 页面基本配置与反爬虫会话
 # ==============================================================================
-st.set_page_config(page_title="Universal Quant Terminal V8.2", page_icon="💹", layout="wide")
+st.set_page_config(page_title="Universal Quant Terminal V8.3", page_icon="💹", layout="wide")
 
 @st.cache_resource
 def get_yf_session():
@@ -20,7 +20,7 @@ def get_yf_session():
     return session
 
 # ==============================================================================
-# 2. 国际化多语言字典 (包含全新加入的 Beta 解释、词典与参数提示)
+# 2. 国际化多语言字典 (已加入免责声明模块)
 # ==============================================================================
 TEXTS = {
     "zh": {
@@ -62,7 +62,13 @@ TEXTS = {
         # 图表与词典
         "chart_title": "[8. 📈 高级盘面与波动率回归分析]",
         "beta_desc": "📊 **Beta 收益率特征线散点分布说明：** 每个点代表过往某一周的收益率联动。红线斜率即为真实 Beta（马股对标 MSCI Malaysia ETF，美股对标 S&P 500）。",
-        "glossary_title": "[9. 📖 小白通俗金融词典：这些数据代表什么？]"
+        "glossary_title": "[9. 📖 小白通俗金融词典：这些数据代表什么？]",
+        
+        # 免责声明
+        "disclaimer_title": "⚠️ 重要法律与风险免责声明",
+        "disclaimer_1": "1. **非投资建议**：本系统所呈现的所有估值结果、公道价格、诊断与图表分析，仅供学术研究、个人学习交流与教学参考，不构成任何投资建议、买卖要约或财务建议。",
+        "disclaimer_2": "2. **市场风险**：股票市场波动剧烈，历史数据和数学量化模型无法预知未来。公司的实际表现可能受到宏观经济、行业竞争及突发事件的影响。",
+        "disclaimer_3": "3. **自主决策**：任何投资决策均应由投资者在独立调查或咨询持牌财务顾问的基础上自行做出。开发者与本系统不对依据本系统数据交易产生的任何盈亏承担法律责任。"
     },
     "en": {
         "title": "🌐 Universal Quant Terminal (Bilingual ESG Edition)",
@@ -103,7 +109,13 @@ TEXTS = {
         # Charts & Glossary
         "chart_title": "[8. Advanced Price Action & Regression Analysis]",
         "beta_desc": "📊 **Beta Scatter Plot Explanation:** Each dot represents past weekly return correlation. The red line slope represents the true Beta (Bursa benchmarks against MSCI Malaysia ETF, US equities against S&P 500).",
-        "glossary_title": "[9. Beginner's Financial Glossary]"
+        "glossary_title": "[9. Beginner's Financial Glossary]",
+        
+        # Disclaimer
+        "disclaimer_title": "⚠️ Important Legal & Risk Disclaimer",
+        "disclaimer_1": "1. **Not Investment Advice**: All valuation results, fair prices, diagnostics, and charts presented herein are for academic research, personal learning, and educational purposes only. They do not constitute investment advice or financial recommendations.",
+        "disclaimer_2": "2. **Market Risk**: The stock market is volatile, and historical data or quant models cannot predict the future. Company performance is subject to macroeconomic and unforeseen events.",
+        "disclaimer_3": "3. **Independent Decision**: All investment decisions must be made independently by users after thorough research or consultation with licensed advisors. The developer accepts no liability for trading losses."
     }
 }
 
@@ -295,7 +307,6 @@ def main():
         with col_in1:
             ticker_input = st.text_input(T['input_label'], key="ticker_input")
         
-        # 新增：带详细说明与修改建议的折叠参数设定
         with st.expander(T['param_title'], expanded=False):
             st.info(T['param_tip'])
             c_erp, c_g2 = st.columns(2)
@@ -424,7 +435,7 @@ def main():
                     st.plotly_chart(draw_beta_scatter(engine), use_container_width=True)
                     st.info(T['beta_desc'])
 
-            # [9. 小白金融词典 (Beginner's Glossary Cards)]
+            # [9. 小白金融词典]
             st.markdown(f"### {T['glossary_title']}")
             g1, g2, g3, g4 = st.columns(4)
             with g1:
@@ -443,6 +454,16 @@ def main():
                 with st.container(border=True):
                     st.markdown("##### 💎 Fair Value (内在公道价)")
                     st.caption("剥离市场的短期情绪狂热与恐慌，根据公司真实资产、欠债与赚钱能力算出的厂牌公道价。")
+
+    # ==============================================================================
+    # 10. 底部免责声明 (Legal & Risk Disclaimer - 支持双语切换)
+    # ==============================================================================
+    st.markdown("---")
+    with st.container(border=True):
+        st.markdown(f"### {T['disclaimer_title']}")
+        st.markdown(T['disclaimer_1'])
+        st.markdown(T['disclaimer_2'])
+        st.markdown(T['disclaimer_3'])
 
 if __name__ == '__main__':
     main()
