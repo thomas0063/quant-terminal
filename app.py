@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 # ==============================================================================
 # 1. 页面基本配置与反爬虫会话
 # ==============================================================================
-st.set_page_config(page_title="Universal Quant Terminal V8.3", page_icon="💹", layout="wide")
+st.set_page_config(page_title="Universal Quant Terminal V8.4", page_icon="💹", layout="wide")
 
 @st.cache_resource
 def get_yf_session():
@@ -20,7 +20,7 @@ def get_yf_session():
     return session
 
 # ==============================================================================
-# 2. 国际化多语言字典 (已加入免责声明模块)
+# 2. 国际化多语言字典 (已将金融词典卡片内容全面双语化)
 # ==============================================================================
 TEXTS = {
     "zh": {
@@ -63,6 +63,16 @@ TEXTS = {
         "chart_title": "[8. 📈 高级盘面与波动率回归分析]",
         "beta_desc": "📊 **Beta 收益率特征线散点分布说明：** 每个点代表过往某一周的收益率联动。红线斜率即为真实 Beta（马股对标 MSCI Malaysia ETF，美股对标 S&P 500）。",
         "glossary_title": "[9. 📖 小白通俗金融词典：这些数据代表什么？]",
+        
+        # 金融词典卡片内容 (中文)
+        "g_beta_title": "##### 🎯 Beta (波动敏感度)",
+        "g_beta_desc": "衡量这只股票相对于大盘是更活泼还是更稳健。Beta > 1 涨跌比大盘更猛，Beta < 1 走势更抗跌防守。",
+        "g_growth_title": "##### 🚀 Growth (预期增长率)",
+        "g_growth_desc": "未来公司现金流或盈利预计每年递增的比例。增长越快，股票当前公道身价就越高。",
+        "g_wacc_title": "##### 🛡️ WACC / 折现率",
+        "g_wacc_desc": "你买入这家公司所要求的最低年化回报门槛。风险越高、借钱越多的公司，要求越高。",
+        "g_fv_title": "##### 💎 Fair Value (内在公道价)",
+        "g_fv_desc": "剥离市场的短期情绪狂热与恐慌，根据公司真实资产、欠债与赚钱能力算出的厂牌公道价。",
         
         # 免责声明
         "disclaimer_title": "⚠️ 重要法律与风险免责声明",
@@ -110,6 +120,16 @@ TEXTS = {
         "chart_title": "[8. Advanced Price Action & Regression Analysis]",
         "beta_desc": "📊 **Beta Scatter Plot Explanation:** Each dot represents past weekly return correlation. The red line slope represents the true Beta (Bursa benchmarks against MSCI Malaysia ETF, US equities against S&P 500).",
         "glossary_title": "[9. Beginner's Financial Glossary]",
+        
+        # Financial Glossary Card Contents (English)
+        "g_beta_title": "##### 🎯 Beta (Sensitivity)",
+        "g_beta_desc": "Measures stock volatility relative to the market. Beta > 1 means higher aggression, while Beta < 1 indicates defensive characteristics.",
+        "g_growth_title": "##### 🚀 Expected Growth Rate",
+        "g_growth_desc": "The projected annual growth rate of company cash flows or earnings. Higher growth drives higher fair value.",
+        "g_wacc_title": "##### 🛡️ WACC / Discount Rate",
+        "g_wacc_desc": "The minimum hurdle rate of return required by investors. Higher risks and debt levels demand a higher WACC.",
+        "g_fv_title": "##### 💎 Intrinsic Fair Value",
+        "g_fv_desc": "The calculated intrinsic value based on fundamental assets, liabilities, and earning power, stripping away market hype or panic.",
         
         # Disclaimer
         "disclaimer_title": "⚠️ Important Legal & Risk Disclaimer",
@@ -435,28 +455,28 @@ def main():
                     st.plotly_chart(draw_beta_scatter(engine), use_container_width=True)
                     st.info(T['beta_desc'])
 
-            # [9. 小白金融词典]
+            # [9. 小白金融词典 (完全双语化)]
             st.markdown(f"### {T['glossary_title']}")
             g1, g2, g3, g4 = st.columns(4)
             with g1:
                 with st.container(border=True):
-                    st.markdown("##### 🎯 Beta (波动敏感度)")
-                    st.caption("衡量这只股票相对于大盘是更活泼还是更稳健。Beta > 1 涨跌比大盘更猛，Beta < 1 走势更抗跌防守。")
+                    st.markdown(T['g_beta_title'])
+                    st.caption(T['g_beta_desc'])
             with g2:
                 with st.container(border=True):
-                    st.markdown("##### 🚀 Growth (预期增长率)")
-                    st.caption("未来公司现金流或盈利预计每年递增的比例。增长越快，股票当前公道身价就越高。")
+                    st.markdown(T['g_growth_title'])
+                    st.caption(T['g_growth_desc'])
             with g3:
                 with st.container(border=True):
-                    st.markdown("##### 🛡️ WACC / 折现率")
-                    st.caption("你买入这家公司所要求的最低年化回报门槛。风险越高、借钱越多的公司，要求越高。")
+                    st.markdown(T['g_wacc_title'])
+                    st.caption(T['g_wacc_desc'])
             with g4:
                 with st.container(border=True):
-                    st.markdown("##### 💎 Fair Value (内在公道价)")
-                    st.caption("剥离市场的短期情绪狂热与恐慌，根据公司真实资产、欠债与赚钱能力算出的厂牌公道价。")
+                    st.markdown(T['g_fv_title'])
+                    st.caption(T['g_fv_desc'])
 
     # ==============================================================================
-    # 10. 底部免责声明 (Legal & Risk Disclaimer - 支持双语切换)
+    # 10. 底部免责声明
     # ==============================================================================
     st.markdown("---")
     with st.container(border=True):
