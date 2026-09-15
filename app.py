@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 # ==============================================================================
 # 1. 页面基本配置与反爬虫会话
 # ==============================================================================
-st.set_page_config(page_title="Universal Quant Terminal V8.6", page_icon="💹", layout="wide")
+st.set_page_config(page_title="Universal Quant Terminal V8.5", page_icon="💹", layout="wide")
 
 @st.cache_resource
 def get_yf_session():
@@ -20,7 +20,7 @@ def get_yf_session():
     return session
 
 # ==============================================================================
-# 2. 国际化多语言字典 (已找回并融合你原本最经典的 Beta 解释)
+# 2. 国际化多语言字典 (已扩充 Beta 散点图与 R² 深度学术解释)
 # ==============================================================================
 TEXTS = {
     "zh": {
@@ -61,7 +61,7 @@ TEXTS = {
         
         # 图表与词典
         "chart_title": "[8. 📈 高级盘面与波动率回归分析]",
-        "beta_desc": "📊 **Beta 收益率特征线散点分布图说明：**\n* 每个点代表过往某一周的收益率联动。红线斜率即为真实 Beta（马股对标 MSCI Malaysia ETF，美股对标 S&P 500）。\n* **$R^2$（拟合优度）补充解析**：点越密集贴近红线，说明该股越受大盘宏观主导（如银行股）；点越分散，说明该股具有极强的个股独立行情（如科技股）。",
+        "beta_desc": "📊 **Beta 散点分布与 R²（拟合优度）深度解析：**\n* **每个散点**：代表过往某一周的股票收益率与大盘收益率的联动坐标。\n* **红线斜率 (Beta)**：代表系统的系统性风险敏感度。\n* **散点密集度 ($R^2$)**：若散点紧贴红线（$R^2$ 较高），说明该股高度受大盘宏观主导（如传统蓝筹/银行股）；若散点松散到处乱飞（$R^2$ 较低），说明该股具有极强的个股独立行情或高成长题材（如科技股、NVIDIA）。",
         "glossary_title": "[9. 📖 小白通俗金融词典：这些数据代表什么？]",
         
         # 金融词典卡片内容 (中文)
@@ -118,7 +118,7 @@ TEXTS = {
         
         # Charts & Glossary
         "chart_title": "[8. Advanced Price Action & Regression Analysis]",
-        "beta_desc": "📊 **Beta Scatter Plot Explanation:** Each dot represents past weekly return correlation. The red line slope represents the true Beta (Bursa benchmarks against MSCI Malaysia ETF, US equities against S&P 500).\n* **$R^2$ Analysis**: Tight clustering indicates market-driven systemic risk; higher dispersion reflects strong independent trends.",
+        "beta_desc": "📊 **Beta Scatter Plot & R² (Goodness of Fit) Analysis:**\n* **Each Dot**: Represents past weekly return correlation between the stock and market benchmark.\n* **Red Line Slope (Beta)**: Measures market risk sensitivity.\n* **Scatter Density ($R^2$)**: Tight clustering indicates market-driven systemic risk (typical for blue chips/banks); higher dispersion reflects strong idiosyncratic growth or independent trends (typical for tech stocks like NVIDIA).",
         "glossary_title": "[9. Beginner's Financial Glossary]",
         
         # Financial Glossary Card Contents (English)
@@ -270,7 +270,7 @@ class UniversalQuantEngine:
         return mid
 
 # ==============================================================================
-# 5. 图表生成函数
+# 5. 图表生成函数 (已加入 R² 动态计算与展示)
 # ==============================================================================
 def draw_pro_candlestick(ticker, session):
     hist = yf.Ticker(ticker, session=session).history(period="1y", interval="1d")
@@ -289,6 +289,7 @@ def draw_beta_scatter(engine):
     if engine.scatter_data is None: return None
     stock_ret, market_ret = engine.scatter_data.iloc[:, 0], engine.scatter_data.iloc[:, 1]
     
+    # 动态计算拟合优度 R²
     corr = np.corrcoef(stock_ret, market_ret)[0, 1]
     r_squared = corr ** 2 if not np.isnan(corr) else 0.0
 
@@ -297,6 +298,7 @@ def draw_beta_scatter(engine):
     x_range = np.linspace(market_ret.min(), market_ret.max(), 100)
     fig.add_trace(go.Scatter(x=x_range, y=engine.beta * x_range, mode='lines', line=dict(color='#ef4444', width=2), name='Beta Regression'))
     
+    # 动态在标题中显示 Beta 与 R²（专业投行风格）
     fig.update_layout(
         title=f"Beta Regression (Beta = {engine.beta:.2f} | R² = {r_squared:.2f})",
         xaxis_title="Market Benchmark (MSCI Malaysia / S&P 500)", 
