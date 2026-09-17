@@ -9,12 +9,7 @@ import plotly.graph_objects as go
 # ==============================================================================
 # 1. 页面基本配置与反爬虫会话
 # ==============================================================================
-st.set_page_config(
-    page_title="Universal Quant Terminal - Ultimate Edition", 
-    page_icon="💎", 
-    layout="wide", 
-    initial_sidebar_state="collapsed"
-)
+st.set_page_config(page_title="Universal Quant Terminal V8.9 Plus", page_icon="💹", layout="wide", initial_sidebar_state="collapsed")
 
 # ==============================================================================
 # 2. 独家高级 CSS 视觉引擎 (Bento Box 等高对齐 + 冰蓝框架感 + 清爽深蓝背景)
@@ -23,7 +18,7 @@ PREMIUM_CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
-/* 全局背景：清爽的深石墨蓝渐变 */
+/* 全局背景：清爽的深石墨蓝渐变，告别压抑死黑 */
 .stApp {
     background: radial-gradient(circle at 50% 0%, #1e293b 0%, #0f172a 60%, #090d16 100%) !important;
     font-family: 'Inter', -apple-system, sans-serif !important;
@@ -33,7 +28,7 @@ PREMIUM_CSS = """
 
 header[data-testid="stHeader"] { background: transparent !important; }
 
-/* 🌟 核心：强制所有列内元素等高，并加上精致的天蓝色边框与深蓝实底 */
+/* 🌟 核心：强制所有列内元素等高，并加上精致、清晰的冰蓝色边框与深蓝实底 */
 [data-testid="column"] > div {
     height: 100% !important;
 }
@@ -97,23 +92,16 @@ def get_yf_session():
     return session
 
 # ==============================================================================
-# 3. 国际化多语言字典
+# 3. 国际化多语言字典 (完整收录 V8.9 所有多语言文本)
 # ==============================================================================
 TEXTS = {
     "zh": {
-        "title": "🌐 Universal Quant Terminal (旗舰融合版)",
-        "subtitle": "完美融合 线性衰减DCF模型、三模型横向对比矩阵、Blume Beta 与市场情绪测谎仪",
-        "market_label": "📌 步骤 1：挑选市场与热门标的",
-        "market_my": "🇲🇾 马来西亚股市 (Bursa)",
-        "market_us": "🇺🇸 美国股市 (US Equities)",
-        "market_custom": "🔍 手动输入代码 (Custom Ticker)",
-        "choose_stock": "从热门股票池中快速挑选：",
-        "custom_label": "输入股票代码：",
-        "custom_help": "马股请加 .KL (如: 1155.KL)；美股直接输入代码 (如: AAPL, NVDA)",
-        "custom_placeholder": "例如: 1155.KL 或 AAPL",
+        "title": "🌐 智能量化金融终端 (旗舰全功能版)",
+        "subtitle": "完美融合 线性衰减DCF、三模型矩阵、CAPM、WACC、市场情绪测谎仪与双视角 AI 顾问",
         "quick_tag": "🔥 热门快捷测评：",
+        "input_label": "输入股票代码 (如 1155.KL, NVDA, AAPL)：",
         
-        "param_title": "⚙️ 步骤 2：估值核心参数设定 (小白建议保持默认)",
+        "param_title": "⚙️ 步骤 2：估值核心参数设定 (可保持默认) 👈 (小白用户建议直接保持默认，无需改动)",
         "param_tip": "💡 **何时建议手动调整？**\n* **永续增长率 (g)**：当您预期该行业未来长期通胀或名义GDP增速显著高于/低于历史常态时可微调。\n* **风险溢价 (ERP)**：当市场处于极端恐慌（调高ERP）或极度狂热（调低ERP）周期时可手动修正。",
         "erp_label": "股市风险溢价要求 (Equity Risk Premium)",
         "g2_label": "长期永续通胀增长率 (Terminal Growth Rate)",
@@ -121,7 +109,8 @@ TEXTS = {
         
         "macro_title": "[1. 动态宏观与资本成本 (DYNAMIC MACRO & COST OF CAPITAL)]",
         "macro_exp": "💡 **通俗解释 (Plain English)：** Beta 衡量股票相对于大盘的波动率。Rf 是无风险国债利率。WACC / 折现率是你作为投资者要求的最低及格线回报率。",
-        "matrix_header": "📊 步骤 3：三大经典估值模型横向对比矩阵",
+        
+        "matrix_header": "[2. 三大经典估值模型横向对比矩阵 (DCF + DDM + P/E)]",
         "model_dcf_name": "两阶段线性衰减 DCF 模型",
         "model_ddm_name": "股息分红贴现模型 (DDM)",
         "model_pe_name": "市盈率倍数估值 (P/E Multiples)",
@@ -131,8 +120,18 @@ TEXTS = {
         "no_data_ddm": "该公司不派发股息",
         "no_data_pe": "公司目前处于净亏损",
         
-        "lie_title": "[4. 💡 市场情绪测谎仪 (MARKET PSYCHOLOGY / LIE DETECTOR)]",
+        "lie_title": "[3. 💡 市场情绪测谎仪 (MARKET PSYCHOLOGY / LIE DETECTOR)]",
         "lie_exp": "💡 **通俗解释 (Plain English)：** 测谎仪通过二分法反向推导，看看当前的市场价格到底在幻想这家公司未来每年增长多少。",
+        "ai_title": "[4. 🤖 双视角 AI 投资顾问 (DUAL-PERSPECTIVE AI ADVISORY)]",
+        "inc_title": "🔸 视角 A：保守派收息策略 (Conservative Income)",
+        "cap_title": "🔹 视角 B：进取派资本增值 (Capital Appreciation)",
+        "exec_title": "[5. 🎯 最终投资评级与执行摘要 (EXECUTIVE SUMMARY)]",
+        "rating_explain": "ℹ️ *学术释疑：‘市场情绪理性’代表投资者没有盲目炒作泡沫，但给出 ‘SELL’ 评级是因为当前市价高于内在公道价（缺乏安全边际）。即：好公司不等于好价格。*",
+        
+        "plain_title": "[6. 🗣️ 小白通俗翻译器 (PLAIN ENGLISH TRANSLATOR)]",
+        "fx_title": "[7. 💱 跨境汇率风险提示 (CROSS-BORDER FX RISK)]",
+        "fx_content": "- **提示：** 此乃美元计价资产，请注意美元兑马币 (USD/MYR) 的汇率波动风险。",
+        
         "ws_title": "🏛️ 华尔街专业投行分析师共识与预期差雷达 (Wall Street & Expectation Gap)",
         "ws_mean": "投行平均目标价",
         "ws_range": "目标价区间",
@@ -141,9 +140,9 @@ TEXTS = {
         "gap_title": "⚡ 华尔街 vs 量化模型：深度预期差雷达 (Expectation Gap Analysis)",
         "ws_match": "✅ 模型算出的公道价与华尔街机构预测高度吻合，无重大预期差！",
 
-        "chart_title": "[5. 📈 高级盘面与波动率回归分析]",
-        "beta_desc": "📊 **Beta 收益率特征线散点分布图说明：**\n* 每个点代表过往某一周的收益率联动。红线斜率即为真实 Beta（马股对标 MSCI Malaysia ETF，美股对标 S&P 500）。\n* **$R^2$（拟合优度）补充解析**：点越密集贴近红线，说明该股越受大盘宏观主导；点越分散，说明该股具有极强的个股独立行情。",
-        "glossary_title": "[6. 📖 小白通俗金融词典：这些数据代表什么？]",
+        "chart_title": "[8. 📈 高级盘面与波动率回归分析]",
+        "beta_desc": "📊 **Beta 收益率特征线散点分布图说明：**\n* 每个点代表过往某一周的收益率联动。红线斜率即为真实 Beta（马股对标 MSCI Malaysia ETF，美股对标 S&P 500）。\n* **$R^2$（拟合优度）补充解析**：点越密集贴近红线，说明该股越受大盘宏观主导（如银行股）；点越分散，说明该股具有极强的个股独立行情（如科技股）。",
+        "glossary_title": "[9. 📖 小白通俗金融词典：这些数据代表什么？]",
         
         "g_beta_title": "##### 🎯 Beta (波动敏感度)",
         "g_beta_desc": "衡量这只股票相对于大盘是更活泼还是更稳健。Beta > 1 涨跌比大盘更猛，Beta < 1 走势更抗跌防守。",
@@ -161,18 +160,11 @@ TEXTS = {
     },
     "en": {
         "title": "🌐 Universal Quant Terminal (Ultimate Edition)",
-        "subtitle": "Integrating Fading Growth DCF, 3-Model Matrix, Blume Beta & Market Lie Detector",
-        "market_label": "📌 Step 1: Select Market & Target Stock",
-        "market_my": "🇲🇾 Bursa Malaysia",
-        "market_us": "🇺🇸 US Equities",
-        "market_custom": "🔍 Custom Ticker",
-        "choose_stock": "Quick pick from popular pools:",
-        "custom_label": "Enter Stock Ticker Symbol:",
-        "custom_help": "For Malaysian stocks add .KL (e.g., 1155.KL); for US stocks enter ticker (e.g., AAPL, NVDA)",
-        "custom_placeholder": "e.g., 1155.KL or AAPL",
-        "quick_tag": "🔥 Quick Suggestions:",
+        "subtitle": "Integrating Fading Growth DCF, Multi-Model Matrix, CAPM, WACC, Lie Detector & AI Advisory",
+        "quick_tag": "🔥 Quick Select:",
+        "input_label": "Enter Stock Ticker (e.g., 1155.KL, NVDA, AAPL):",
         
-        "param_title": "⚙️ Step 2: Core Valuation Assumptions (Defaults Recommended)",
+        "param_title": "⚙️ Step 2: Macro & Valuation Parameters (Defaults Recommended) 👈 (Keep default unless necessary)",
         "param_tip": "💡 **When to adjust manually?**\n* **Terminal Growth (g)**: Adjust if you expect long-term structural inflation or GDP growth to deviate from historical norms.\n* **Equity Risk Premium (ERP)**: Adjust during extreme market cycles (higher ERP during panics, lower during bubbles).",
         "erp_label": "Equity Risk Premium (ERP)",
         "g2_label": "Terminal Growth Rate (g)",
@@ -180,7 +172,8 @@ TEXTS = {
         
         "macro_title": "[1. DYNAMIC MACRO & COST OF CAPITAL]",
         "macro_exp": "💡 **Plain English Explanation:** Beta measures stock volatility compared to the market. Rf is the benchmark government bond yield. WACC / Discount Rate is your hurdle rate / minimum required rate of return.",
-        "matrix_header": "📊 Step 3: Multi-Model Valuation Matrix (DCF + DDM + P/E)",
+        
+        "matrix_header": "[2. Multi-Model Valuation Matrix (DCF + DDM + P/E)]",
         "model_dcf_name": "Two-Stage Fading Growth DCF",
         "model_ddm_name": "Dividend Discount Model (DDM)",
         "model_pe_name": "P/E Multiples Valuation",
@@ -190,8 +183,18 @@ TEXTS = {
         "no_data_ddm": "Company pays no dividend",
         "no_data_pe": "Company in net loss",
         
-        "lie_title": "[4. 💡 MARKET PSYCHOLOGY (LIE DETECTOR)]",
+        "lie_title": "[3. 💡 MARKET PSYCHOLOGY (LIE DETECTOR)]",
         "lie_exp": "💡 **Plain English Explanation:** The lie detector uses reverse-engineering to find out what growth rate investors are currently pricing into the stock.",
+        "ai_title": "[4. 🤖 DUAL-PERSPECTIVE AI ADVISORY]",
+        "inc_title": "🔸 Perspective A: Conservative Income",
+        "cap_title": "🔹 Perspective B: Capital Appreciation",
+        "exec_title": "[5. 🎯 FINAL EXECUTIVE SUMMARY & RATING]",
+        "rating_explain": "ℹ️ *Academic Note: 'Rational Market Sentiment' means investors are not irrationally hyping the stock, but a 'SELL' rating is triggered strictly because the market price exceeds the intrinsic value (Lack of Margin of Safety). Good company ≠ Good price.*",
+        
+        "plain_title": "[6. 🗣️ PLAIN ENGLISH TRANSLATOR]",
+        "fx_title": "[7. 💱 CROSS-BORDER FX RISK ADVISORY]",
+        "fx_content": "- **Note:** USD-denominated asset; monitor USD/MYR exchange rate fluctuations.",
+        
         "ws_title": "🏛️ Wall Street Analyst Consensus & Expectation Gap Radar",
         "ws_mean": "Analyst Average Target Price",
         "ws_range": "Target Price Range",
@@ -200,9 +203,9 @@ TEXTS = {
         "gap_title": "⚡ Wall Street vs. Quant Model: Expectation Gap Analysis",
         "ws_match": "✅ Your Valuation aligns tightly with Wall Street targets with minimal expectation gap!",
 
-        "chart_title": "[5. Advanced Price Action & Regression Analysis]",
-        "beta_desc": "📊 **Beta Scatter Plot Explanation:** Each dot represents past weekly return correlation. The red line slope represents the true Beta.\n* **$R^2$ Analysis**: Tight clustering indicates market-driven systemic risk; higher dispersion reflects strong independent trends.",
-        "glossary_title": "[6. Beginner's Financial Glossary]",
+        "chart_title": "[8. Advanced Price Action & Regression Analysis]",
+        "beta_desc": "📊 **Beta Scatter Plot Explanation:** Each dot represents past weekly return correlation. The red line slope represents the true Beta (Bursa benchmarks against MSCI Malaysia ETF, US equities against S&P 500).\n* **$R^2$ Analysis**: Tight clustering indicates market-driven systemic risk; higher dispersion reflects strong independent trends.",
+        "glossary_title": "[9. Beginner's Financial Glossary]",
         
         "g_beta_title": "##### 🎯 Beta (Sensitivity)",
         "g_beta_desc": "Measures stock volatility relative to the market. Beta > 1 means higher aggression, while Beta < 1 indicates defensive characteristics.",
@@ -221,7 +224,7 @@ TEXTS = {
 }
 
 # ==============================================================================
-# 4. 财报稳健提取函数与核心量化引擎 (集成线性衰减 + Blume Beta + 三模型矩阵)
+# 4. 防崩溃财报提取函数
 # ==============================================================================
 def get_fin_metric(df, keyword, default=0.0):
     if df is None or df.empty: return default
@@ -233,6 +236,9 @@ def get_fin_metric(df, keyword, default=0.0):
     except Exception: pass
     return default
 
+# ==============================================================================
+# 5. 核心量化引擎 (集成线性衰减增长模型 + WACC + Blume Beta + ESG + 三模型矩阵)
+# ==============================================================================
 class UniversalQuantEngine:
     def __init__(self, ticker):
         self.ticker = ticker.strip().upper()
@@ -248,9 +254,8 @@ class UniversalQuantEngine:
 
         self.name = self.info.get('longName', self.info.get('shortName', 'Unknown'))
         self.sector = self.info.get('sector', 'Unknown')
-        self.industry = self.info.get('industry', 'Unknown')
+        self.currency = self.info.get('currency', 'MYR' if self.ticker.endswith('.KL') else 'USD')
         self.is_malaysia = self.ticker.endswith('.KL')
-        self.currency = self.info.get('currency', 'MYR' if self.is_malaysia else 'USD')
         
         self.price = self.info.get('currentPrice', self.info.get('regularMarketPrice', self.info.get('previousClose', 0)))
         if self.price == 0.0:
@@ -292,13 +297,13 @@ class UniversalQuantEngine:
             raw_beta = cov / var
             
             if not np.isfinite(raw_beta) or raw_beta < 0.2 or raw_beta > 2.5: return fallback, 'Outlier Adjusted'
-            return round((0.67 * raw_beta) + (0.33 * 1.0), 2), 'Blume Adjusted'
+            return round((0.67 * raw_beta) + (0.33 * 1.0), 2), 'Blume Adjusted Regression'
         except Exception:
             return fallback, 'System Default'
 
     def run_valuation(self, erp, terminal_g):
         self.beta, self.beta_type = self.compute_blume_beta()
-        self.rf = 0.0385 if self.is_malaysia else 0.042
+        self.rf = 0.038 if self.is_malaysia else 0.042
         self.esg_adj, self.esg_tag = self.get_esg_adjustment()
         
         self.ke = self.rf + (self.beta * erp) + self.esg_adj
@@ -327,17 +332,17 @@ class UniversalQuantEngine:
         self.g2 = terminal_g
         self.horizon = 10 if self.sector in ['Technology', 'Communication Services'] else 5
 
-        # 1. 计算两阶段线性衰减 DCF
+        # 1. 计算 DCF 模型值
         self.val_dcf = self.calculate_dcf_pv(self.g1)
 
-        # 2. 计算 DDM (股息折现)
+        # 2. 计算 DDM 模型值
         div = self.info.get('dividendRate') or self.info.get('trailingAnnualDividendRate') or 0.0
         self.val_ddm = None
         if div > 0:
             g_ddm = min(self.g2, self.ke - 0.01)
             self.val_ddm = (div * (1.0 + g_ddm)) / (self.ke - g_ddm) if self.ke > g_ddm else 0.0
 
-        # 3. 计算 P/E 倍数估值
+        # 3. 计算 P/E 倍数模型值
         eps = self.info.get('trailingEps') or self.info.get('forwardEps') or 0.0
         if eps <= 0:
             net_inc = get_fin_metric(self.fin, 'Net Income')
@@ -351,29 +356,32 @@ class UniversalQuantEngine:
             else: bench_pe = 16.0
             self.val_pe = eps * bench_pe
 
-        # 确定推荐的主模型
+        # 选择主推荐模型值（V8.9 核心逻辑：金融/公用事业用 DDM，其余用 DCF/PE）
         if self.sector in ['Financial Services', 'Real Estate', 'Utilities'] and self.val_ddm is not None and self.val_ddm > 0:
-            self.primary_name = 'DDM'
-            self.primary_val = self.val_ddm
+            self.model_name = 'Dividend Discount Model (DDM)'
+            self.r = self.ke
+            val = self.val_ddm
         elif self.val_dcf is not None and self.val_dcf > 0:
-            self.primary_name = 'DCF'
-            self.primary_val = self.val_dcf
+            self.model_name = 'Discounted Cash Flow (DCF)'
+            self.r = self.wacc
+            val = self.val_dcf
         elif self.val_pe is not None and self.val_pe > 0:
-            self.primary_name = 'PE'
-            self.primary_val = self.val_pe
+            self.model_name = 'P/E Multiples Valuation'
+            self.r = self.wacc
+            val = self.val_pe
         else:
-            self.primary_name = 'DCF'
-            self.primary_val = self.val_dcf if self.val_dcf else 0.0
+            self.model_name = 'Discounted Cash Flow (DCF)'
+            self.r = self.wacc
+            val = self.val_dcf if self.val_dcf else 0.0
 
-        implied_g = self.find_implied_growth()
-        return self.primary_val, implied_g
+        return val, self.find_implied_growth()
 
     def calculate_dcf_pv(self, test_g):
         if self.cf <= 0 or self.wacc <= self.g2: return None
         pv1 = 0
         curr_cf = self.cf
         
-        # 💡 机构级核心防护：线性衰减增长率，彻底根治复利失真 Bug
+        # 💡 机构级核心修复：采用线性衰减增长率 (Linear Fading Growth)
         growth_rates = np.linspace(test_g, self.g2, self.horizon)
         
         for y in range(1, self.horizon + 1):
@@ -398,7 +406,7 @@ class UniversalQuantEngine:
         return mid
 
 # ==============================================================================
-# 5. 图表生成函数
+# 6. 图表生成函数
 # ==============================================================================
 def draw_pro_candlestick(ticker, session):
     hist = yf.Ticker(ticker, session=session).history(period="1y", interval="1d")
@@ -416,6 +424,7 @@ def draw_pro_candlestick(ticker, session):
 def draw_beta_scatter(engine):
     if engine.scatter_data is None: return None
     stock_ret, market_ret = engine.scatter_data.iloc[:, 0], engine.scatter_data.iloc[:, 1]
+    
     corr = np.corrcoef(stock_ret, market_ret)[0, 1]
     r_squared = corr ** 2 if not np.isnan(corr) else 0.0
 
@@ -438,7 +447,7 @@ def draw_beta_scatter(engine):
     return fig
 
 # ==============================================================================
-# 6. 主程序与融合 UI 渲染
+# 7. 主程序与双语 UI 渲染 (完整恢复 V8.9 所有模块 + 三模型矩阵集成)
 # ==============================================================================
 def main():
     col_title, col_lang = st.columns([3, 1.2])
@@ -448,85 +457,54 @@ def main():
         T = TEXTS[lang_key]
 
     with col_title:
-        st.markdown(f"<h1 style='color: #ffffff; font-weight: 800; font-size: 1.9rem;'>{T['title']}</h1>", unsafe_allow_html=True)
-        st.markdown(f"<p style='color: #38bdf8; font-weight: 600; font-size: 13.5px; margin-top: -5px;'>{T['subtitle']}</p>", unsafe_allow_html=True)
+        st.markdown(f"<h1 style='color: #ffffff; font-weight: 800; font-size: 2rem;'>{T['title']}</h1>", unsafe_allow_html=True)
+        st.markdown(f"<p style='color: #38bdf8; font-weight: 600; font-size: 14px; margin-top: -5px;'>{T['subtitle']}</p>", unsafe_allow_html=True)
 
     st.write("---")
 
-    # 步骤 1：市场与股票挑选面板（结合了你朋友的直观下拉与热门快捷选择）
-    st.markdown(f"#### {T['market_label']}")
-    
-    MY_STOCKS = [
-        ("1155.KL", "Maybank (马来亚银行 - 金融分红王)"),
-        ("1295.KL", "Public Bank (大众银行 - 稳健金融巨头)"),
-        ("5347.KL", "Tenaga Nasional (国家能源 - 公用事业基建)"),
-        ("0166.KL", "Inari Amertron (益纳利 - 科技半导体)"),
-        ("5211.KL", "Sunway (双威集团 - 综合地产医疗)"),
-    ]
-    US_STOCKS = [
-        ("NVDA", "NVIDIA Corporation (英伟达 - 全球 AI 算力芯片)"),
-        ("AAPL", "Apple Inc. (苹果公司 - 消费电子生态)"),
-        ("TSLA", "Tesla Inc. (特斯拉 - 电动车与机器人)"),
-        ("MSFT", "Microsoft (微软 - 企业软件与云)"),
-        ("AMZN", "Amazon.com (亚马逊 - 电商与 AWS)"),
-    ]
+    # 快捷输入与选股面板
+    with st.container(border=True):
+        if "ticker_input" not in st.session_state: st.session_state.ticker_input = "NVDA"
+        def set_ticker(t): st.session_state.ticker_input = t
+        
+        st.write(T['quick_tag'])
+        q1, q2, q3, q4 = st.columns(4)
+        q1.button("🇺🇸 NVDA", on_click=set_ticker, args=("NVDA",), use_container_width=True)
+        q2.button("🇺🇸 AAPL", on_click=set_ticker, args=("AAPL",), use_container_width=True)
+        q3.button("🇲🇾 MAYBANK (1155.KL)", on_click=set_ticker, args=("1155.KL",), use_container_width=True)
+        q4.button("🇲🇾 TENAGA (5347.KL)", on_click=set_ticker, args=("5347.KL",), use_container_width=True)
+        
+        col_in1, col_in2 = st.columns([2, 2])
+        with col_in1:
+            ticker_input = st.text_input(T['input_label'], key="ticker_input")
+        
+        with st.expander(T['param_title'], expanded=False):
+            st.info(T['param_tip'])
+            c_erp, c_g2 = st.columns(2)
+            custom_erp = c_erp.slider(T['erp_label'], 4.0, 7.0, 5.0, 0.1) / 100
+            custom_g2 = c_g2.slider(T['g2_label'], 1.0, 3.5, 2.0, 0.1) / 100
+        
+        st.caption(T['esg_caption'])
 
-    my_opts = [f"{t} | {name}" for t, name in MY_STOCKS]
-    us_opts = [f"{t} | {name}" for t, name in US_STOCKS]
-
-    if "active_ticker" not in st.session_state: st.session_state.active_ticker = "NVDA"
-    if "active_market" not in st.session_state: st.session_state.active_market = "US"
-
-    def select_quick(t, m):
-        st.session_state.active_ticker = t
-        st.session_state.active_market = m
-
-    st.write(T['quick_tag'])
-    q1, q2, q3, q4 = st.columns(4)
-    q1.button("🇺🇸 NVDA", on_click=select_quick, args=("NVDA", "US"), use_container_width=True)
-    q2.button("🇺🇸 AAPL", on_click=select_quick, args=("AAPL", "US"), use_container_width=True)
-    q3.button("🇲🇾 1155.KL (Maybank)", on_click=select_quick, args=("1155.KL", "MY"), use_container_width=True)
-    q4.button("🇲🇾 5347.KL (Tenaga)", on_click=select_quick, args=("5347.KL", "MY"), use_container_width=True)
-
-    market_mode = st.radio("Market", options=["MY", "US", "CUSTOM"], format_func=lambda k: {"MY": T['market_my'], "US": T['market_us'], "CUSTOM": T['market_custom']}[k], horizontal=True, label_visibility="collapsed")
-
-    if market_mode == "MY":
-        sel_my = st.selectbox(T['choose_stock'], options=my_opts)
-        current_ticker = sel_my.split(" | ")[0].strip()
-    elif market_mode == "US":
-        sel_us = st.selectbox(T['choose_stock'], options=us_opts)
-        current_ticker = sel_us.split(" | ")[0].strip()
-    else:
-        current_ticker = st.text_input(T['custom_label'], value="NVDA", placeholder=T['custom_placeholder'], help=T['custom_help']).strip().upper()
-
-    # 步骤 2：核心参数折叠抽屉
-    with st.expander(T['param_title'], expanded=False):
-        st.info(T['param_tip'])
-        c_erp, c_g2 = st.columns(2)
-        custom_erp = c_erp.slider(T['erp_label'], 4.0, 7.0, 5.0, 0.1) / 100
-        custom_g2 = c_g2.slider(T['g2_label'], 1.0, 3.5, 2.0, 0.1) / 100
-    st.caption(T['esg_caption'])
-
-    if current_ticker:
+    if ticker_input:
         with st.spinner("Analyzing quantitative model..."):
-            engine = UniversalQuantEngine(current_ticker)
+            engine = UniversalQuantEngine(ticker_input)
             val, implied_g = engine.run_valuation(custom_erp, custom_g2)
 
             st.markdown(f"<h3 style='margin-top: 25px;'>🏢 {engine.name} ({engine.ticker}) <span style='font-size:14px; color:#94a3b8;'>| Sector: {engine.sector}</span></h3>", unsafe_allow_html=True)
 
-            # [1. 宏观与资本成本卡片]
+            # [模块 1：动态宏观与资本成本]
             with st.container(border=True):
                 st.markdown(f"**{T['macro_title']}**")
-                c1, c2, c3, c4 = st.columns(4)
+                c1, c2, c3 = st.columns(3)
                 c1.metric("Beta Risk", f"{engine.beta:.2f}", delta=engine.beta_type, delta_color="off")
                 c2.metric("Rf Rate", f"{engine.rf * 100:.2f}%")
-                c3.metric("WACC", f"{engine.wacc * 100:.2f}%", engine.esg_tag)
-                c4.metric("Current Price", f"{engine.currency} {engine.price:.2f}")
+                c3.metric("WACC", f"{engine.r * 100:.2f}%", engine.esg_tag)
                 st.caption(T['macro_exp'])
 
             st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
 
-            # [2. 三大估值模型横向对比矩阵（融合你朋友矩阵的视觉与你引擎的准确度）]
+            # [模块 2：三大经典估值模型横向对比矩阵（新加入的矩阵呈现）]
             st.markdown(f"#### {T['matrix_header']}")
             m_col1, m_col2, m_col3 = st.columns(3)
 
@@ -558,87 +536,180 @@ def main():
                 """
 
             with m_col1:
-                st.markdown(render_matrix_card(T["model_dcf_name"], engine.val_dcf, engine.price, engine.primary_name == 'DCF', engine.currency, "基于线性衰减自由现金流与 WACC 资本成本折现。", T["no_data_dcf"]), unsafe_allow_html=True)
+                st.markdown(render_matrix_card(T["model_dcf_name"], engine.val_dcf, engine.price, engine.model_name == 'Discounted Cash Flow (DCF)', engine.currency, "基于线性衰减自由现金流与 WACC 资本成本折现。", T["no_data_dcf"]), unsafe_allow_html=True)
             with m_col2:
-                st.markdown(render_matrix_card(T["model_ddm_name"], engine.val_ddm, engine.price, engine.primary_name == 'DDM', engine.currency, "基于历史股息分红及永续增长率折现。", T["no_data_ddm"]), unsafe_allow_html=True)
+                st.markdown(render_matrix_card(T["model_ddm_name"], engine.val_ddm, engine.price, engine.model_name == 'Dividend Discount Model (DDM)', engine.currency, "基于历史股息分红及永续增长率折现。", T["no_data_ddm"]), unsafe_allow_html=True)
             with m_col3:
-                st.markdown(render_matrix_card(T["model_pe_name"], engine.val_pe, engine.price, engine.primary_name == 'PE', engine.currency, "基于每股收益 (EPS) 乘以行业合理市盈率倍数。", T["no_data_pe"]), unsafe_allow_html=True)
+                st.markdown(render_matrix_card(T["model_pe_name"], engine.val_pe, engine.price, engine.model_name == 'P/E Multiples Valuation', engine.currency, "基于每股收益 (EPS) 乘以行业合理市盈率倍数。", T["no_data_pe"]), unsafe_allow_html=True)
 
             st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
 
-            # [3. 市场情绪测谎仪与 AI 诊断]
-            col_lie, col_ai = st.columns(2)
-            with col_lie:
-                with st.container(border=True):
-                    st.markdown(f"**{T['lie_title']}**")
-                    implied_g_str = f"{implied_g * 100:.2f}%" if implied_g is not None else "N/A"
-                    st.warning(f"To justify the current price of **{engine.price:.2f}**, the market implies a Growth Rate of **{implied_g_str} per year for {engine.horizon} years**.")
-                    if implied_g is not None:
-                        if implied_g > 0.40: diag = "-> **Diagnosis: EXTREME HYPE (Bubble Territory).**"
-                        elif implied_g < 0.0: diag = "-> **Diagnosis: EXTREME PESSIMISM.**"
-                        else: diag = "-> **Diagnosis: MODERATE EXPECTATIONS.**"
-                        st.write(diag)
-                    st.caption(T['lie_exp'])
+            p1, p2, p3 = st.columns(3)
+            p1.metric(T['price'], f"{engine.currency} {engine.price:.2f}")
+            p2.metric(T['fair_val'], f"{engine.currency} {val:.2f}")
+            p3.metric(T['safe_buy'], f"{engine.currency} {(val * 0.8):.2f}", "20% Margin of Safety")
 
-            with col_ai:
-                with st.container(border=True):
-                    st.markdown(f"**🤖 智能估值综合裁决 (Quantitative Verdict)**")
-                    st.write(f"- **系统精选基准模型:** {engine.primary_name}")
-                    st.write(f"- **内在公道价值 (Intrinsic Fair Value):** `{engine.currency} {engine.primary_val:.2f}`")
-                    if engine.price > 0 and engine.primary_val > 0:
-                        ratio = engine.price / engine.primary_val
-                        if ratio < 0.8:
-                            st.success("-> **Verdict:** 🟢 严重低估 (具有极佳安全边际，可积极关注)")
-                        elif ratio > 1.2:
-                            st.error("-> **Verdict:** 🔴 明显高估 (市价已严重透支未来预期)")
+            if val > 0 and engine.price > 0:
+                price_to_val = engine.price / val
+
+                # [模块 3：市场情绪测谎仪] & [模块 4：双视角 AI 投资顾问]
+                col_lie, col_ai = st.columns(2)
+                
+                with col_lie:
+                    with st.container(border=True):
+                        st.markdown(f"**{T['lie_title']}**")
+                        implied_g_str = f"{implied_g * 100:.2f}%" if implied_g is not None else "N/A"
+                        st.warning(f"To justify the current price of **{engine.price:.2f}**, the market implies a Growth Rate of **{implied_g_str} per year for {engine.horizon} years**.")
+                        
+                        if implied_g is not None:
+                            if implied_g > 0.40: diag = "-> **Diagnosis: EXTREME HYPE (Bubble Territory).**"
+                            elif implied_g < 0.0: diag = "-> **Diagnosis: EXTREME PESSIMISM.**"
+                            else: diag = "-> **Diagnosis: MODERATE EXPECTATIONS.**"
+                            st.write(diag)
+                        st.caption(T['lie_exp'])
+
+                with col_ai:
+                    with st.container(border=True):
+                        st.markdown(f"**{T['ai_title']}**")
+                        div_rate = engine.info.get('dividendRate') or engine.info.get('trailingAnnualDividendRate') or 0
+                        div_yield = (div_rate / engine.price) * 100 if engine.price > 0 else 0
+
+                        st.markdown(T['inc_title'])
+                        st.write(f"- Dividend Yield: {div_yield:.2f}% | Beta Risk: {engine.beta:.2f}")
+                        if engine.sector in ['Financial Services', 'Utilities', 'Real Estate'] and div_yield > 3.0:
+                            st.success("-> **Verdict:** 🟢 SUITABLE FOR INCOME.")
                         else:
-                            st.info("-> **Verdict:** 🟡 估值合理 (市场定价理性均衡)")
+                            st.error("-> **Verdict:** 🔴 NOT IDEAL FOR INCOME.")
+                        
+                        st.markdown(T['cap_title'])
+                        st.write(f"- Implied Growth: {implied_g_str} | Model Valuation: {val:.2f}")
+                        if implied_g is not None and implied_g < 0.0 and engine.price < val:
+                            st.success("-> **Verdict:** 🟢 MULTI-BAGGER POTENTIAL.")
+                        elif implied_g is not None and implied_g > 0.40:
+                            st.error("-> **Verdict:** 🔴 HIGH SPECULATION RISK.")
+                        else:
+                            st.info("-> **Verdict:** 🟢 / 🟡 FAIRLY PRICED.")
 
-            # [4. 华尔街预期差雷达（仅美股生效）]
-            if not engine.is_malaysia:
-                target_mean = engine.info.get('targetMeanPrice')
-                num_analysts = engine.info.get('numberOfAnalystOpinions', 0)
-                if target_mean and num_analysts > 0:
-                    st.markdown(f"<br><h3>{T['ws_title']}</h3>", unsafe_allow_html=True)
-                    w1, w2, w3 = st.columns(3)
-                    w1.metric(T['ws_mean'], f"${target_mean:.2f}", f"{num_analysts} Analysts")
-                    w2.metric(T['ws_range'], f"${engine.info.get('targetLowPrice', 0):.2f} ~ ${engine.info.get('targetHighPrice', 0):.2f}")
-                    w3.metric(T['ws_rating'], str(engine.info.get('recommendationKey', 'N/A')).upper())
+                # [模块 5：最终投资评级与执行摘要]
+                st.markdown(f"### {T['exec_title']}")
+                if price_to_val <= 0.70 and (implied_g is not None and implied_g < 0.0):
+                    rating, reason = '🟢 STRONG BUY', f'Extreme pessimism creates massive margin of safety. Price ({engine.price:.2f}) heavily discounted vs intrinsic value ({val:.2f}).'
+                elif price_to_val <= 0.85:
+                    rating, reason = '🟢 BUY', f'Solid value mispricing. Price ({engine.price:.2f}) meets 20% margin of safety.'
+                elif 0.85 < price_to_val <= 1.15:
+                    rating, reason = '🟡 HOLD', f'Fairly valued. Price ({engine.price:.2f}) aligns with intrinsic value ({val:.2f}).'
+                elif 1.15 < price_to_val <= 1.40:
+                    rating, reason = '🔴 SELL', f'Overvalued. Price ({engine.price:.2f}) exceeds intrinsic value ({val:.2f}).'
+                else:
+                    rating, reason = '🔴 STRONG SELL', f'Severe bubble risk. Implied growth is priced for perfection.'
 
-            # [5. 盘面与波动率回归分析]
-            st.markdown(f"### {T['chart_title']}")
-            c_chart1, c_chart2 = st.columns(2)
-            with c_chart1:
                 with st.container(border=True):
-                    st.markdown("**1-Year Candlestick (MA20 & MA50)**")
-                    st.plotly_chart(draw_pro_candlestick(engine.ticker, engine.session), use_container_width=True)
-            with c_chart2:
-                with st.container(border=True):
-                    st.markdown(f"**3-Year Beta Regression (β = {engine.beta:.2f})**")
-                    st.plotly_chart(draw_beta_scatter(engine), use_container_width=True)
-                    st.caption(T['beta_desc'])
+                    st.markdown(f"- **Final Investment Rating : {rating}**")
+                    st.markdown(f"- **Core Justification : {reason}**")
+                    st.markdown("")
+                    st.caption(T['rating_explain'])
 
-            # [6. 小白金融词典]
-            st.markdown(f"### {T['glossary_title']}")
-            g1, g2, g3, g4 = st.columns(4)
-            with g1:
-                with st.container(border=True):
-                    st.markdown(T['g_beta_title'])
-                    st.caption(T['g_beta_desc'])
-            with g2:
-                with st.container(border=True):
-                    st.markdown(T['g_growth_title'])
-                    st.caption(T['g_growth_desc'])
-            with g3:
-                with st.container(border=True):
-                    st.markdown(T['g_wacc_title'])
-                    st.caption(T['g_wacc_desc'])
-            with g4:
-                with st.container(border=True):
-                    st.markdown(T['g_fv_title'])
-                    st.caption(T['g_fv_desc'])
+                # [模块 6：小白通俗翻译器] & [模块 7：跨境汇率风险提示]
+                col_t1, col_t2 = st.columns(2)
+                with col_t1:
+                    with st.container(border=True):
+                        st.markdown(f"**{T['plain_title']}**")
+                        st.markdown(f"- **Required Hurdle Rate / Discount Rate:** {engine.r * 100:.2f}%")
+                        st.markdown("  👉 Minimum required return.")
+                        if implied_g is not None:
+                            st.markdown(f"- **Market Sentiment / Implied Growth:** {implied_g * 100:.2f}%")
+                            if implied_g > 0.35: st.markdown("  👉 **【⚠️ SEVERE BUBBLE WARNING】**")
+                            elif implied_g < 0.0: st.markdown("  👉 **【🔥 EXTREME PESSIMISM / DEEP VALUE】**")
+                            else: st.markdown("  👉 **【⚖️ BALANCED & RATIONAL】**")
+                
+                with col_t2:
+                    with st.container(border=True):
+                        if not engine.is_malaysia:
+                            st.markdown(f"**{T['fx_title']}**")
+                            st.warning(T['fx_content'])
+                        else:
+                            st.markdown(f"**{T['fx_title']}**")
+                            st.warning("- 🇲🇾 本地资产计价 (MYR)，无直接跨境外汇风险暴露。")
 
-    # 7. 底部免责声明
+                # [模块 8：华尔街共识 + 预期差雷达]
+                if not engine.is_malaysia:
+                    target_mean = engine.info.get('targetMeanPrice')
+                    target_high = engine.info.get('targetHighPrice')
+                    target_low = engine.info.get('targetLowPrice')
+                    num_analysts = engine.info.get('numberOfAnalystOpinions', 0)
+                    rec_key = str(engine.info.get('recommendationKey', 'N/A')).upper()
+
+                    if target_mean and num_analysts > 0:
+                        st.markdown(f"<br><h3>{T['ws_title']}</h3>", unsafe_allow_html=True)
+                        ws_col1, ws_col2, ws_col3 = st.columns(3)
+                        
+                        with ws_col1:
+                            with st.container(border=True):
+                                st.markdown(f"<div style='color:#94a3b8; font-size:13px; font-weight:600; text-align:center;'>{T['ws_mean']}</div>", unsafe_allow_html=True)
+                                st.markdown(f"<div style='font-size:30px; font-weight:800; font-family:JetBrains Mono; text-align:center; color:#ffffff; margin: 10px 0;'>${target_mean:.2f}</div>", unsafe_allow_html=True)
+                                st.markdown(f"<div style='color:#38bdf8; font-size:12.5px; text-align:center;'>👥 {num_analysts} Analysts</div>", unsafe_allow_html=True)
+                                
+                        with ws_col2:
+                            with st.container(border=True):
+                                st.markdown(f"<div style='color:#94a3b8; font-size:13px; font-weight:600; text-align:center;'>{T['ws_range']}</div>", unsafe_allow_html=True)
+                                low_str = f"${target_low:.2f}" if target_low else "N/A"
+                                high_str = f"${target_high:.2f}" if target_high else "N/A"
+                                st.markdown(f"<div style='font-size:24px; font-weight:800; font-family:JetBrains Mono; text-align:center; color:#ffffff; margin: 12px 0;'>{low_str} ~ {high_str}</div>", unsafe_allow_html=True)
+                                st.markdown(f"<div style='color:#cbd5e1; font-size:12px; text-align:center;'>Low / High Target</div>", unsafe_allow_html=True)
+
+                        with ws_col3:
+                            with st.container(border=True):
+                                st.markdown(f"<div style='color:#94a3b8; font-size:13px; font-weight:600; text-align:center;'>{T['ws_rating']}</div>", unsafe_allow_html=True)
+                                st.markdown(f"<div style='font-size:28px; font-weight:800; font-family:JetBrains Mono; text-align:center; color:#38bdf8; margin: 10px 0;'>{rec_key}</div>", unsafe_allow_html=True)
+                                st.markdown(f"<div style='color:#4ade80; font-size:12px; text-align:center;'>🏛️ {T['ws_tag']}</div>", unsafe_allow_html=True)
+
+                        with st.container(border=True):
+                            st.markdown(f"**{T['gap_title']}**")
+                            gap_pct = ((target_mean - val) / val) * 100.0
+                            st.write(f"- **量化内在公允价 (Model Fair Value):** `${val:.2f}` | **华尔街平均目标价 (Wall Street Target):** `${target_mean:.2f}`")
+                            st.write(f"- **预期差偏离度 (Divergence Gap):** `+{gap_pct:.1f}%` (华尔街目标价比模型估值高出 {gap_pct:.1f}%)")
+                            
+                            if gap_pct > 25.0 and rec_key in ["BUY", "STRONG_BUY"]:
+                                st.error("🚨 **【预期差警示 / 情绪溢价驱动】**：华尔街目标价远高于量化模型底线。当前市价已透支部分未来，长线价值投资者需警惕高估值回撤。")
+                            elif abs(gap_pct) <= 15.0:
+                                st.success(T['ws_match'])
+                            elif gap_pct < -15.0:
+                                st.info("🔥 **【深度价值 / 逆向左侧契机】**：量化模型算出的基本面造血价值高于华尔街卖方预期，属于潜在的“捡烟蒂”布局区。")
+
+                # [模块 8：盘面与波动率回归分析]
+                st.markdown(f"### {T['chart_title']}")
+                c_chart1, c_chart2 = st.columns(2)
+                with c_chart1:
+                    with st.container(border=True):
+                        st.markdown("**1-Year Candlestick (MA20 & MA50)**")
+                        st.plotly_chart(draw_pro_candlestick(engine.ticker, engine.session), use_container_width=True)
+                with c_chart2:
+                    with st.container(border=True):
+                        st.markdown(f"**3-Year Beta Regression (β = {engine.beta:.2f})**")
+                        st.plotly_chart(draw_beta_scatter(engine), use_container_width=True)
+                        st.caption(T['beta_desc'])
+
+                # [模块 9：小白金融词典]
+                st.markdown(f"### {T['glossary_title']}")
+                g1, g2, g3, g4 = st.columns(4)
+                with g1:
+                    with st.container(border=True):
+                        st.markdown(T['g_beta_title'])
+                        st.caption(T['g_beta_desc'])
+                with g2:
+                    with st.container(border=True):
+                        st.markdown(T['g_growth_title'])
+                        st.caption(T['g_growth_desc'])
+                with g3:
+                    with st.container(border=True):
+                        st.markdown(T['g_wacc_title'])
+                        st.caption(T['g_wacc_desc'])
+                with g4:
+                    with st.container(border=True):
+                        st.markdown(T['g_fv_title'])
+                        st.caption(T['g_fv_desc'])
+
+    # [模块 10：免责声明]
     st.markdown("---")
     with st.container(border=True):
         st.markdown(f"### {T['disclaimer_title']}")
