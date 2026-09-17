@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 # ==============================================================================
 # 1. 页面基本配置
 # ==============================================================================
-st.set_page_config(page_title="Universal Quant Terminal V15", page_icon="💎", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Universal Quant Terminal V16", page_icon="💎", layout="wide", initial_sidebar_state="collapsed")
 
 @st.cache_resource
 def get_yf_session():
@@ -20,7 +20,7 @@ def get_yf_session():
     return session
 
 # ==============================================================================
-# 2. 独家高级 CSS 视觉引擎 (全模块强制红粉发光边框)
+# 2. 独家高级 CSS 视觉引擎 (暴力重写所有边框，实现爆款霓虹便当盒效果)
 # ==============================================================================
 PREMIUM_CSS = """
 <style>
@@ -34,53 +34,47 @@ PREMIUM_CSS = """
 }
 .block-container { padding-top: 2rem !important; max-width: 1280px !important; }
 
-/* 🌟 核心：确保所有便当盒卡片拥有粗、明显的红粉色发光边框 */
-[data-testid="column"] > div {
-    height: 100% !important;
-}
-[data-testid="stVerticalBlockBorderWrapper"] {
-    background: #0d1526 !important; /* 高对比度深蓝实底 */
-    border: 2px solid #f43f5e !important; /* 粗且显眼的红粉色边框 */
+/* 🌟 核心杀手锏：暴力接管 Streamlit 所有自带容器边框，强制变成厚重、发光的霓虹粉红框！ */
+div[data-testid="stVerticalBlockBorderWrapper"] {
+    background-color: #0d1526 !important; /* 高对比度深蓝实底 */
+    border: 3px solid #ff2a6d !important; /* 3像素极粗霓虹粉红边框，绝对清晰可见 */
     border-radius: 16px !important;
-    box-shadow: 0 0 20px rgba(244, 63, 94, 0.3) !important; /* 明显的红粉色外发光 */
+    box-shadow: 0 0 25px rgba(255, 42, 109, 0.5) !important; /* 强烈的外发光特效 */
     transition: all 0.3s ease !important;
-    padding: 18px 22px !important;
-    height: 100% !important;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
+    padding: 20px 24px !important;
+    margin-bottom: 12px !important;
 }
-[data-testid="stVerticalBlockBorderWrapper"]:hover {
-    border: 2px solid #fb7185 !important;
-    box-shadow: 0 0 30px rgba(244, 63, 94, 0.5) !important;
+div[data-testid="stVerticalBlockBorderWrapper"]:hover {
+    border: 3px solid #ff5e92 !important;
+    box-shadow: 0 0 35px rgba(255, 42, 109, 0.8) !important;
     transform: translateY(-2px);
 }
 
 /* 按钮专属暗黑极客样式 */
 .stButton > button {
     background: #0f172a !important;
-    color: #f43f5e !important;
-    border: 1.5px solid #f43f5e !important;
+    color: #ff2a6d !important;
+    border: 2px solid #ff2a6d !important;
     border-radius: 8px !important;
     font-weight: 600 !important;
     transition: all 0.22s ease !important;
 }
 .stButton > button:hover {
-    background: rgba(244, 63, 94, 0.2) !important;
+    background: rgba(255, 42, 109, 0.25) !important;
     color: #ffffff !important;
-    box-shadow: 0 0 15px rgba(244, 63, 94, 0.4) !important;
+    box-shadow: 0 0 20px rgba(255, 42, 109, 0.6) !important;
     transform: translateY(-2px);
 }
 
 label { color: #cbd5e1 !important; font-weight: 500 !important; }
 p { color: #e2e8f0 !important; }
 h1, h2, h3, h4, h5 { font-family: 'Inter', sans-serif !important; font-weight: 700 !important; color: #ffffff !important; }
-h3 { color: #f43f5e !important; text-shadow: 0 0 15px rgba(244, 63, 94, 0.3); margin-top: 10px !important; margin-bottom: 15px !important; }
+h3 { color: #ff2a6d !important; text-shadow: 0 0 15px rgba(255, 42, 109, 0.4); margin-top: 10px !important; margin-bottom: 15px !important; }
 
 /* 指标与输入框美化 */
-[data-testid="stMetricValue"] { font-family: 'JetBrains Mono', monospace !important; font-weight: 800 !important; font-size: 1.8rem !important; color: #ffffff !important; }
+[data-testid="stMetricValue"] { font-family: 'JetBrains Mono', monospace !important; font-weight: 800 !important; font-size: 1.9rem !important; color: #ffffff !important; }
 [data-testid="stMetricLabel"] { font-weight: 600 !important; color: #94a3b8 !important; font-size: 0.85rem !important; text-transform: uppercase; }
-div[data-baseweb="input"] > div, div[data-baseweb="select"] > div { background-color: #0f172a !important; border: 1.5px solid #f43f5e !important; border-radius: 8px !important; color: #ffffff !important; }
+div[data-baseweb="input"] > div, div[data-baseweb="select"] > div { background-color: #0f172a !important; border: 2px solid #ff2a6d !important; border-radius: 8px !important; color: #ffffff !important; }
 </style>
 """
 st.markdown(PREMIUM_CSS, unsafe_allow_html=True)
@@ -337,12 +331,12 @@ def draw_beta_scatter(engine):
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=market_ret, y=stock_ret, mode='markers', marker=dict(color='#0ea5e9', size=7, opacity=0.8), name='Returns'))
     x_range = np.linspace(market_ret.min(), market_ret.max(), 100)
-    fig.add_trace(go.Scatter(x=x_range, y=engine.beta * x_range, mode='lines', line=dict(color='#f43f5e', width=2), name='Fit Line'))
+    fig.add_trace(go.Scatter(x=x_range, y=engine.beta * x_range, mode='lines', line=dict(color='#ff2a6d', width=2), name='Fit Line'))
     fig.update_layout(title=dict(text=f"Beta Regression (Beta = {engine.beta:.2f} | R² = {r_squared:.2f})", font=dict(color='#ffffff')), xaxis_title="Market Benchmark (%)", yaxis_title="Stock Return (%)", plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#94a3b8'), xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.05)'), yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.05)'), showlegend=False, height=330, margin=dict(l=0, r=0, t=35, b=0))
     return fig
 
 # ==============================================================================
-# 6. UI 渲染与排版构建
+# 6. UI 渲染与排版构建 (全部采用带边框容器)
 # ==============================================================================
 def main():
     c1, c2 = st.columns([3, 1])
@@ -353,7 +347,7 @@ def main():
 
     with c1:
         st.markdown(f"<h1 style='font-size: 2.2rem; margin-bottom: 0;'>{T['title']}</h1>", unsafe_allow_html=True)
-        st.markdown(f"<p style='color: #f43f5e; font-weight: 600; font-size: 14px; margin-top: -5px;'>{T['subtitle']}</p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='color: #ff2a6d; font-weight: 600; font-size: 14px; margin-top: -5px;'>{T['subtitle']}</p>", unsafe_allow_html=True)
     st.write("---")
 
     with st.container(border=True):
@@ -406,7 +400,7 @@ def main():
 
             st.write("---")
             
-            # --- Row 2: 核心估值三剑客 (已全部包裹进独立红框卡片) ---
+            # --- Row 2: 三剑客卡片 (全部包裹进独立便当盒) ---
             p1_col, p2_col, p3_col = st.columns(3)
             with p1_col:
                 with st.container(border=True):
@@ -437,7 +431,7 @@ def main():
                         else:
                             diag, d_color = "Data Unavailable", "#94a3b8"
 
-                        st.markdown(f"Market Implied Growth Rate: <b style='color:#f43f5e; font-size:22px;'>{implied_g_str}</b>", unsafe_allow_html=True)
+                        st.markdown(f"Market Implied Growth Rate: <b style='color:#ff2a6d; font-size:22px;'>{implied_g_str}</b>", unsafe_allow_html=True)
                         st.markdown(f"Diagnosis: <b style='color:{d_color};'>{diag}</b>", unsafe_allow_html=True)
                         st.caption(T['lie_exp'])
 
@@ -492,7 +486,7 @@ def main():
                             with st.container(border=True):
                                 st.markdown(f"<div style='color:#94a3b8; font-size:13px; font-weight:600;'>{T['ws_mean']}</div>", unsafe_allow_html=True)
                                 st.markdown(f"<div style='font-size:24px; font-weight:800; font-family:JetBrains Mono;'>${target_mean:.2f}</div>", unsafe_allow_html=True)
-                                st.markdown(f"<div style='color:#f43f5e; font-size:12px;'>👥 {num_analysts} Analysts</div>", unsafe_allow_html=True)
+                                st.markdown(f"<div style='color:#ff2a6d; font-size:12px;'>👥 {num_analysts} Analysts</div>", unsafe_allow_html=True)
                                 
                         with ws_col2:
                             with st.container(border=True):
