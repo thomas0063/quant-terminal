@@ -92,7 +92,7 @@ def get_yf_session():
     return session
 
 # ==============================================================================
-# 3. 国际化多语言字典 (内容 100% 保留)
+# 3. 国际化多语言字典 (已完整加入华尔街模块多语言)
 # ==============================================================================
 TEXTS = {
     "zh": {
@@ -128,6 +128,14 @@ TEXTS = {
         "fx_title": "[7. 💱 跨境汇率风险提示 (CROSS-BORDER FX RISK)]",
         "fx_content": "- **提示：** 此乃美元计价资产，请注意美元兑马币 (USD/MYR) 的汇率波动风险。",
         
+        # 华尔街投行分析师共识模块文案
+        "ws_title": "🏛️ 华尔街专业投行分析师共识 (Wall Street View)",
+        "ws_mean": "投行平均目标价",
+        "ws_range": "目标价区间",
+        "ws_rating": "投行综合评级",
+        "ws_tag": "投行机构共识",
+        "ws_match": "✅ 模型算出的公道价与华尔街机构预测误差在 15% 以内，估值高度吻合！",
+
         "chart_title": "[8. 📈 高级盘面与波动率回归分析]",
         "beta_desc": "📊 **Beta 收益率特征线散点分布图说明：**\n* 每个点代表过往某一周的收益率联动。红线斜率即为真实 Beta（马股对标 MSCI Malaysia ETF，美股对标 S&P 500）。\n* **$R^2$（拟合优度）补充解析**：点越密集贴近红线，说明该股越受大盘宏观主导（如银行股）；点越分散，说明该股具有极强的个股独立行情（如科技股）。",
         "glossary_title": "[9. 📖 小白通俗金融词典：这些数据代表什么？]",
@@ -179,6 +187,14 @@ TEXTS = {
         "fx_title": "[7. 💱 CROSS-BORDER FX RISK ADVISORY]",
         "fx_content": "- **Note:** USD-denominated asset; monitor USD/MYR exchange rate fluctuations.",
         
+        # Wall Street view module text (English)
+        "ws_title": "🏛️ Wall Street Analyst Consensus (Wall Street View)",
+        "ws_mean": "Analyst Average Target Price",
+        "ws_range": "Target Price Range",
+        "ws_rating": "Consensus Rating",
+        "ws_tag": "Institutional Consensus",
+        "ws_match": "✅ Your Valuation aligns tightly with Wall Street targets (within 15% margin)!",
+
         "chart_title": "[8. Advanced Price Action & Regression Analysis]",
         "beta_desc": "📊 **Beta Scatter Plot Explanation:** Each dot represents past weekly return correlation. The red line slope represents the true Beta (Bursa benchmarks against MSCI Malaysia ETF, US equities against S&P 500).\n* **$R^2$ Analysis**: Tight clustering indicates market-driven systemic risk; higher dispersion reflects strong independent trends.",
         "glossary_title": "[9. Beginner's Financial Glossary]",
@@ -522,12 +538,46 @@ def main():
                         if not engine.is_malaysia:
                             st.markdown(f"**{T['fx_title']}**")
                             st.warning(T['fx_content'])
-                            ws_tgt = engine.info.get('targetMeanPrice')
-                            if ws_tgt:
-                                st.info(f"🏛️ **Wall Street Consensus Target:** **${ws_tgt:.2f}** | Your Model: **${val:.2f}**")
                         else:
                             st.markdown(f"**{T['fx_title']}**")
                             st.warning("- 🇲🇾 本地资产计价 (MYR)，无直接跨境外汇风险暴露。")
+
+                # ==============================================================
+                # ✨ 新增：华尔街专业投行分析师共识 (Wall Street View 三卡片板块)
+                # ==============================================================
+                if not engine.is_malaysia:
+                    target_mean = engine.info.get('targetMeanPrice')
+                    target_high = engine.info.get('targetHighPrice')
+                    target_low = engine.info.get('targetLowPrice')
+                    num_analysts = engine.info.get('numberOfAnalystOpinions', 0)
+                    rec_key = str(engine.info.get('recommendationKey', 'N/A')).upper()
+
+                    if target_mean and num_analysts > 0:
+                        st.markdown(f"<br><h3>{T['ws_title']}</h3>", unsafe_allow_html=True)
+                        ws_col1, ws_col2, ws_col3 = st.columns(3)
+                        
+                        with ws_col1:
+                            with st.container(border=True):
+                                st.markdown(f"<div style='color:#94a3b8; font-size:13px; font-weight:600; text-align:center;'>{T['ws_mean']}</div>", unsafe_allow_html=True)
+                                st.markdown(f"<div style='font-size:30px; font-weight:800; font-family:JetBrains Mono; text-align:center; color:#ffffff; margin: 10px 0;'>${target_mean:.2f}</div>", unsafe_allow_html=True)
+                                st.markdown(f"<div style='color:#38bdf8; font-size:12.5px; text-align:center;'>👥 {num_analysts} {T['ws_mean'].replace('投行平均目标价','位分析师').replace('Analyst Average Target Price','Analysts')}</div>", unsafe_allow_html=True)
+                                
+                        with ws_col2:
+                            with st.container(border=True):
+                                st.markdown(f"<div style='color:#94a3b8; font-size:13px; font-weight:600; text-align:center;'>{T['ws_range']}</div>", unsafe_allow_html=True)
+                                low_str = f"${target_low:.2f}" if target_low else "N/A"
+                                high_str = f"${target_high:.2f}" if target_high else "N/A"
+                                st.markdown(f"<div style='font-size:24px; font-weight:800; font-family:JetBrains Mono; text-align:center; color:#ffffff; margin: 12px 0;'>{low_str} ~ {high_str}</div>", unsafe_allow_html=True)
+                                st.markdown(f"<div style='color:#cbd5e1; font-size:12px; text-align:center;'>最低 {low_str} | 最高 {high_str}</div>", unsafe_allow_html=True)
+
+                        with ws_col3:
+                            with st.container(border=True):
+                                st.markdown(f"<div style='color:#94a3b8; font-size:13px; font-weight:600; text-align:center;'>{T['ws_rating']}</div>", unsafe_allow_html=True)
+                                st.markdown(f"<div style='font-size:28px; font-weight:800; font-family:JetBrains Mono; text-align:center; color:#38bdf8; margin: 10px 0;'>{rec_key}</div>", unsafe_allow_html=True)
+                                st.markdown(f"<div style='color:#4ade80; font-size:12px; text-align:center;'>🏛️ {T['ws_tag']}</div>", unsafe_allow_html=True)
+
+                        if val > 0 and abs((val - target_mean) / target_mean) <= 0.15:
+                            st.success(T['ws_match'], icon="✅")
 
             # [8. 高级盘面与波动率回归分析]
             st.markdown(f"### {T['chart_title']}")
