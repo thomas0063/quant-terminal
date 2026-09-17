@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 # ==============================================================================
 # 1. 页面基本配置
 # ==============================================================================
-st.set_page_config(page_title="Universal Quant Terminal V10", page_icon="💎", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Universal Quant Terminal V10.1", page_icon="💎", layout="wide", initial_sidebar_state="collapsed")
 
 @st.cache_resource
 def get_yf_session():
@@ -20,7 +20,7 @@ def get_yf_session():
     return session
 
 # ==============================================================================
-# 2. 独家高级 CSS 视觉引擎 (Obsidian Glassmorphism)
+# 2. 独家高级 CSS 视觉引擎 (Obsidian Glassmorphism - 已修复按钮盲区与文字亮度)
 # ==============================================================================
 PREMIUM_CSS = """
 <style>
@@ -51,6 +51,35 @@ PREMIUM_CSS = """
     border: 1px solid rgba(56, 189, 248, 0.3) !important;
     box-shadow: 0 8px 32px 0 rgba(56, 189, 248, 0.1) !important;
     transform: translateY(-2px);
+}
+
+/* 🛠️ 修复：按钮专属暗黑极客样式 (解决白块盲区) */
+.stButton > button {
+    background: rgba(30, 41, 59, 0.7) !important;
+    color: #38bdf8 !important; /* 电光蓝文字 */
+    border: 1px solid rgba(56, 189, 248, 0.3) !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    transition: all 0.3s ease !important;
+}
+.stButton > button:hover {
+    background: rgba(56, 189, 248, 0.15) !important;
+    color: #ffffff !important;
+    border-color: #38bdf8 !important;
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.4) !important;
+    transform: translateY(-2px);
+}
+.stButton > button:active {
+    transform: translateY(0);
+}
+
+/* 🛠️ 修复：普通小字与输入框标签的亮度 */
+label {
+    color: #cbd5e1 !important;
+    font-weight: 500 !important;
+}
+p {
+    color: #e2e8f0 !important;
 }
 
 /* 标题与文字发光优化 */
@@ -100,7 +129,7 @@ div[data-baseweb="input"] > div, div[data-baseweb="select"] > div {
 st.markdown(PREMIUM_CSS, unsafe_allow_html=True)
 
 # ==============================================================================
-# 3. 国际化多语言字典 (100% 完整保留原有所有解释)
+# 3. 国际化多语言字典 (100% 完整保留)
 # ==============================================================================
 TEXTS = {
     "zh": {
