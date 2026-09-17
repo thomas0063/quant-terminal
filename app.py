@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 # ==============================================================================
 # 1. 页面基本配置
 # ==============================================================================
-st.set_page_config(page_title="Universal Quant Terminal V12.1", page_icon="💎", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Universal Quant Terminal V13", page_icon="💎", layout="wide", initial_sidebar_state="collapsed")
 
 @st.cache_resource
 def get_yf_session():
@@ -20,7 +20,7 @@ def get_yf_session():
     return session
 
 # ==============================================================================
-# 2. 独家高级 CSS 视觉引擎 (高对比度 Bento 框体强制显形)
+# 2. 独家高级 CSS 视觉引擎 (复刻朋友同款：暗黑毛玻璃 + 渐变红粉发光边框)
 # ==============================================================================
 PREMIUM_CSS = """
 <style>
@@ -28,21 +28,23 @@ PREMIUM_CSS = """
 
 /* 全局深空背景 */
 .stApp {
-    background: radial-gradient(circle at 50% 0%, #0d1527 0%, #060913 60%, #020408 100%) !important;
+    background: radial-gradient(circle at 50% 0%, #131c31 0%, #080c14 60%, #030508 100%) !important;
     font-family: 'Inter', -apple-system, sans-serif !important;
     color: #f8fafc !important;
 }
 .block-container { padding-top: 2rem !important; max-width: 1280px !important; }
 
-/* 🌟 Bento Box 核心：高对比度实色卡片与清晰边框，绝不透明混淆 */
+/* 🌟 核心升级：复刻你朋友同款的精致便当盒卡片 (毛玻璃 + 渐变红粉发光边框) */
 [data-testid="column"] > div {
     height: 100% !important;
 }
 [data-testid="stVerticalBlockBorderWrapper"] {
-    background: #111c31 !important;
-    border: 1.5px solid rgba(56, 189, 248, 0.25) !important;
-    border-radius: 14px !important;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6) !important;
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.85) 0%, rgba(15, 23, 42, 0.95) 100%) !important;
+    border: 1.5px solid rgba(244, 63, 94, 0.4) !important; /* 醒目的红粉渐变发光边框 */
+    border-radius: 16px !important;
+    box-shadow: 0 8px 32px 0 rgba(244, 63, 94, 0.15) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
     transition: all 0.3s ease !important;
     padding: 16px 20px !important;
     height: 100% !important;
@@ -51,36 +53,37 @@ PREMIUM_CSS = """
     justify-content: space-between;
 }
 [data-testid="stVerticalBlockBorderWrapper"]:hover {
-    border: 1.5px solid rgba(56, 189, 248, 0.6) !important;
-    box-shadow: 0 12px 32px rgba(56, 189, 248, 0.2) !important;
+    border: 1.5px solid rgba(244, 63, 94, 0.8) !important;
+    box-shadow: 0 12px 36px 0 rgba(244, 63, 94, 0.35) !important;
     transform: translateY(-2px);
 }
 
 /* 按钮专属暗黑极客样式 */
 .stButton > button {
     background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important;
-    color: #38bdf8 !important;
-    border: 1px solid rgba(56, 189, 248, 0.4) !important;
+    color: #f43f5e !important;
+    border: 1px solid rgba(244, 63, 94, 0.4) !important;
     border-radius: 8px !important;
     font-weight: 600 !important;
     transition: all 0.22s ease !important;
 }
 .stButton > button:hover {
-    border-color: #38bdf8 !important;
+    background: rgba(244, 63, 94, 0.15) !important;
+    border-color: #f43f5e !important;
     color: #ffffff !important;
-    box-shadow: 0 6px 18px rgba(56, 189, 248, 0.3) !important;
+    box-shadow: 0 6px 18px rgba(244, 63, 94, 0.3) !important;
     transform: translateY(-2px);
 }
 
 label { color: #cbd5e1 !important; font-weight: 500 !important; }
 p { color: #e2e8f0 !important; }
 h1, h2, h3, h4, h5 { font-family: 'Inter', sans-serif !important; font-weight: 700 !important; color: #ffffff !important; }
-h3 { color: #38bdf8 !important; text-shadow: 0 0 15px rgba(56, 189, 248, 0.2); margin-top: 10px !important; margin-bottom: 15px !important; }
+h3 { color: #f43f5e !important; text-shadow: 0 0 15px rgba(244, 63, 94, 0.3); margin-top: 10px !important; margin-bottom: 15px !important; }
 
 /* 指标与输入框美化 */
 [data-testid="stMetricValue"] { font-family: 'JetBrains Mono', monospace !important; font-weight: 800 !important; font-size: 1.8rem !important; color: #ffffff !important; }
 [data-testid="stMetricLabel"] { font-weight: 600 !important; color: #94a3b8 !important; font-size: 0.85rem !important; text-transform: uppercase; }
-div[data-baseweb="input"] > div, div[data-baseweb="select"] > div { background-color: #0f172a !important; border: 1px solid rgba(255, 255, 255, 0.2) !important; border-radius: 8px !important; color: #ffffff !important; }
+div[data-baseweb="input"] > div, div[data-baseweb="select"] > div { background-color: #0f172a !important; border: 1px solid rgba(244, 63, 94, 0.3) !important; border-radius: 8px !important; color: #ffffff !important; }
 </style>
 """
 st.markdown(PREMIUM_CSS, unsafe_allow_html=True)
@@ -342,7 +345,7 @@ def draw_beta_scatter(engine):
     return fig
 
 # ==============================================================================
-# 6. UI 渲染与排版构建 (高对比度 Bento Box)
+# 6. UI 渲染与排版构建 (复刻红粉发光边框 Bento Box)
 # ==============================================================================
 def main():
     c1, c2 = st.columns([3, 1])
@@ -353,7 +356,7 @@ def main():
 
     with c1:
         st.markdown(f"<h1 style='font-size: 2.2rem; margin-bottom: 0;'>{T['title']}</h1>", unsafe_allow_html=True)
-        st.markdown(f"<p style='color: #0ea5e9; font-weight: 600; font-size: 14px; margin-top: -5px;'>{T['subtitle']}</p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='color: #f43f5e; font-weight: 600; font-size: 14px; margin-top: -5px;'>{T['subtitle']}</p>", unsafe_allow_html=True)
     st.write("---")
 
     with st.container(border=True):
@@ -385,7 +388,7 @@ def main():
 
             st.markdown(f"<h3 style='margin-top: 25px;'>🏢 {engine.name} ({engine.ticker}) <span style='font-size:14px; color:#94a3b8;'>| Sector: {engine.sector}</span></h3>", unsafe_allow_html=True)
 
-            # --- Row 1: Macro & Engine (并排独立卡片) ---
+            # --- Row 1: Macro & Engine ---
             col_m1, col_m2 = st.columns(2)
             with col_m1:
                 with st.container(border=True):
@@ -406,7 +409,7 @@ def main():
 
             st.write("---")
             
-            # --- Row 2: 核心估值三剑客 (每个指标放入独立的 Bento Card) ---
+            # --- Row 2: 三剑客卡片 ---
             p1_col, p2_col, p3_col = st.columns(3)
             with p1_col:
                 with st.container(border=True):
@@ -424,7 +427,7 @@ def main():
             if val > 0 and engine.price > 0:
                 price_to_val = engine.price / val
 
-                # --- Row 3: Lie Detector & Rating (并排独立卡片) ---
+                # --- Row 3: 测谎仪与评级 ---
                 col_lie, col_rating = st.columns(2)
                 with col_lie:
                     with st.container(border=True):
@@ -437,7 +440,7 @@ def main():
                         else:
                             diag, d_color = "Data Unavailable", "#94a3b8"
 
-                        st.markdown(f"Market Implied Growth Rate: <b style='color:#0ea5e9; font-size:22px;'>{implied_g_str}</b>", unsafe_allow_html=True)
+                        st.markdown(f"Market Implied Growth Rate: <b style='color:#f43f5e; font-size:22px;'>{implied_g_str}</b>", unsafe_allow_html=True)
                         st.markdown(f"Diagnosis: <b style='color:{d_color};'>{diag}</b>", unsafe_allow_html=True)
                         st.caption(T['lie_exp'])
 
@@ -459,7 +462,7 @@ def main():
                         st.markdown(f"**Justification:** {reason}")
                         st.caption(T['rating_explain'])
 
-                # --- Row 4: Translate & FX (并排独立卡片) ---
+                # --- Row 4: 翻译器与汇率 ---
                 col_6, col_7 = st.columns(2)
                 with col_6:
                     with st.container(border=True):
@@ -476,7 +479,7 @@ def main():
                         else:
                             st.write(T['my_fx_content'])
 
-                # --- Row 5: 华尔街共识 (独立卡片矩阵) ---
+                # --- Row 5: 华尔街共识 (美股专属) ---
                 if not engine.is_malaysia:
                     target_mean = engine.info.get('targetMeanPrice')
                     target_high = engine.info.get('targetHighPrice')
@@ -492,7 +495,7 @@ def main():
                             with st.container(border=True):
                                 st.markdown(f"<div style='color:#94a3b8; font-size:13px; font-weight:600;'>{T['ws_mean']}</div>", unsafe_allow_html=True)
                                 st.markdown(f"<div style='font-size:24px; font-weight:800; font-family:JetBrains Mono;'>${target_mean:.2f}</div>", unsafe_allow_html=True)
-                                st.markdown(f"<div style='color:#38bdf8; font-size:12px;'>👥 {num_analysts} Analysts</div>", unsafe_allow_html=True)
+                                st.markdown(f"<div style='color:#f43f5e; font-size:12px;'>👥 {num_analysts} Analysts</div>", unsafe_allow_html=True)
                                 
                         with ws_col2:
                             with st.container(border=True):
@@ -509,7 +512,7 @@ def main():
                         if val > 0 and abs((val - target_mean) / target_mean) <= 0.15:
                             st.success(T['ws_match'], icon="✅")
 
-            # --- Row 6: Charts (图表自带清晰 Bento 卡片) ---
+            # --- Row 6: 图表 ---
             st.markdown(f"<br><h3>{T['chart_title']}</h3>", unsafe_allow_html=True)
             c_chart1, c_chart2 = st.columns([1.5, 1])
             with c_chart1:
@@ -520,7 +523,7 @@ def main():
                     st.plotly_chart(draw_beta_scatter(engine), use_container_width=True)
                     st.caption(T['beta_desc'])
 
-            # --- Row 7: Glossary (4个并排高对比度等高卡片) ---
+            # --- Row 7: 词典 ---
             st.markdown(f"<br><h3>{T['glossary_title']}</h3>", unsafe_allow_html=True)
             g1, g2, g3, g4 = st.columns(4)
             with g1:
