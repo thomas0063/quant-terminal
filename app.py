@@ -742,13 +742,21 @@ def main():
                         st.markdown(T['g_fv_title'])
                         st.caption(T['g_fv_desc'])
 
-    # [模块 10：免责声明]
+    # [模块 10：免责声明与版权信息]
     st.markdown("---")
     with st.container(border=True):
         st.markdown(f"### {T['disclaimer_title']}")
         st.markdown(T['disclaimer_1'])
         st.markdown(T['disclaimer_2'])
         st.markdown(T['disclaimer_3'])
+        st.markdown("")
+        # 🌟 加入带 Thomas 署名的版权声明
+        st.markdown(
+            "<div style='text-align: center; color: #94a3b8; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 10px;'>"
+            "© 2026 Thomas. All rights reserved. | Developed for Academic & Quantitative Research."
+            "</div>", 
+            unsafe_allow_html=True
+        )
 
 if __name__ == '__main__':
     main()
