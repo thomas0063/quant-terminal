@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 # ==============================================================================
 # 1. 页面基本配置
 # ==============================================================================
-st.set_page_config(page_title="Universal Quant Terminal V16", page_icon="💎", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Universal Quant Terminal V17", page_icon="💎", layout="wide", initial_sidebar_state="collapsed")
 
 @st.cache_resource
 def get_yf_session():
@@ -20,7 +20,7 @@ def get_yf_session():
     return session
 
 # ==============================================================================
-# 2. 独家高级 CSS 视觉引擎 (暴力重写所有边框，实现爆款霓虹便当盒效果)
+# 2. 绝对统治级 CSS 视觉引擎 (强制接管所有便当盒边框，绝不失效)
 # ==============================================================================
 PREMIUM_CSS = """
 <style>
@@ -34,19 +34,19 @@ PREMIUM_CSS = """
 }
 .block-container { padding-top: 2rem !important; max-width: 1280px !important; }
 
-/* 🌟 核心杀手锏：暴力接管 Streamlit 所有自带容器边框，强制变成厚重、发光的霓虹粉红框！ */
+/* 🌟 核心：强制所有 st.container(border=True) 变成极粗、高对比度、带强烈外发光的便当盒 */
 div[data-testid="stVerticalBlockBorderWrapper"] {
-    background-color: #0d1526 !important; /* 高对比度深蓝实底 */
-    border: 3px solid #ff2a6d !important; /* 3像素极粗霓虹粉红边框，绝对清晰可见 */
+    background-color: #0b132b !important; /* 高对比度深蓝实底，告别融为一体 */
+    border: 3px solid #ff2a6d !important; /* 3像素极粗霓虹粉红边框，绝对一眼可见 */
     border-radius: 16px !important;
-    box-shadow: 0 0 25px rgba(255, 42, 109, 0.5) !important; /* 强烈的外发光特效 */
+    box-shadow: 0 0 30px rgba(255, 42, 109, 0.6) !important; /* 强烈的外发光特效 */
     transition: all 0.3s ease !important;
-    padding: 20px 24px !important;
-    margin-bottom: 12px !important;
+    padding: 22px 26px !important;
+    margin-bottom: 16px !important;
 }
 div[data-testid="stVerticalBlockBorderWrapper"]:hover {
     border: 3px solid #ff5e92 !important;
-    box-shadow: 0 0 35px rgba(255, 42, 109, 0.8) !important;
+    box-shadow: 0 0 40px rgba(255, 42, 109, 0.9) !important;
     transform: translateY(-2px);
 }
 
@@ -109,8 +109,8 @@ TEXTS = {
         
         "plain_title": "5. 🗣️ 小白通俗翻译器",
         "fx_title": "6. 💱 跨境汇率风险提示",
-        "fx_content": "提示：此乃美元计价资产，请注意 USD/MYR 汇率风险。",
-        "my_fx_content": "提示：本地资产计价 (MYR)，无直接跨境外汇风险暴露。",
+        "fx_content": "提示: 此乃美元计价资产，请注意 USD/MYR 汇率风险。",
+        "my_fx_content": "提示: 本地资产计价 (MYR)，无直接跨境外汇风险暴露。",
 
         "ws_title": "7. 🏛️ 华尔街投行分析师共识",
         "ws_mean": "投行平均目标价",
