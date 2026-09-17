@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 # ==============================================================================
 # 1. 页面基本配置
 # ==============================================================================
-st.set_page_config(page_title="Universal Quant Terminal V13", page_icon="💎", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Universal Quant Terminal V14", page_icon="💎", layout="wide", initial_sidebar_state="collapsed")
 
 @st.cache_resource
 def get_yf_session():
@@ -20,7 +20,7 @@ def get_yf_session():
     return session
 
 # ==============================================================================
-# 2. 独家高级 CSS 视觉引擎 (复刻朋友同款：暗黑毛玻璃 + 渐变红粉发光边框)
+# 2. 独家高级 CSS 视觉引擎 (强制加粗、高对比度的红粉发光边框)
 # ==============================================================================
 PREMIUM_CSS = """
 <style>
@@ -28,50 +28,47 @@ PREMIUM_CSS = """
 
 /* 全局深空背景 */
 .stApp {
-    background: radial-gradient(circle at 50% 0%, #131c31 0%, #080c14 60%, #030508 100%) !important;
+    background: #030712 !important;
     font-family: 'Inter', -apple-system, sans-serif !important;
     color: #f8fafc !important;
 }
 .block-container { padding-top: 2rem !important; max-width: 1280px !important; }
 
-/* 🌟 核心升级：复刻你朋友同款的精致便当盒卡片 (毛玻璃 + 渐变红粉发光边框) */
+/* 🌟 核心杀手锏：强制所有 st.container(border=True) 变成极其明显、带红粉发光的独立“便当盒” */
 [data-testid="column"] > div {
     height: 100% !important;
 }
 [data-testid="stVerticalBlockBorderWrapper"] {
-    background: linear-gradient(135deg, rgba(30, 41, 59, 0.85) 0%, rgba(15, 23, 42, 0.95) 100%) !important;
-    border: 1.5px solid rgba(244, 63, 94, 0.4) !important; /* 醒目的红粉渐变发光边框 */
+    background: #0d1526 !important; /* 高对比度深蓝实底 */
+    border: 2px solid #f43f5e !important; /* 粗且明显的红粉色边框 */
     border-radius: 16px !important;
-    box-shadow: 0 8px 32px 0 rgba(244, 63, 94, 0.15) !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
+    box-shadow: 0 0 20px rgba(244, 63, 94, 0.25) !important; /* 漂亮的红粉色外发光 */
     transition: all 0.3s ease !important;
-    padding: 16px 20px !important;
+    padding: 18px 22px !important;
     height: 100% !important;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
 }
 [data-testid="stVerticalBlockBorderWrapper"]:hover {
-    border: 1.5px solid rgba(244, 63, 94, 0.8) !important;
-    box-shadow: 0 12px 36px 0 rgba(244, 63, 94, 0.35) !important;
+    border: 2px solid #fb7185 !important;
+    box-shadow: 0 0 30px rgba(244, 63, 94, 0.45) !important;
     transform: translateY(-2px);
 }
 
 /* 按钮专属暗黑极客样式 */
 .stButton > button {
-    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important;
+    background: #0f172a !important;
     color: #f43f5e !important;
-    border: 1px solid rgba(244, 63, 94, 0.4) !important;
+    border: 1.5px solid #f43f5e !important;
     border-radius: 8px !important;
     font-weight: 600 !important;
     transition: all 0.22s ease !important;
 }
 .stButton > button:hover {
-    background: rgba(244, 63, 94, 0.15) !important;
-    border-color: #f43f5e !important;
+    background: rgba(244, 63, 94, 0.2) !important;
     color: #ffffff !important;
-    box-shadow: 0 6px 18px rgba(244, 63, 94, 0.3) !important;
+    box-shadow: 0 0 15px rgba(244, 63, 94, 0.4) !important;
     transform: translateY(-2px);
 }
 
@@ -83,7 +80,7 @@ h3 { color: #f43f5e !important; text-shadow: 0 0 15px rgba(244, 63, 94, 0.3); ma
 /* 指标与输入框美化 */
 [data-testid="stMetricValue"] { font-family: 'JetBrains Mono', monospace !important; font-weight: 800 !important; font-size: 1.8rem !important; color: #ffffff !important; }
 [data-testid="stMetricLabel"] { font-weight: 600 !important; color: #94a3b8 !important; font-size: 0.85rem !important; text-transform: uppercase; }
-div[data-baseweb="input"] > div, div[data-baseweb="select"] > div { background-color: #0f172a !important; border: 1px solid rgba(244, 63, 94, 0.3) !important; border-radius: 8px !important; color: #ffffff !important; }
+div[data-baseweb="input"] > div, div[data-baseweb="select"] > div { background-color: #0f172a !important; border: 1.5px solid #f43f5e !important; border-radius: 8px !important; color: #ffffff !important; }
 </style>
 """
 st.markdown(PREMIUM_CSS, unsafe_allow_html=True)
@@ -345,7 +342,7 @@ def draw_beta_scatter(engine):
     return fig
 
 # ==============================================================================
-# 6. UI 渲染与排版构建 (复刻红粉发光边框 Bento Box)
+# 6. UI 渲染与排版构建
 # ==============================================================================
 def main():
     c1, c2 = st.columns([3, 1])
