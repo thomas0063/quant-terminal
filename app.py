@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 # ==============================================================================
 # 1. 页面基本配置
 # ==============================================================================
-st.set_page_config(page_title="Universal Quant Terminal V11", page_icon="💎", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Universal Quant Terminal V12", page_icon="💎", layout="wide", initial_sidebar_state="collapsed")
 
 @st.cache_resource
 def get_yf_session():
@@ -20,7 +20,7 @@ def get_yf_session():
     return session
 
 # ==============================================================================
-# 2. 独家高级 CSS 视觉引擎 (已注入 Flexbox 等高对齐魔法)
+# 2. 独家高级 CSS 视觉引擎 (Bento Box 绝对整齐化强制注入)
 # ==============================================================================
 PREMIUM_CSS = """
 <style>
@@ -28,68 +28,67 @@ PREMIUM_CSS = """
 
 /* 全局深空背景 */
 .stApp {
-    background: radial-gradient(circle at 50% 0%, #111827 0%, #030712 60%, #000000 100%) !important;
+    background: radial-gradient(circle at 50% 0%, #131c31 0%, #0b0f19 60%, #060911 100%) !important;
     font-family: 'Inter', -apple-system, sans-serif !important;
     color: #f8fafc !important;
 }
 .block-container { padding-top: 2rem !important; max-width: 1280px !important; }
 
-/* 🌟 核心修复：强制所有列内元素等高 (Bento Box 效果) */
+/* 🌟 Bento Box 核心：强制所有列内容器等高、有边界、带呼吸感 */
 [data-testid="column"] > div {
     height: 100% !important;
 }
 [data-testid="stVerticalBlockBorderWrapper"] {
-    background: rgba(17, 24, 39, 0.4) !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
-    border-radius: 16px !important;
-    box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.5) !important;
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.75) 0%, rgba(15, 23, 42, 0.9) 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 14px !important;
+    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.4) !important;
     backdrop-filter: blur(12px) !important;
     -webkit-backdrop-filter: blur(12px) !important;
     transition: all 0.3s ease !important;
-    padding: 12px 16px !important;
-    height: 100% !important; /* 强制填满列高 */
+    padding: 16px 20px !important;
+    height: 100% !important;
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: space-between;
 }
 [data-testid="stVerticalBlockBorderWrapper"]:hover {
-    border: 1px solid rgba(56, 189, 248, 0.3) !important;
-    box-shadow: 0 8px 32px 0 rgba(56, 189, 248, 0.1) !important;
+    border: 1px solid rgba(56, 189, 248, 0.35) !important;
+    box-shadow: 0 12px 32px 0 rgba(56, 189, 248, 0.15) !important;
     transform: translateY(-2px);
 }
 
 /* 按钮专属暗黑极客样式 */
 .stButton > button {
-    background: rgba(30, 41, 59, 0.7) !important;
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important;
     color: #38bdf8 !important;
     border: 1px solid rgba(56, 189, 248, 0.3) !important;
     border-radius: 8px !important;
     font-weight: 600 !important;
-    transition: all 0.3s ease !important;
+    transition: all 0.22s ease !important;
 }
 .stButton > button:hover {
-    background: rgba(56, 189, 248, 0.15) !important;
-    color: #ffffff !important;
     border-color: #38bdf8 !important;
-    box-shadow: 0 0 12px rgba(56, 189, 248, 0.4) !important;
+    color: #ffffff !important;
+    box-shadow: 0 6px 18px -2px rgba(56, 189, 248, 0.3) !important;
+    transform: translateY(-2px);
 }
 
 label { color: #cbd5e1 !important; font-weight: 500 !important; }
 p { color: #e2e8f0 !important; }
 h1, h2, h3, h4, h5 { font-family: 'Inter', sans-serif !important; font-weight: 700 !important; color: #ffffff !important; }
-h3 { color: #38bdf8 !important; text-shadow: 0 0 15px rgba(56, 189, 248, 0.2); margin-bottom: 15px !important; }
+h3 { color: #38bdf8 !important; text-shadow: 0 0 15px rgba(56, 189, 248, 0.2); margin-top: 10px !important; margin-bottom: 15px !important; }
 
-/* 指标字体 */
-[data-testid="stMetricValue"] { font-family: 'JetBrains Mono', monospace !important; font-weight: 800 !important; font-size: 1.8rem !important; color: #f8fafc !important; }
-[data-testid="stMetricLabel"] { font-weight: 600 !important; color: #94a3b8 !important; font-size: 0.85rem !important; }
-div[data-baseweb="input"] > div, div[data-baseweb="select"] > div { background-color: #0f172a !important; border: 1px solid rgba(255, 255, 255, 0.1) !important; border-radius: 8px !important; color: #ffffff !important; }
-[data-testid="stAlert"] { border-radius: 12px !important; border: 1px solid rgba(255, 255, 255, 0.1) !important; background: rgba(15, 23, 42, 0.5) !important; backdrop-filter: blur(8px) !important; }
+/* 指标与输入框美化 */
+[data-testid="stMetricValue"] { font-family: 'JetBrains Mono', monospace !important; font-weight: 800 !important; font-size: 1.8rem !important; color: #ffffff !important; }
+[data-testid="stMetricLabel"] { font-weight: 600 !important; color: #94a3b8 !important; font-size: 0.85rem !important; text-transform: uppercase; }
+div[data-baseweb="input"] > div, div[data-baseweb="select"] > div { background-color: #0f172a !important; border: 1px solid rgba(255, 255, 255, 0.12) !important; border-radius: 8px !important; color: #ffffff !important; }
 </style>
 """
 st.markdown(PREMIUM_CSS, unsafe_allow_html=True)
 
 # ==============================================================================
-# 3. 国际化多语言字典 (包含新增的华尔街模块)
+# 3. 国际化多语言字典
 # ==============================================================================
 TEXTS = {
     "zh": {
@@ -104,23 +103,23 @@ TEXTS = {
         "esg_caption": "🌿 本系统已自动结合 ESG 行业风险溢价进行折现率修正。",
         
         "macro_title": "1. 🌐 动态宏观与资本成本",
-        "macro_exp": "💡 **通俗解释：** Beta 衡量波动率。WACC 是要求的最低及格线回报率。",
+        "macro_exp": "💡 Beta 衡量波动率。WACC 是要求的最低及格线回报率。",
         "engine_title": "2. ⚙️ 智能自适应估值引擎",
-        "engine_exp": "💡 **通俗解释：** 自动选择 DCF 或 DDM。g1 是前期高增长，g2 是永续增长。",
+        "engine_exp": "💡 自动选择 DCF 或 DDM。g1 是前期高增长，g2 是永续增长。",
         "price": "当前市场价格",
-        "wacc": "WACC / 折现率",
         "fair_val": "内在公道估值",
         "safe_buy": "20% 安全边际买点",
         
         "lie_title": "3. 💡 市场情绪测谎仪",
         "lie_exp": "💡 反向推导当前市场价格到底在幻想这家公司未来每年增长多少。",
         "exec_title": "4. 🎯 最终投资评级",
-        "rating_explain": "ℹ️ *学术释疑：‘情绪理性’代表未盲目炒作，但‘SELL’是因为当前市价高于内在公道价。好公司 ≠ 好价格。*",
+        "rating_explain": "ℹ️ *学术释疑：‘情绪理性’代表未盲目炒作，但‘SELL’是因为当前市价高于内在公道价。*",
         
         "plain_title": "5. 🗣️ 小白通俗翻译器",
         "fx_title": "6. 💱 跨境汇率风险提示",
-        "fx_content": "- **提示：** 此乃美元计价资产，请注意 USD/MYR 汇率风险。",
-        
+        "fx_content": "提示：此乃美元计价资产，请注意 USD/MYR 汇率风险。",
+        "my_fx_content": "提示：本地资产计价 (MYR)，无直接跨境外汇风险暴露。",
+
         "ws_title": "7. 🏛️ 华尔街投行分析师共识",
         "ws_mean": "投行平均目标价",
         "ws_range": "目标预测区间 (Low-High)",
@@ -128,7 +127,7 @@ TEXTS = {
         "ws_match": "✅ 模型算出的公道价与华尔街机构预测误差在 15% 以内，估值高度吻合！",
 
         "chart_title": "8. 📈 高级盘面与波动率回归分析",
-        "beta_desc": "📊 **Beta 收益率特征线：** 红线斜率即为真实 Beta。R² 越小代表个股独立行情越强。",
+        "beta_desc": "📊 红线斜率即为真实 Beta。R² 越小代表个股独立行情越强。",
         "glossary_title": "9. 📖 小白通俗金融词典",
         "g_beta_title": "🎯 Beta (波动敏感度)",
         "g_beta_desc": ">1 弹性高，涨跌猛；<1 抗跌属性强。",
@@ -157,7 +156,6 @@ TEXTS = {
         "engine_title": "2. ⚙️ ADAPTIVE VALUATION ENGINE",
         "engine_exp": "💡 Automatically selects DCF or DDM based on sector.",
         "price": "Market Price",
-        "wacc": "WACC / Discount",
         "fair_val": "Intrinsic Fair Value",
         "safe_buy": "Safe Buy Target",
         
@@ -168,8 +166,9 @@ TEXTS = {
         
         "plain_title": "5. 🗣️ PLAIN ENGLISH TRANSLATOR",
         "fx_title": "6. 💱 CROSS-BORDER FX RISK",
-        "fx_content": "- **Note:** USD asset; monitor USD/MYR fluctuations.",
-        
+        "fx_content": "Note: USD asset; monitor USD/MYR fluctuations.",
+        "my_fx_content": "Note: Local MYR asset; no direct foreign exchange exposure.",
+
         "ws_title": "7. 🏛️ WALL STREET CONSENSUS",
         "ws_mean": "Analyst Avg Target",
         "ws_range": "Target Range (Low-High)",
@@ -177,7 +176,7 @@ TEXTS = {
         "ws_match": "✅ Your Valuation aligns tightly with Wall Street targets (within 15% margin)!",
 
         "chart_title": "8. 📈 PRICE ACTION & REGRESSION",
-        "beta_desc": "📊 Slope = Beta. High dispersion (Low R²) means independent trends.",
+        "beta_desc": "📊 Slope = Beta. High dispersion means independent trends.",
         "glossary_title": "9. 📖 BEGINNER'S GLOSSARY",
         "g_beta_title": "🎯 Beta",
         "g_beta_desc": ">1 aggressive, <1 defensive.",
@@ -193,7 +192,7 @@ TEXTS = {
 }
 
 # ==============================================================================
-# 4. 金融引擎逻辑 (100% 完整保留)
+# 4. 金融引擎逻辑
 # ==============================================================================
 def get_fin_metric(df, keyword, default=0.0):
     if df is None or df.empty: return default
@@ -345,7 +344,7 @@ def draw_beta_scatter(engine):
     return fig
 
 # ==============================================================================
-# 6. UI 渲染与排版构建 (Bento Box + 等高列排版)
+# 6. UI 渲染与排版构建 (全模块 Bento Card 覆盖)
 # ==============================================================================
 def main():
     c1, c2 = st.columns([3, 1])
@@ -388,7 +387,7 @@ def main():
 
             st.markdown(f"<h3 style='margin-top: 25px;'>🏢 {engine.name} ({engine.ticker}) <span style='font-size:14px; color:#94a3b8;'>| Sector: {engine.sector}</span></h3>", unsafe_allow_html=True)
 
-            # --- Row 1: Macro & Engine (并排等高) ---
+            # --- Row 1: Macro & Engine (并排等高卡片) ---
             col_m1, col_m2 = st.columns(2)
             with col_m1:
                 with st.container(border=True):
@@ -408,17 +407,27 @@ def main():
                     st.caption(T['engine_exp'])
 
             st.write("---")
-            p1, p2, p3 = st.columns(3)
-            p1.metric(T['price'], f"{engine.price:.2f}")
-            p2.metric(T['fair_val'], f"{val:.2f}")
-            p3.metric(T['safe_buy'], f"{(val * 0.8):.2f}")
+            
+            # --- Row 2: 核心估值三剑客 (每个指标放入独立的 Bento Card，绝对整齐) ---
+            p1_col, p2_col, p3_col = st.columns(3)
+            with p1_col:
+                with st.container(border=True):
+                    st.metric(T['price'], f"{engine.price:.2f}")
+                    st.caption("实时市场盘口基准价")
+            with p2_col:
+                with st.container(border=True):
+                    st.metric(T['fair_val'], f"{val:.2f}")
+                    st.caption("AI 核心量化内在公道价")
+            with p3_col:
+                with st.container(border=True):
+                    st.metric(T['safe_buy'], f"{(val * 0.8):.2f}")
+                    st.caption("含 20% 安全边际防守买点")
 
             if val > 0 and engine.price > 0:
                 price_to_val = engine.price / val
 
-                # --- Row 2: Lie Detector & Rating (并排等高) ---
+                # --- Row 3: Lie Detector & Rating (并排等高卡片) ---
                 col_lie, col_rating = st.columns(2)
-                
                 with col_lie:
                     with st.container(border=True):
                         st.markdown(f"**{T['lie_title']}**")
@@ -430,7 +439,7 @@ def main():
                         else:
                             diag, d_color = "Data Unavailable", "#94a3b8"
 
-                        st.markdown(f"Market Implied Growth Rate: <b style='color:#0ea5e9; font-size:24px;'>{implied_g_str}</b>", unsafe_allow_html=True)
+                        st.markdown(f"Market Implied Growth Rate: <b style='color:#0ea5e9; font-size:22px;'>{implied_g_str}</b>", unsafe_allow_html=True)
                         st.markdown(f"Diagnosis: <b style='color:{d_color};'>{diag}</b>", unsafe_allow_html=True)
                         st.caption(T['lie_exp'])
 
@@ -448,11 +457,11 @@ def main():
                         else:
                             rating, reason, r_col = '🔴 STRONG SELL', 'Severe bubble risk. Priced for perfection.', "#ef4444"
                             
-                        st.markdown(f"Rating: <span style='color:{r_col}; font-size:22px; font-weight:800;'>{rating}</span>", unsafe_allow_html=True)
+                        st.markdown(f"Rating: <span style='color:{r_col}; font-size:20px; font-weight:800;'>{rating}</span>", unsafe_allow_html=True)
                         st.markdown(f"**Justification:** {reason}")
                         st.caption(T['rating_explain'])
 
-                # --- Row 3: Translate & FX (并排等高) ---
+                # --- Row 4: Translate & FX (并排等高卡片) ---
                 col_6, col_7 = st.columns(2)
                 with col_6:
                     with st.container(border=True):
@@ -462,16 +471,14 @@ def main():
                             st.write(f"- Market Sentiment: {implied_g * 100:.2f}%")
                 
                 with col_7:
-                    if not engine.is_malaysia:
-                        with st.container(border=True):
-                            st.markdown(f"**{T['fx_title']}**")
+                    with st.container(border=True):
+                        st.markdown(f"**{T['fx_title']}**")
+                        if not engine.is_malaysia:
                             st.write(T['fx_content'])
-                    else:
-                        with st.container(border=True):
-                            st.markdown(f"**{T['fx_title']}**")
-                            st.write("- 🇲🇾 本地资产计价 (MYR)，无直接跨境外汇风险暴露。")
+                        else:
+                            st.write(T['my_fx_content'])
 
-                # --- Row 4: 华尔街共识 (仅限美股) ---
+                # --- Row 5: 华尔街共识 (独立卡片矩阵) ---
                 if not engine.is_malaysia:
                     target_mean = engine.info.get('targetMeanPrice')
                     target_high = engine.info.get('targetHighPrice')
@@ -486,26 +493,25 @@ def main():
                         with ws_col1:
                             with st.container(border=True):
                                 st.markdown(f"<div style='color:#94a3b8; font-size:13px; font-weight:600;'>{T['ws_mean']}</div>", unsafe_allow_html=True)
-                                st.markdown(f"<div style='font-size:26px; font-weight:800; font-family:JetBrains Mono;'>${target_mean:.2f}</div>", unsafe_allow_html=True)
+                                st.markdown(f"<div style='font-size:24px; font-weight:800; font-family:JetBrains Mono;'>${target_mean:.2f}</div>", unsafe_allow_html=True)
                                 st.markdown(f"<div style='color:#38bdf8; font-size:12px;'>👥 {num_analysts} Analysts</div>", unsafe_allow_html=True)
                                 
                         with ws_col2:
                             with st.container(border=True):
                                 st.markdown(f"<div style='color:#94a3b8; font-size:13px; font-weight:600;'>{T['ws_range']}</div>", unsafe_allow_html=True)
-                                st.markdown(f"<div style='font-size:22px; font-weight:800; font-family:JetBrains Mono;'>${target_low:.2f} - ${target_high:.2f}</div>", unsafe_allow_html=True)
+                                st.markdown(f"<div style='font-size:20px; font-weight:800; font-family:JetBrains Mono;'>${target_low:.2f} - ${target_high:.2f}</div>", unsafe_allow_html=True)
                                 st.markdown(f"<div style='color:#cbd5e1; font-size:12px;'>Low / High Target</div>", unsafe_allow_html=True)
 
                         with ws_col3:
                             with st.container(border=True):
                                 st.markdown(f"<div style='color:#94a3b8; font-size:13px; font-weight:600;'>{T['ws_rating']}</div>", unsafe_allow_html=True)
-                                st.markdown(f"<div style='font-size:24px; font-weight:800; font-family:JetBrains Mono;'>{rec_key}</div>", unsafe_allow_html=True)
+                                st.markdown(f"<div style='font-size:22px; font-weight:800; font-family:JetBrains Mono;'>{rec_key}</div>", unsafe_allow_html=True)
                                 st.markdown(f"<div style='color:#4ade80; font-size:12px;'>🏛️ Consensus View</div>", unsafe_allow_html=True)
 
-                        # 高度吻合判定逻辑
                         if val > 0 and abs((val - target_mean) / target_mean) <= 0.15:
                             st.success(T['ws_match'], icon="✅")
 
-            # --- Row 5: Charts ---
+            # --- Row 6: Charts (每个图表自带 Bento Card 边框) ---
             st.markdown(f"<br><h3>{T['chart_title']}</h3>", unsafe_allow_html=True)
             c_chart1, c_chart2 = st.columns([1.5, 1])
             with c_chart1:
@@ -516,7 +522,7 @@ def main():
                     st.plotly_chart(draw_beta_scatter(engine), use_container_width=True)
                     st.caption(T['beta_desc'])
 
-            # --- Row 6: Glossary (4个并排等高卡片) ---
+            # --- Row 7: Glossary (4个并排等高卡片) ---
             st.markdown(f"<br><h3>{T['glossary_title']}</h3>", unsafe_allow_html=True)
             g1, g2, g3, g4 = st.columns(4)
             with g1:
@@ -536,7 +542,7 @@ def main():
                     st.markdown(f"**{T['g_fv_title']}**")
                     st.caption(T['g_fv_desc'])
 
-    # 免责
+    # 免责声明
     st.write("---")
     with st.container(border=True):
         st.markdown(f"**{T['disclaimer_title']}**")
