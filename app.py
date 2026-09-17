@@ -92,7 +92,7 @@ def get_yf_session():
     return session
 
 # ==============================================================================
-# 3. 国际化多语言字典 (完整收录 V8.9 所有多语言文本)
+# 3. 国际化多语言字典 (已补全所有缺失的键)
 # ==============================================================================
 TEXTS = {
     "zh": {
@@ -119,6 +119,10 @@ TEXTS = {
         "no_data_dcf": "现金流为负或数据不足",
         "no_data_ddm": "该公司不派发股息",
         "no_data_pe": "公司目前处于净亏损",
+        
+        "price": "当前市场价格",
+        "fair_val": "内在公道估值 (衰减后)",
+        "safe_buy": "20% 安全边际买点",
         
         "lie_title": "[3. 💡 市场情绪测谎仪 (MARKET PSYCHOLOGY / LIE DETECTOR)]",
         "lie_exp": "💡 **通俗解释 (Plain English)：** 测谎仪通过二分法反向推导，看看当前的市场价格到底在幻想这家公司未来每年增长多少。",
@@ -182,6 +186,10 @@ TEXTS = {
         "no_data_dcf": "Negative or Missing Cash Flows",
         "no_data_ddm": "Company pays no dividend",
         "no_data_pe": "Company in net loss",
+        
+        "price": "Current Market Price",
+        "fair_val": "Intrinsic Fair Value (Faded)",
+        "safe_buy": "Safe Buy Target (20% MoS)",
         
         "lie_title": "[3. 💡 MARKET PSYCHOLOGY (LIE DETECTOR)]",
         "lie_exp": "💡 **Plain English Explanation:** The lie detector uses reverse-engineering to find out what growth rate investors are currently pricing into the stock.",
@@ -504,7 +512,7 @@ def main():
 
             st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
 
-            # [模块 2：三大经典估值模型横向对比矩阵（新加入的矩阵呈现）]
+            # [模块 2：三大经典估值模型横向对比矩阵]
             st.markdown(f"#### {T['matrix_header']}")
             m_col1, m_col2, m_col3 = st.columns(3)
 
