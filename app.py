@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 # ==============================================================================
 # 1. 页面基本配置
 # ==============================================================================
-st.set_page_config(page_title="Universal Quant Terminal V14", page_icon="💎", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Universal Quant Terminal V15", page_icon="💎", layout="wide", initial_sidebar_state="collapsed")
 
 @st.cache_resource
 def get_yf_session():
@@ -20,7 +20,7 @@ def get_yf_session():
     return session
 
 # ==============================================================================
-# 2. 独家高级 CSS 视觉引擎 (强制加粗、高对比度的红粉发光边框)
+# 2. 独家高级 CSS 视觉引擎 (全模块强制红粉发光边框)
 # ==============================================================================
 PREMIUM_CSS = """
 <style>
@@ -34,15 +34,15 @@ PREMIUM_CSS = """
 }
 .block-container { padding-top: 2rem !important; max-width: 1280px !important; }
 
-/* 🌟 核心杀手锏：强制所有 st.container(border=True) 变成极其明显、带红粉发光的独立“便当盒” */
+/* 🌟 核心：确保所有便当盒卡片拥有粗、明显的红粉色发光边框 */
 [data-testid="column"] > div {
     height: 100% !important;
 }
 [data-testid="stVerticalBlockBorderWrapper"] {
     background: #0d1526 !important; /* 高对比度深蓝实底 */
-    border: 2px solid #f43f5e !important; /* 粗且明显的红粉色边框 */
+    border: 2px solid #f43f5e !important; /* 粗且显眼的红粉色边框 */
     border-radius: 16px !important;
-    box-shadow: 0 0 20px rgba(244, 63, 94, 0.25) !important; /* 漂亮的红粉色外发光 */
+    box-shadow: 0 0 20px rgba(244, 63, 94, 0.3) !important; /* 明显的红粉色外发光 */
     transition: all 0.3s ease !important;
     padding: 18px 22px !important;
     height: 100% !important;
@@ -52,7 +52,7 @@ PREMIUM_CSS = """
 }
 [data-testid="stVerticalBlockBorderWrapper"]:hover {
     border: 2px solid #fb7185 !important;
-    box-shadow: 0 0 30px rgba(244, 63, 94, 0.45) !important;
+    box-shadow: 0 0 30px rgba(244, 63, 94, 0.5) !important;
     transform: translateY(-2px);
 }
 
@@ -406,7 +406,7 @@ def main():
 
             st.write("---")
             
-            # --- Row 2: 三剑客卡片 ---
+            # --- Row 2: 核心估值三剑客 (已全部包裹进独立红框卡片) ---
             p1_col, p2_col, p3_col = st.columns(3)
             with p1_col:
                 with st.container(border=True):
