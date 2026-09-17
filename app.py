@@ -92,7 +92,7 @@ def get_yf_session():
     return session
 
 # ==============================================================================
-# 3. 国际化多语言字典 (已补全所有缺失的键)
+# 3. 国际化多语言字典 (已加入估值指标通俗小解释)
 # ==============================================================================
 TEXTS = {
     "zh": {
@@ -122,6 +122,7 @@ TEXTS = {
         
         "price": "当前市场价格",
         "fair_val": "内在公道估值 (衰减后)",
+        "fair_val_desc": "💡 **通俗解释**：剥离短期市场狂热与恐慌炒作，根据公司真实赚钱能力算出的保守身价。**“衰减后”**代表模型让高速增长逐年平稳递减，彻底防止科技巨头复利失真。",
         "safe_buy": "20% 安全边际买点",
         
         "lie_title": "[3. 💡 市场情绪测谎仪 (MARKET PSYCHOLOGY / LIE DETECTOR)]",
@@ -189,6 +190,7 @@ TEXTS = {
         
         "price": "Current Market Price",
         "fair_val": "Intrinsic Fair Value (Faded)",
+        "fair_val_desc": "💡 **Plain English**: Strips away short-term market hype and panic to reveal true fundamental worth. **'Faded'** means growth rates smoothly decay over time to prevent multi-year compounding errors, making valuation conservative and robust.",
         "safe_buy": "Safe Buy Target (20% MoS)",
         
         "lie_title": "[3. 💡 MARKET PSYCHOLOGY (LIE DETECTOR)]",
@@ -455,7 +457,7 @@ def draw_beta_scatter(engine):
     return fig
 
 # ==============================================================================
-# 7. 主程序与双语 UI 渲染 (完整恢复 V8.9 所有模块 + 三模型矩阵集成)
+# 7. 主程序与双语 UI 渲染
 # ==============================================================================
 def main():
     col_title, col_lang = st.columns([3, 1.2])
@@ -556,6 +558,9 @@ def main():
             p1.metric(T['price'], f"{engine.currency} {engine.price:.2f}")
             p2.metric(T['fair_val'], f"{engine.currency} {val:.2f}")
             p3.metric(T['safe_buy'], f"{engine.currency} {(val * 0.8):.2f}", "20% Margin of Safety")
+            
+            # 💡 在主估值指标下方加入大白话通俗小解释，让用户一目了然
+            st.info(T['fair_val_desc'])
 
             if val > 0 and engine.price > 0:
                 price_to_val = engine.price / val
