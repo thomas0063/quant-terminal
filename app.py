@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 # ==============================================================================
 # 1. 页面基本配置与反爬虫会话
 # ==============================================================================
-st.set_page_config(page_title="Universal Quant Terminal V8.7", page_icon="💹", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Universal Quant Terminal V8.8", page_icon="💹", layout="wide", initial_sidebar_state="collapsed")
 
 # ==============================================================================
 # 2. 独家高级 CSS 视觉引擎 (Bento Box 等高对齐 + 冰蓝框架感 + 清爽深蓝背景)
@@ -92,7 +92,7 @@ def get_yf_session():
     return session
 
 # ==============================================================================
-# 3. 国际化多语言字典 (已完整加入华尔街模块多语言)
+# 3. 国际化多语言字典 (已加入预期差分析模块文案)
 # ==============================================================================
 TEXTS = {
     "zh": {
@@ -110,7 +110,7 @@ TEXTS = {
         "macro_title": "[1. 动态宏观与资本成本 (DYNAMIC MACRO & COST OF CAPITAL)]",
         "macro_exp": "💡 **通俗解释 (Plain English)：** Beta 衡量股票相对于大盘的波动率。Rf 是无风险国债利率。WACC / 折现率是你作为投资者要求的最低及格线回报率。",
         "engine_title": "[2. 智能自适应估值引擎]",
-        "engine_exp": "💡 **通俗解释 (Plain English)：** 系统根据行业特性自动调整预测周期。g1 是基于 ROE 算出的可持续增长率，g2 是长期永续增长率。",
+        "engine_exp": "💡 **通俗解释 (Plain English)：** 系统根据行业特性自动调整预测周期. g1 是基于 ROE 算出的可持续增长率，g2 是长期永续增长率。",
         "price": "当前市场价格",
         "wacc": "WACC / 折现率",
         "fair_val": "内在公道估值",
@@ -128,13 +128,14 @@ TEXTS = {
         "fx_title": "[7. 💱 跨境汇率风险提示 (CROSS-BORDER FX RISK)]",
         "fx_content": "- **提示：** 此乃美元计价资产，请注意美元兑马币 (USD/MYR) 的汇率波动风险。",
         
-        # 华尔街投行分析师共识模块文案
-        "ws_title": "🏛️ 华尔街专业投行分析师共识 (Wall Street View)",
+        # 华尔街与预期差分析文案
+        "ws_title": "🏛️ 华尔街专业投行分析师共识与预期差雷达 (Wall Street & Expectation Gap)",
         "ws_mean": "投行平均目标价",
         "ws_range": "目标价区间",
         "ws_rating": "投行综合评级",
         "ws_tag": "投行机构共识",
-        "ws_match": "✅ 模型算出的公道价与华尔街机构预测误差在 15% 以内，估值高度吻合！",
+        "gap_title": "⚡ 华尔街 vs 量化模型：深度预期差雷达 (Expectation Gap Analysis)",
+        "ws_match": "✅ 模型算出的公道价与华尔街机构预测高度吻合，无重大预期差！",
 
         "chart_title": "[8. 📈 高级盘面与波动率回归分析]",
         "beta_desc": "📊 **Beta 收益率特征线散点分布图说明：**\n* 每个点代表过往某一周的收益率联动。红线斜率即为真实 Beta（马股对标 MSCI Malaysia ETF，美股对标 S&P 500）。\n* **$R^2$（拟合优度）补充解析**：点越密集贴近红线，说明该股越受大盘宏观主导（如银行股）；点越分散，说明该股具有极强的个股独立行情（如科技股）。",
@@ -187,13 +188,14 @@ TEXTS = {
         "fx_title": "[7. 💱 CROSS-BORDER FX RISK ADVISORY]",
         "fx_content": "- **Note:** USD-denominated asset; monitor USD/MYR exchange rate fluctuations.",
         
-        # Wall Street view module text (English)
-        "ws_title": "🏛️ Wall Street Analyst Consensus (Wall Street View)",
+        # Wall Street and Expectation Gap texts (English)
+        "ws_title": "🏛️ Wall Street Analyst Consensus & Expectation Gap Radar",
         "ws_mean": "Analyst Average Target Price",
         "ws_range": "Target Price Range",
         "ws_rating": "Consensus Rating",
         "ws_tag": "Institutional Consensus",
-        "ws_match": "✅ Your Valuation aligns tightly with Wall Street targets (within 15% margin)!",
+        "gap_title": "⚡ Wall Street vs. Quant Model: Expectation Gap Analysis",
+        "ws_match": "✅ Your Valuation aligns tightly with Wall Street targets with minimal expectation gap!",
 
         "chart_title": "[8. Advanced Price Action & Regression Analysis]",
         "beta_desc": "📊 **Beta Scatter Plot Explanation:** Each dot represents past weekly return correlation. The red line slope represents the true Beta (Bursa benchmarks against MSCI Malaysia ETF, US equities against S&P 500).\n* **$R^2$ Analysis**: Tight clustering indicates market-driven systemic risk; higher dispersion reflects strong independent trends.",
@@ -543,7 +545,7 @@ def main():
                             st.warning("- 🇲🇾 本地资产计价 (MYR)，无直接跨境外汇风险暴露。")
 
                 # ==============================================================
-                # ✨ 新增：华尔街专业投行分析师共识 (Wall Street View 三卡片板块)
+                # ✨ 升级模块：华尔街共识 + 深度预期差智能雷达 (Expectation Gap Analysis)
                 # ==============================================================
                 if not engine.is_malaysia:
                     target_mean = engine.info.get('targetMeanPrice')
@@ -560,7 +562,7 @@ def main():
                             with st.container(border=True):
                                 st.markdown(f"<div style='color:#94a3b8; font-size:13px; font-weight:600; text-align:center;'>{T['ws_mean']}</div>", unsafe_allow_html=True)
                                 st.markdown(f"<div style='font-size:30px; font-weight:800; font-family:JetBrains Mono; text-align:center; color:#ffffff; margin: 10px 0;'>${target_mean:.2f}</div>", unsafe_allow_html=True)
-                                st.markdown(f"<div style='color:#38bdf8; font-size:12.5px; text-align:center;'>👥 {num_analysts} {T['ws_mean'].replace('投行平均目标价','位分析师').replace('Analyst Average Target Price','Analysts')}</div>", unsafe_allow_html=True)
+                                st.markdown(f"<div style='color:#38bdf8; font-size:12.5px; text-align:center;'>👥 {num_analysts} Analysts</div>", unsafe_allow_html=True)
                                 
                         with ws_col2:
                             with st.container(border=True):
@@ -568,7 +570,7 @@ def main():
                                 low_str = f"${target_low:.2f}" if target_low else "N/A"
                                 high_str = f"${target_high:.2f}" if target_high else "N/A"
                                 st.markdown(f"<div style='font-size:24px; font-weight:800; font-family:JetBrains Mono; text-align:center; color:#ffffff; margin: 12px 0;'>{low_str} ~ {high_str}</div>", unsafe_allow_html=True)
-                                st.markdown(f"<div style='color:#cbd5e1; font-size:12px; text-align:center;'>最低 {low_str} | 最高 {high_str}</div>", unsafe_allow_html=True)
+                                st.markdown(f"<div style='color:#cbd5e1; font-size:12px; text-align:center;'>Low / High Target</div>", unsafe_allow_html=True)
 
                         with ws_col3:
                             with st.container(border=True):
@@ -576,8 +578,24 @@ def main():
                                 st.markdown(f"<div style='font-size:28px; font-weight:800; font-family:JetBrains Mono; text-align:center; color:#38bdf8; margin: 10px 0;'>{rec_key}</div>", unsafe_allow_html=True)
                                 st.markdown(f"<div style='color:#4ade80; font-size:12px; text-align:center;'>🏛️ {T['ws_tag']}</div>", unsafe_allow_html=True)
 
-                        if val > 0 and abs((val - target_mean) / target_mean) <= 0.15:
-                            st.success(T['ws_match'], icon="✅")
+                        # 🧠 核心增量：华尔街预期差推演与自动建议
+                        with st.container(border=True):
+                            st.markdown(f"**{T['gap_title']}**")
+                            gap_pct = ((target_mean - val) / val) * 100.0
+                            
+                            st.write(f"- **量化内在公允价 (Model Fair Value):** `${val:.2f}` | **华尔街平均目标价 (Wall Street Target):** `${target_mean:.2f}`")
+                            st.write(f"- **预期差偏离度 (Divergence Gap):** `+{gap_pct:.1f}%` (华尔街目标价比模型估值高出 {gap_pct:.1f}%)")
+                            
+                            st.markdown("<div style='height: 4px;'></div>", unsafe_allow_html=True)
+                            
+                            if gap_pct > 25.0 and rec_key in ["BUY", "STRONG_BUY"]:
+                                st.error("🚨 **【预期差警示 / 情绪溢价驱动】**：华尔街目标价远高于量化模型底线。这表明机构高度依赖‘宏大叙事与高估值多头情绪’（Story-driven）。当前市价已透支部分未来，长线价值投资者需警惕高估值回撤，短线动能可顺势博弈。")
+                            elif abs(gap_pct) <= 15.0:
+                                st.success(T['ws_match'])
+                            elif gap_pct < -15.0:
+                                st.info("🔥 **【深度价值 / 逆向左侧契机】**：量化模型算出的基本面造血价值高于华尔街卖方预期。市场和机构可能存在短期过度悲观，属于潜在的“捡烟蒂”布局区。")
+                            else:
+                                st.warning("⚖️ **【机构与模型适度分歧】**：建议结合公司最新财报的现金流兑现情况综合评估。")
 
             # [8. 高级盘面与波动率回归分析]
             st.markdown(f"### {T['chart_title']}")
