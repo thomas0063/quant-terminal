@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 # ==============================================================================
 # 1. 页面基本配置与反爬虫会话
 # ==============================================================================
-st.set_page_config(page_title="Universal Quant Terminal V8.8", page_icon="💹", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Universal Quant Terminal V8.9", page_icon="💹", layout="wide", initial_sidebar_state="collapsed")
 
 # ==============================================================================
 # 2. 独家高级 CSS 视觉引擎 (Bento Box 等高对齐 + 冰蓝框架感 + 清爽深蓝背景)
@@ -92,12 +92,12 @@ def get_yf_session():
     return session
 
 # ==============================================================================
-# 3. 国际化多语言字典 (已加入预期差分析模块文案)
+# 3. 国际化多语言字典
 # ==============================================================================
 TEXTS = {
     "zh": {
         "title": "🌐 智能量化金融终端 (ESG 双语旗舰版)",
-        "subtitle": "融合 CAPM、DCF、WACC 与市场情绪测谎仪的专业机构级估值平台",
+        "subtitle": "融合 线性衰减DCF模型、CAPM、WACC 与市场情绪测谎仪的机构级估值平台",
         "quick_tag": "🔥 热门快捷测评：",
         "input_label": "输入股票代码 (如 1155.KL, NVDA, AAPL)：",
         
@@ -109,11 +109,11 @@ TEXTS = {
         
         "macro_title": "[1. 动态宏观与资本成本 (DYNAMIC MACRO & COST OF CAPITAL)]",
         "macro_exp": "💡 **通俗解释 (Plain English)：** Beta 衡量股票相对于大盘的波动率。Rf 是无风险国债利率。WACC / 折现率是你作为投资者要求的最低及格线回报率。",
-        "engine_title": "[2. 智能自适应估值引擎]",
-        "engine_exp": "💡 **通俗解释 (Plain English)：** 系统根据行业特性自动调整预测周期. g1 是基于 ROE 算出的可持续增长率，g2 是长期永续增长率。",
+        "engine_title": "[2. 智能自适应线性衰减估值引擎]",
+        "engine_exp": "💡 **通俗解释 (Plain English)：** 采用机构级‘线性衰减增长模型’，避免巨头长期复利失真。g1 是初期可持续增长率，将逐年衰减平稳过渡至永续增长 g2。",
         "price": "当前市场价格",
         "wacc": "WACC / 折现率",
-        "fair_val": "内在公道估值",
+        "fair_val": "内在公道估值 (衰减后)",
         "safe_buy": "20% 安全边际买点",
         
         "lie_title": "[3. 💡 市场情绪测谎仪 (MARKET PSYCHOLOGY / LIE DETECTOR)]",
@@ -128,7 +128,6 @@ TEXTS = {
         "fx_title": "[7. 💱 跨境汇率风险提示 (CROSS-BORDER FX RISK)]",
         "fx_content": "- **提示：** 此乃美元计价资产，请注意美元兑马币 (USD/MYR) 的汇率波动风险。",
         
-        # 华尔街与预期差分析文案
         "ws_title": "🏛️ 华尔街专业投行分析师共识与预期差雷达 (Wall Street & Expectation Gap)",
         "ws_mean": "投行平均目标价",
         "ws_range": "目标价区间",
@@ -157,7 +156,7 @@ TEXTS = {
     },
     "en": {
         "title": "🌐 Universal Quant Terminal (Bilingual ESG Edition)",
-        "subtitle": "Institutional-Grade Valuation Platform integrating CAPM, DCF, WACC & Market Lie Detector",
+        "subtitle": "Institutional-Grade Valuation Platform integrating Fading Growth DCF, CAPM, WACC & Market Lie Detector",
         "quick_tag": "🔥 Quick Select:",
         "input_label": "Enter Stock Ticker (e.g., 1155.KL, NVDA, AAPL):",
         
@@ -169,11 +168,11 @@ TEXTS = {
         
         "macro_title": "[1. DYNAMIC MACRO & COST OF CAPITAL]",
         "macro_exp": "💡 **Plain English Explanation:** Beta measures stock volatility compared to the market. Rf is the benchmark government bond yield. WACC / Discount Rate is your hurdle rate / minimum required rate of return.",
-        "engine_title": "[2. UNIVERSAL ADAPTIVE ENGINE]",
-        "engine_exp": "💡 **Plain English Explanation:** The model automatically adjusts projection length. g1 is the sustainable growth rate derived from ROE, and g2 is the perpetual rate.",
+        "engine_title": "[2. ADAPTIVE FADING GROWTH ENGINE]",
+        "engine_exp": "💡 **Plain English Explanation:** Uses institutional linear decay growth modeling to prevent multi-year compounding inflation errors. Initial g1 decays smoothly down to perpetual g2.",
         "price": "Current Market Price",
         "wacc": "WACC / Discount Rate",
-        "fair_val": "Intrinsic Fair Value",
+        "fair_val": "Intrinsic Fair Value (Faded)",
         "safe_buy": "Safe Buy Target (20% MoS)",
         
         "lie_title": "[3. 💡 MARKET PSYCHOLOGY (LIE DETECTOR)]",
@@ -188,7 +187,6 @@ TEXTS = {
         "fx_title": "[7. 💱 CROSS-BORDER FX RISK ADVISORY]",
         "fx_content": "- **Note:** USD-denominated asset; monitor USD/MYR exchange rate fluctuations.",
         
-        # Wall Street and Expectation Gap texts (English)
         "ws_title": "🏛️ Wall Street Analyst Consensus & Expectation Gap Radar",
         "ws_mean": "Analyst Average Target Price",
         "ws_range": "Target Price Range",
@@ -231,7 +229,7 @@ def get_fin_metric(df, keyword, default=0.0):
     return default
 
 # ==============================================================================
-# 4. 核心量化引擎 (WACC + Blume Beta + ESG)
+# 4. 核心量化引擎 (集成线性衰减增长模型 + WACC + Blume Beta + ESG)
 # ==============================================================================
 class UniversalQuantEngine:
     def __init__(self, ticker):
@@ -326,9 +324,16 @@ class UniversalQuantEngine:
 
     def calculate_pv(self, test_g):
         if self.cf <= 0 or self.r <= self.g2: return 0
-        pv1, curr_cf = 0, self.cf
+        pv1 = 0
+        curr_cf = self.cf
+        
+        # 💡 机构级核心修复：采用线性衰减增长率 (Linear Fading Growth)
+        # 避免苹果/微软等巨头因 10 年恒定复利导致估值失控（如算出 700+ 的 Bug）
+        growth_rates = np.linspace(test_g, self.g2, self.horizon)
+        
         for y in range(1, self.horizon + 1):
-            curr_cf *= (1 + test_g)
+            annual_g = growth_rates[y - 1]
+            curr_cf *= (1 + annual_g)
             pv1 += curr_cf / ((1 + self.r) ** y)
         
         pv_tv = (curr_cf * (1 + self.g2)) / (self.r - self.g2) / ((1 + self.r) ** self.horizon)
@@ -545,7 +550,7 @@ def main():
                             st.warning("- 🇲🇾 本地资产计价 (MYR)，无直接跨境外汇风险暴露。")
 
                 # ==============================================================
-                # ✨ 升级模块：华尔街共识 + 深度预期差智能雷达 (Expectation Gap Analysis)
+                # ✨ 华尔街共识 + 深度预期差智能雷达
                 # ==============================================================
                 if not engine.is_malaysia:
                     target_mean = engine.info.get('targetMeanPrice')
@@ -578,7 +583,7 @@ def main():
                                 st.markdown(f"<div style='font-size:28px; font-weight:800; font-family:JetBrains Mono; text-align:center; color:#38bdf8; margin: 10px 0;'>{rec_key}</div>", unsafe_allow_html=True)
                                 st.markdown(f"<div style='color:#4ade80; font-size:12px; text-align:center;'>🏛️ {T['ws_tag']}</div>", unsafe_allow_html=True)
 
-                        # 🧠 核心增量：华尔街预期差推演与自动建议
+                        # 🧠 预期差推演与自动建议
                         with st.container(border=True):
                             st.markdown(f"**{T['gap_title']}**")
                             gap_pct = ((target_mean - val) / val) * 100.0
