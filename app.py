@@ -23,15 +23,15 @@ st.set_page_config(
 )
 
 # ==============================================================================
-# 2. 独家高级 CSS 视觉引擎 (整齐、清爽、带冰蓝框架感的 Bento Box 设计)
+# 2. 独家高级 CSS 视觉引擎 (已调亮背景：清爽深蓝渐变 + 冰蓝框架感)
 # ==============================================================================
 PREMIUM_CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
-/* 全局深空背景 */
+/* 全局背景：已调亮为更具质感的深石墨蓝渐变，告别压抑死黑 */
 .stApp {
-    background: radial-gradient(circle at 50% 0%, #131c31 0%, #0b0f19 60%, #060911 100%) !important;
+    background: radial-gradient(circle at 50% 0%, #1e293b 0%, #0f172a 60%, #090d16 100%) !important;
     font-family: 'Inter', -apple-system, sans-serif !important;
     color: #f8fafc !important;
 }
@@ -44,8 +44,8 @@ header[data-testid="stHeader"] { background: transparent !important; }
     height: 100% !important;
 }
 [data-testid="stVerticalBlockBorderWrapper"] {
-    background: linear-gradient(135deg, rgba(19, 27, 46, 0.9) 0%, rgba(11, 15, 25, 0.95) 100%) !important;
-    border: 1px solid rgba(56, 189, 248, 0.25) !important; /* 精致的天蓝色边框，拒绝模糊 */
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.85) 100%) !important;
+    border: 1px solid rgba(56, 189, 248, 0.3) !important; /* 精致的天蓝色边框 */
     border-radius: 14px !important;
     box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
     backdrop-filter: blur(12px) !important;
@@ -58,7 +58,7 @@ header[data-testid="stHeader"] { background: transparent !important; }
 }
 [data-testid="stVerticalBlockBorderWrapper"]:hover {
     border-color: #38bdf8 !important;
-    box-shadow: 0 10px 30px -4px rgba(56, 189, 248, 0.25) !important;
+    box-shadow: 0 10px 30px -4px rgba(56, 189, 248, 0.3) !important;
     transform: translateY(-2px);
 }
 
