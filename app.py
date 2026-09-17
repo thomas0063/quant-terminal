@@ -92,7 +92,7 @@ def get_yf_session():
     return session
 
 # ==============================================================================
-# 3. 国际化多语言字典 (已加入精准标注的通俗小解释)
+# 3. 国际化多语言字典 (已完全双语化适配)
 # ==============================================================================
 TEXTS = {
     "zh": {
@@ -119,6 +119,10 @@ TEXTS = {
         "no_data_dcf": "现金流为负或数据不足",
         "no_data_ddm": "该公司不派发股息",
         "no_data_pe": "公司目前处于净亏损",
+        "vs_market": "vs 市价",
+        "note_dcf": "基于线性衰减自由现金流与 WACC 资本成本折现。",
+        "note_ddm": "基于历史股息分红及永续增长率折现。",
+        "note_pe": "基于每股收益 (EPS) 乘以行业合理市盈率倍数。",
         
         "price": "当前市场价格",
         "fair_val": "内在公道估值 (衰减后)",
@@ -143,6 +147,12 @@ TEXTS = {
         "ws_rating": "投行综合评级",
         "ws_tag": "投行机构共识",
         "gap_title": "⚡ 华尔街 vs 量化模型：深度预期差雷达 (Expectation Gap Analysis)",
+        "gap_line1": "量化内在公允价 (Model Fair Value)",
+        "gap_line2": "华尔街平均目标价 (Wall Street Target)",
+        "gap_line3": "预期差偏离度 (Divergence Gap)",
+        "gap_desc_high": "华尔街目标价比模型估值高出",
+        "gap_alert_high": "🚨 **【预期差警示 / 情绪溢价驱动】**：华尔街目标价远高于量化模型底线。当前市价已透支部分未来，长线价值投资者需警惕高估值回撤。",
+        "gap_alert_low": "🔥 **【深度价值 / 逆向左侧契机】**：量化模型算出的基本面造血价值高于华尔街卖方预期，属于潜在的“捡烟蒂”布局区。",
         "ws_match": "✅ 模型算出的公道价与华尔街机构预测高度吻合，无重大预期差！",
 
         "chart_title": "[8. 📈 高级盘面与波动率回归分析]",
@@ -187,6 +197,10 @@ TEXTS = {
         "no_data_dcf": "Negative or Missing Cash Flows",
         "no_data_ddm": "Company pays no dividend",
         "no_data_pe": "Company in net loss",
+        "vs_market": "vs Market",
+        "note_dcf": "Based on linear fading FCF and WACC discount rate.",
+        "note_ddm": "Based on historical dividends and terminal growth.",
+        "note_pe": "Based on EPS multiplied by benchmark P/E multiples.",
         
         "price": "Current Market Price",
         "fair_val": "Intrinsic Fair Value (Faded)",
@@ -211,6 +225,12 @@ TEXTS = {
         "ws_rating": "Consensus Rating",
         "ws_tag": "Institutional Consensus",
         "gap_title": "⚡ Wall Street vs. Quant Model: Expectation Gap Analysis",
+        "gap_line1": "Model Fair Value",
+        "gap_line2": "Wall Street Target Mean",
+        "gap_line3": "Divergence Gap",
+        "gap_desc_high": "Wall Street target is higher than model value by",
+        "gap_alert_high": "🚨 **[Expectation Gap Warning / Sentiment Premium]**: Wall Street targets far exceed the quant model. Current prices have factored in future growth; long-term value investors should remain cautious.",
+        "gap_alert_low": "🔥 **[Deep Value / Contrarian Opportunity]**: Quant model fundamental cash flow value exceeds Wall Street sell-side expectations, presenting a potential deep-value entry.",
         "ws_match": "✅ Your Valuation aligns tightly with Wall Street targets with minimal expectation gap!",
 
         "chart_title": "[8. Advanced Price Action & Regression Analysis]",
@@ -526,7 +546,7 @@ def main():
                     diff = (model_val - price) / price * 100.0 if price > 0 else 0
                     diff_sign = "+" if diff > 0 else ""
                     pill_color = "#22c55e" if diff > 0 else "#f43f5e"
-                    status_html = f"<div style='color: {pill_color}; font-weight: 700; font-size: 13px;'>{diff_sign}{diff:.1f}% vs 市价</div>"
+                    status_html = f"<div style='color: {pill_color}; font-weight: 700; font-size: 13px;'>{diff_sign}{diff:.1f}% {T['vs_market']}</div>"
                 else:
                     val_str = "N/A"
                     status_html = f"<div style='color: #f87171; font-size: 12px;'>⚠️ {empty_msg}</div>"
@@ -546,11 +566,11 @@ def main():
                 """
 
             with m_col1:
-                st.markdown(render_matrix_card(T["model_dcf_name"], engine.val_dcf, engine.price, engine.model_name == 'Discounted Cash Flow (DCF)', engine.currency, "基于线性衰减自由现金流与 WACC 资本成本折现。", T["no_data_dcf"]), unsafe_allow_html=True)
+                st.markdown(render_matrix_card(T["model_dcf_name"], engine.val_dcf, engine.price, engine.model_name == 'Discounted Cash Flow (DCF)', engine.currency, T["note_dcf"], T["no_data_dcf"]), unsafe_allow_html=True)
             with m_col2:
-                st.markdown(render_matrix_card(T["model_ddm_name"], engine.val_ddm, engine.price, engine.model_name == 'Dividend Discount Model (DDM)', engine.currency, "基于历史股息分红及永续增长率折现。", T["no_data_ddm"]), unsafe_allow_html=True)
+                st.markdown(render_matrix_card(T["model_ddm_name"], engine.val_ddm, engine.price, engine.model_name == 'Dividend Discount Model (DDM)', engine.currency, T["note_ddm"], T["no_data_ddm"]), unsafe_allow_html=True)
             with m_col3:
-                st.markdown(render_matrix_card(T["model_pe_name"], engine.val_pe, engine.price, engine.model_name == 'P/E Multiples Valuation', engine.currency, "基于每股收益 (EPS) 乘以行业合理市盈率倍数。", T["no_data_pe"]), unsafe_allow_html=True)
+                st.markdown(render_matrix_card(T["model_pe_name"], engine.val_pe, engine.price, engine.model_name == 'P/E Multiples Valuation', engine.currency, T["note_pe"], T["no_data_pe"]), unsafe_allow_html=True)
 
             st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
 
@@ -559,7 +579,7 @@ def main():
             p2.metric(T['fair_val'], f"{engine.currency} {val:.2f}")
             p3.metric(T['safe_buy'], f"{engine.currency} {(val * 0.8):.2f}", "20% Margin of Safety")
             
-            # 💡 醒目的通俗小解释：专门标注“内在公道估值 (衰减后)”
+            # 💡 醒目的通俗小解释：已完全双语化绑定
             st.info(T['fair_val_desc'])
 
             if val > 0 and engine.price > 0:
@@ -679,15 +699,15 @@ def main():
                         with st.container(border=True):
                             st.markdown(f"**{T['gap_title']}**")
                             gap_pct = ((target_mean - val) / val) * 100.0
-                            st.write(f"- **量化内在公允价 (Model Fair Value):** `${val:.2f}` | **华尔街平均目标价 (Wall Street Target):** `${target_mean:.2f}`")
-                            st.write(f"- **预期差偏离度 (Divergence Gap):** `+{gap_pct:.1f}%` (华尔街目标价比模型估值高出 {gap_pct:.1f}%)")
+                            st.write(f"- **{T['gap_line1']}:** `${val:.2f}` | **{T['gap_line2']}:** `${target_mean:.2f}`")
+                            st.write(f"- **{T['gap_line3']}:** `+{gap_pct:.1f}%` ({T['gap_desc_high']} {gap_pct:.1f}%)")
                             
                             if gap_pct > 25.0 and rec_key in ["BUY", "STRONG_BUY"]:
-                                st.error("🚨 **【预期差警示 / 情绪溢价驱动】**：华尔街目标价远高于量化模型底线。当前市价已透支部分未来，长线价值投资者需警惕高估值回撤。")
+                                st.error(T['gap_alert_high'])
                             elif abs(gap_pct) <= 15.0:
                                 st.success(T['ws_match'])
                             elif gap_pct < -15.0:
-                                st.info("🔥 **【深度价值 / 逆向左侧契机】**：量化模型算出的基本面造血价值高于华尔街卖方预期，属于潜在的“捡烟蒂”布局区。")
+                                st.info(T['gap_alert_low'])
 
                 # [模块 8：盘面与波动率回归分析]
                 st.markdown(f"### {T['chart_title']}")
