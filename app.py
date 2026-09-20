@@ -11,7 +11,7 @@ import scipy.stats as stats
 # ==============================================================================
 # 1. 页面基本配置与高级 CSS 视觉引擎 (Bento Box + Tabs)
 # ==============================================================================
-st.set_page_config(page_title="Ultimate Quant & PE Terminal V9.3", page_icon="💹", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Ultimate Quant & PE Terminal V9.5", page_icon="💹", layout="wide", initial_sidebar_state="collapsed")
 
 PREMIUM_CSS = """
 <style>
@@ -106,12 +106,12 @@ def get_yf_session():
     return session
 
 # ==============================================================================
-# 2. 国际化多语言字典 (完好无损地保留了你全部的原本文案)
+# 2. 国际化多语言字典
 # ==============================================================================
 TEXTS = {
     "zh": {
-        "title": "🌐 智能量化金融终端 (V9.3 旗舰全功能版)",
-        "subtitle": "完美融合 线性衰减DCF、热力图、动态NWC与折旧瀑布流、LBO、同业Comps、蒙特卡洛与有效前沿",
+        "title": "🌐 智能量化与衍生品金融终端 (V9.5 旗舰全功能版)",
+        "subtitle": "完美融合 线性衰减DCF、热力图、动态NWC与折旧瀑布流、LBO、同业Comps、有效前沿与双轨期权分析",
         "quick_tag": "🔥 热门快捷测评：",
         "input_label": "输入股票代码 (如 1155.KL, NVDA, AAPL)：",
         
@@ -191,8 +191,8 @@ TEXTS = {
         "disclaimer_3": "3. **自主决策**：任何投资决策均应由投资者在独立调查或咨询持牌财务顾问的基础上自行做出。开发者与本系统不对依据本系统数据交易产生的任何盈亏承担法律责任."
     },
     "en": {
-        "title": "🌐 Universal Quant Terminal (Ultimate Hardcore V9.3)",
-        "subtitle": "Integrating Fading Growth DCF, Capex Waterfall, Dynamic NWC, LBO, Comps, Monte Carlo & Efficient Frontier",
+        "title": "🌐 Universal Quant & Derivatives Terminal (Flagship V9.5)",
+        "subtitle": "Integrating Fading Growth DCF, Capex Waterfall, Dynamic NWC, LBO, Comps, Monte Carlo, Efficient Frontier & Live Black-Scholes",
         "quick_tag": "🔥 Quick Select:",
         "input_label": "Enter Stock Ticker (e.g., 1155.KL, NVDA, AAPL):",
         
@@ -284,7 +284,7 @@ def get_fin_metric(df, keyword, default=0.0):
     return default
 
 # ==============================================================================
-# 3. 核心硬核量化引擎 (集成 NWC、折旧瀑布流、LBO、Comps、蒙特卡洛与期权Black-Scholes)
+# 3. 核心硬核量化引擎 (集成 NWC、折旧瀑布流、LBO、Comps、蒙特卡洛与 Black-Scholes)
 # ==============================================================================
 class UltimateHardcoreEngine:
     def __init__(self, ticker):
@@ -316,7 +316,6 @@ class UltimateHardcoreEngine:
         self.fin = self.stock.financials
         self.cfs = self.stock.cashflow
 
-        # 基础财务数据抓取
         self.cash = self.info.get('totalCash') or get_fin_metric(self.bs, 'Cash And Cash Equivalents')
         self.debt = self.info.get('totalDebt') or get_fin_metric(self.bs, 'Total Debt')
         self.revenue = self.info.get('totalRevenue') or get_fin_metric(self.fin, 'Total Revenue', 1000000)
@@ -331,7 +330,7 @@ class UltimateHardcoreEngine:
         self.market_cap = self.price * self.shares
         self.ev = self.market_cap + self.debt - self.cash
         self.scatter_data = None 
-        self.hardcore_ufcf_proj = [] # 动态生成的硬核现金流缓存，供 LBO 调用
+        self.hardcore_ufcf_proj = []
 
     def get_esg_adjustment(self):
         if self.sector in ['Energy', 'Basic Materials', 'Industrials']: return 0.015, "🔴 High ESG Risk (Penalty +1.5%)"
@@ -442,7 +441,6 @@ class UltimateHardcoreEngine:
             else: high = mid
         return mid
 
-    # 🌟 动态营运资金与折旧瀑布流 3-Statement 模型
     def build_hardcore_3_statement(self, dso, dio, dpo, capex_pct):
         years = ['Year 0 (Current)', 'Year 1', 'Year 2', 'Year 3', 'Year 4', 'Year 5']
         
@@ -541,7 +539,6 @@ class UltimateHardcoreEngine:
             "MOIC": moic, "IRR": irr, "Debt Schedule": debt_schedule
         }
 
-    # 🌟 同业可比公司矩阵 (Comps Analysis)
     def run_comps_analysis(self):
         peer_map = {
             'NVDA': ['AMD', 'INTC', 'TSM', 'QCOM'],
@@ -579,7 +576,6 @@ class UltimateHardcoreEngine:
             except Exception: pass
         return pd.DataFrame(comp_data)
 
-    # 🌟 蒙特卡洛模拟估值 (Monte Carlo Simulation)
     def run_monte_carlo(self, sims=2000):
         if self.cf <= 0: return []
         results = []
@@ -593,9 +589,8 @@ class UltimateHardcoreEngine:
             if val and val > 0: results.append(val)
         return results
 
-    # 🌟 Black-Scholes 期权定价与 Greeks 计算核心
-    def black_scholes_pricing(self, K, T, r, sigma, q=0.0):
-        S = self.price
+    # 🌟 融合版最强 B-S 引擎 (支持双向、希腊字母全解及股息率)
+    def black_scholes_pricing(self, S, K, T, r, sigma, q=0.0):
         if T <= 0 or sigma <= 0 or S <= 0 or K <= 0:
             return {"Call": 0.0, "Put": 0.0, "Delta_C": 0.0, "Delta_P": 0.0, "Gamma": 0.0, "Theta_C": 0.0, "Theta_P": 0.0, "Vega": 0.0, "Rho_C": 0.0, "Rho_P": 0.0}
         
@@ -608,13 +603,13 @@ class UltimateHardcoreEngine:
         delta_c = np.exp(-q * T) * stats.norm.cdf(d1)
         delta_p = -np.exp(-q * T) * stats.norm.cdf(-d1)
         gamma = (np.exp(-q * T) * stats.norm.pdf(d1)) / (S * sigma * np.sqrt(T))
-        vega = S * np.exp(-q * T) * stats.norm.pdf(d1) * np.sqrt(T) / 100
+        vega = S * np.exp(-q * T) * stats.norm.pdf(d1) * np.sqrt(T) / 100.0
         
-        theta_c = (- (S * sigma * np.exp(-q * T) * stats.norm.pdf(d1)) / (2 * np.sqrt(T)) - r * K * np.exp(-r * T) * stats.norm.cdf(d2) + q * S * np.exp(-q * T) * stats.norm.cdf(d1)) / 365
-        theta_p = (- (S * sigma * np.exp(-q * T) * stats.norm.pdf(d1)) / (2 * np.sqrt(T)) + r * K * np.exp(-r * T) * stats.norm.cdf(-d2) - q * S * np.exp(-q * T) * stats.norm.cdf(-d1)) / 365
+        theta_c = (- (S * sigma * np.exp(-q * T) * stats.norm.pdf(d1)) / (2 * np.sqrt(T)) - r * K * np.exp(-r * T) * stats.norm.cdf(d2) + q * S * np.exp(-q * T) * stats.norm.cdf(d1)) / 365.0
+        theta_p = (- (S * sigma * np.exp(-q * T) * stats.norm.pdf(d1)) / (2 * np.sqrt(T)) + r * K * np.exp(-r * T) * stats.norm.cdf(-d2) - q * S * np.exp(-q * T) * stats.norm.cdf(-d1)) / 365.0
         
-        rho_c = K * T * np.exp(-r * T) * stats.norm.cdf(d2) / 100
-        rho_p = -K * T * np.exp(-r * T) * stats.norm.cdf(-d2) / 100
+        rho_c = K * T * np.exp(-r * T) * stats.norm.cdf(d2) / 100.0
+        rho_p = -K * T * np.exp(-r * T) * stats.norm.cdf(-d2) / 100.0
         
         return {
             "Call": call, "Put": put, "Delta_C": delta_c, "Delta_P": delta_p,
@@ -676,7 +671,7 @@ def draw_beta_scatter(engine):
     return fig
 
 # ==============================================================================
-# 5. 主程序与全部 Tabs 渲染 (已兼容 Pandas map 并完整保留所有功能)
+# 5. 主程序与 Tabs 渲染
 # ==============================================================================
 def main():
     col_title, col_lang = st.columns([3, 1.2])
@@ -721,7 +716,6 @@ def main():
 
             st.markdown(f"<h3 style='margin-top: 25px;'>🏢 {engine.name} ({engine.ticker}) <span style='font-size:14px; color:#94a3b8;'>| Sector: {engine.sector}</span></h3>", unsafe_allow_html=True)
 
-            # 🌟 7大功能 Tab 标签页完美集成 (包含期权波动率微笑模块)
             tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
                 "📊 [1] Quant Valuation Dashboard (量化估值终端)", 
                 "⚙️ [2] Hardcore 3-Statement & NWC (硬核财报排程)", 
@@ -733,7 +727,7 @@ def main():
             ])
 
             # ==========================================
-            # TAB 1: 完整的原版 V9.1 (量化估值终端)
+            # TAB 1: 估值面板
             # ==========================================
             with tab1:
                 with st.container(border=True):
@@ -979,11 +973,11 @@ def main():
                             st.caption(T['g_fv_desc'])
 
             # ==========================================
-            # TAB 2: 硬核 3-Statement & NWC
+            # TAB 2: 硬核财报排程
             # ==========================================
             with tab2:
                 st.markdown("#### ⚙️ Hardcore 3-Statement Forecast (NWC & Depreciation Engine)")
-                st.caption("Adjust the Working Capital (DSO/DIO/DPO) and Capex drivers below to dynamically alter the Free Cash Flow (FCF) generation. See how pushing suppliers (DPO) improves cash flow!")
+                st.caption("Adjust the Working Capital (DSO/DIO/DPO) and Capex drivers below to dynamically alter the Free Cash Flow (FCF) generation.")
                 
                 with st.container(border=True):
                     st.markdown("**🔧 Operating Assumptions (NWC & Capex Drivers)**")
@@ -994,19 +988,18 @@ def main():
                     capex_pct = o_col4.number_input("Capex as % of Revenue", value=5.0) / 100.0
 
                 df_is = engine.build_hardcore_3_statement(dso, dio, dpo, capex_pct)
-                
                 styled_df = df_is.copy()
                 for col in styled_df.columns:
-                    styled_df[col] = styled_df[col].map(lambda x: f"{x:,.0f}" if isinstance(x, (int, float)) else x)
+                    styled_df[col] = styled_df[col].apply(lambda x: f"{x:,.0f}" if isinstance(x, (int, float)) else x)
                 
                 st.dataframe(styled_df, use_container_width=True, height=320)
 
             # ==========================================
-            # TAB 3: 动态 LBO 杠杆收购沙盘
+            # TAB 3: LBO
             # ==========================================
             with tab3:
                 st.markdown("#### 🏛️ Dynamic LBO Model & Cash Sweep Schedule")
-                st.caption("This LBO is perfectly linked to the Hardcore UFCF generated in Tab 2. If you optimize NWC (e.g., increase DPO) in Tab 2, your Sponsor IRR here will spike because more cash is available to pay down debt!")
+                st.caption("This LBO is perfectly linked to the Hardcore UFCF generated in Tab 2.")
                 
                 col_l1, col_l2, col_l3 = st.columns(3)
                 ltv = col_l1.slider("Debt Leverage (LTV %)", 30, 80, 60, 5) / 100
@@ -1026,89 +1019,64 @@ def main():
                     "Amount": [lbo_res['Equity'], lbo_res['Debt'], lbo_res['Entry EV']],
                     "%": [f"{(1-ltv)*100:.1f}%", f"{ltv*100:.1f}%", "100.0%"]
                 })
-                su_df['Amount'] = su_df['Amount'].map(lambda x: f"{x:,.0f}" if isinstance(x, (int, float)) else x)
+                su_df['Amount'] = su_df['Amount'].apply(lambda x: f"{x:,.0f}" if isinstance(x, (int, float)) else x)
                 st.table(su_df)
 
                 st.markdown("**Debt Schedule & Cash Sweep**")
                 debt_df = pd.DataFrame({"Year": ["0 (Entry)", "1", "2", "3", "4", "5"], "Ending Debt Balance": lbo_res['Debt Schedule']})
-                debt_df['Ending Debt Balance'] = debt_df['Ending Debt Balance'].map(lambda x: f"{x:,.0f}" if isinstance(x, (int, float)) else x)
+                debt_df['Ending Debt Balance'] = debt_df['Ending Debt Balance'].apply(lambda x: f"{x:,.0f}" if isinstance(x, (int, float)) else x)
                 st.table(debt_df.set_index('Year').T)
 
             # ==========================================
-            # TAB 4: 同业可比公司矩阵 (Comps Matrix)
+            # TAB 4 & TAB 5 & TAB 6: Comps, Monte Carlo, Frontier
             # ==========================================
             with tab4:
                 st.markdown("#### 🏢 Comparable Company Analysis (Peer Valuation Matrix)")
-                st.caption("Automatically retrieves sector peers to benchmark valuation multiples and profitability metrics.")
-                comps_df = engine.run_comps_analysis()
-                st.dataframe(comps_df, use_container_width=True)
+                st.dataframe(engine.run_comps_analysis(), use_container_width=True)
 
-            # ==========================================
-            # TAB 5: 蒙特卡洛模拟估值
-            # ==========================================
             with tab5:
                 st.markdown("#### 🎲 Monte Carlo Valuation Simulation (2,000 Iterations)")
-                st.caption("Probabilistic valuation distribution addressing WACC and Terminal Growth uncertainties.")
                 mc_results = engine.run_monte_carlo(2000)
                 if mc_results:
                     mc_mean = np.mean(mc_results)
-                    mc_p10 = np.percentile(mc_results, 10)
-                    mc_p90 = np.percentile(mc_results, 90)
-                    
+                    mc_p10, mc_p90 = np.percentile(mc_results, 10), np.percentile(mc_results, 90)
                     mc1, mc2, mc3 = st.columns(3)
                     mc1.metric("Monte Carlo Mean Value", f"{engine.currency} {mc_mean:.2f}")
                     mc2.metric("10% Bear Case (Floor)", f"{engine.currency} {mc_p10:.2f}")
                     mc3.metric("90% Bull Case (Ceiling)", f"{engine.currency} {mc_p90:.2f}")
-
                     fig_mc = px.histogram(x=mc_results, nbins=50, title="Intrinsic Value Probability Distribution", labels={'x': 'Fair Value', 'y': 'Frequency'})
                     fig_mc.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#94a3b8'))
                     st.plotly_chart(fig_mc, use_container_width=True)
-                else:
-                    st.warning("Insufficient cash flow data for Monte Carlo simulation.")
 
-            # ==========================================
-            # TAB 6: 有效前沿资产配置 (Efficient Frontier)
-            # ==========================================
             with tab6:
                 st.markdown("#### 📈 Markowitz Efficient Frontier & Portfolio Optimization")
-                st.caption("Input a basket of comma-separated tickers to construct the optimal Sharpe-maximizing portfolio.")
-                
                 basket_input = st.text_input("Asset Basket Tickers (Comma-separated)", value="NVDA, AAPL, MSFT, GOOGL, AMZN" if not engine.is_malaysia else "1155.KL, 1023.KL, 1295.KL, 5819.KL")
                 tickers_list = [t.strip().upper() for t in basket_input.split(",") if t.strip()]
-                
                 if st.button("🚀 Run Portfolio Optimization"):
-                    with st.spinner("Simulating portfolios and computing covariance matrix..."):
+                    with st.spinner("Simulating portfolios..."):
                         try:
                             data = yf.download(tickers_list, period="1y", interval="1d", session=engine.session)['Close']
                             if isinstance(data, pd.Series): data = data.to_frame()
                             returns = data.pct_change().dropna()
-                            
                             num_portfolios = 3000
                             results_matrix = np.zeros((3 + len(tickers_list), num_portfolios))
-                            mean_returns = returns.mean() * 252
-                            cov_matrix = returns.cov() * 252
+                            mean_returns, cov_matrix = returns.mean() * 252, returns.cov() * 252
                             
                             for p in range(num_portfolios):
                                 weights = np.random.random(len(tickers_list))
                                 weights /= np.sum(weights)
                                 p_ret = np.sum(mean_returns * weights)
                                 p_vol = np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
-                                results_matrix[0, p] = p_ret
-                                results_matrix[1, p] = p_vol
-                                results_matrix[2, p] = (p_ret - 0.03) / p_vol 
+                                results_matrix[0, p], results_matrix[1, p], results_matrix[2, p] = p_ret, p_vol, (p_ret - 0.03) / p_vol 
                                 for i, w in enumerate(weights): results_matrix[3 + i, p] = w
                                 
                             max_sharpe_idx = np.argmax(results_matrix[2])
                             opt_weights = results_matrix[3:, max_sharpe_idx]
-                            
                             opt1, opt2 = st.columns(2)
                             opt1.metric("Optimal Portfolio Return", f"{results_matrix[0, max_sharpe_idx]*100:.2f}%")
                             opt2.metric("Optimal Portfolio Volatility", f"{results_matrix[1, max_sharpe_idx]*100:.2f}%")
-                            
-                            st.markdown("**Optimal Asset Allocation Weights:**")
                             weight_df = pd.DataFrame({"Asset": tickers_list, "Weight (%)": [f"{w*100:.1f}%" for w in opt_weights]})
                             st.table(weight_df.set_index('Asset').T)
-
                             fig_ef = px.scatter(x=results_matrix[1], y=results_matrix[0], color=results_matrix[2], labels={'x': 'Volatility (Risk)', 'y': 'Expected Return', 'color': 'Sharpe Ratio'}, title="Markowitz Efficient Frontier")
                             fig_ef.add_trace(go.Scatter(x=[results_matrix[1, max_sharpe_idx]], y=[results_matrix[0, max_sharpe_idx]], mode='markers', marker=dict(color='yellow', size=15, symbol='star'), name='Max Sharpe Portfolio'))
                             fig_ef.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#94a3b8'))
@@ -1117,87 +1085,103 @@ def main():
                             st.error(f"Error fetching basket data: {e}")
 
             # ==========================================
-            # TAB 7: 📉 期权定价与隐含波动率微笑分析 (Black-Scholes & Greeks)
+            # 🌟 修复融合版 TAB 7: 完美集成 V9.4 视图与 V9.3 核心
             # ==========================================
             with tab7:
-                st.markdown("#### 📉 Black-Scholes 期权定价与隐含波动率微笑分析 (Options & Volatility Smile)")
-                st.caption("实时抓取期权链数据（美股），计算 B-S 公允价、希腊字母风险敞口（Greeks），并绘制机构级的隐含波动率微笑/斜面（Volatility Skew）图表。")
-
-                try:
-                    expirations = engine.stock.options
-                except Exception:
-                    expirations = []
-
-                if expirations and not engine.is_malaysia:
-                    selected_expiry = st.selectbox("📅 选择期权到期日 (Expiration Date)", options=expirations)
-                    try:
-                        opt_chain = engine.stock.option_chain(selected_expiry)
-                        calls_df = opt_chain.calls
-                        
-                        st.markdown(f"**🟢 看涨期权链 (Calls - {selected_expiry})**")
-                        st.dataframe(calls_df[['strike', 'lastPrice', 'bid', 'ask', 'volume', 'openInterest', 'impliedVolatility']].head(10), use_container_width=True)
-
-                        if not calls_df.empty and 'impliedVolatility' in calls_df.columns:
-                            valid_calls = calls_df[(calls_df['impliedVolatility'] > 0.01) & (calls_df['volume'] > 0)]
-                            if not valid_calls.empty:
-                                fig_smile = px.scatter(
-                                    valid_calls, x='strike', y='impliedVolatility', 
-                                    title=f"Volatility Skew / Smile ({engine.ticker} - Exp: {selected_expiry})",
-                                    labels={'strike': 'Strike Price (行权价)', 'impliedVolatility': 'Implied Volatility (隐含波动率)'},
-                                    trendline="lowess"
-                                )
-                                # 🌟 强制将 LOWESS 趋势线设为醒目的红线，并加粗
-                                fig_smile.update_traces(selector=dict(mode="lines"), line=dict(color="#ef4444", width=2.5))
-                                fig_smile.update_layout(
-                                    plot_bgcolor='rgba(0,0,0,0)', 
-                                    paper_bgcolor='rgba(0,0,0,0)', 
-                                    font=dict(color='#94a3b8')
-                                )
-                                st.plotly_chart(fig_smile, use_container_width=True)
-                                
-                                # 🌟 补齐完整的专业机构解读与 Strike Price 释义
-                                st.markdown("""
-                                💡 **机构级波动率微笑与斜面（Volatility Smile / Skew）专业解读：**
-                                * **X轴 (Strike Price / 行权价)**：展示了不同行权价（虚值、平值、实值）的看涨期权分布。
-                                * **Y轴 (Implied Volatility / 隐含波动率)**：反映市场资金对该行权价未来波动幅度的真实预期定价。
-                                * **红线趋势 (LOWESS Trendline)**：通过非参数局部回归平滑拟合出的波动率走向。若呈现向左下方倾斜的斜面（Skew），说明机构正大量买入虚值 Put 来防范**黑天鹅暴跌风险**，从而支付了极高的防范溢价。
-                                """)
-                    except Exception as e:
-                        st.warning(f"⚠️ 期权链数据加载遇到网络或格式限制: {e}")
-                else:
-                    st.info("ℹ️ 当前资产为马股（或 Yahoo Finance 暂无期权链数据）。系统已自动切换至 **Black-Scholes 独立定价与 Greeks 仿真沙盘**：")
-
-                st.markdown("---")
-                st.markdown("##### 🧮 交互式 Black-Scholes 期权定价器与 Greeks 风险敏感度")
+                st.markdown("#### 📉 Options Chain, Black-Scholes Pricing & Implied Volatility Smile")
+                st.caption("Analyze options sentiment, implied volatility skew, and institutional risk Greeks (Delta, Gamma, Theta, Vega).")
                 
-                op_col1, op_col2, op_col3 = st.columns(3)
-                strike_pct = op_col1.slider("行权价设定 (% 相对现价)", 80, 120, 100, 1) / 100
-                K_default = engine.price * strike_pct
-                K = op_col2.number_input("行权价 (Strike K)", value=float(K_default), format="%.2f")
-                T_days = op_col3.number_input("剩余到期天数 (Days to Maturity)", value=30, min_value=1, max_value=730)
-                T_years = T_days / 365.0
+                if engine.is_malaysia:
+                    st.warning("⚠️ 马股（Bursa Malaysia）期权数据在 Yahoo Finance 上极度稀疏。建议切换至美股代码（如 NVDA, AAPL, TSLA）体验完整的期权与波动率微笑分析！")
+                
+                try:
+                    exp_dates = engine.stock.options
+                    if exp_dates:
+                        selected_expiry = st.selectbox("📅 选择期权到期日 (Select Expiration Date)", options=exp_dates)
+                        opt_chain = engine.stock.option_chain(selected_expiry)
+                        calls = opt_chain.calls
+                        puts = opt_chain.puts
+                        
+                        exp_dt = datetime.datetime.strptime(selected_expiry, "%Y-%m-%d")
+                        T_days = (exp_dt - datetime.datetime.now()).days
+                        T_years = max(T_days / 365.0, 0.01)
+                        r = engine.rf
+                        S = engine.price
 
-                op_col4, op_col5, op_col6 = st.columns(3)
-                vol = op_col4.slider("波动率 (Volatility σ %)", 10.0, 150.0, 35.0, 1.0) / 100.0
-                r_rate = op_col5.slider("无风险利率 (Risk-Free Rate r %)", 1.0, 10.0, float(engine.rf * 100), 0.1) / 100.0
-                div_yield = op_col6.slider("股息率 (Dividend Yield q %)", 0.0, 10.0, 1.5, 0.1) / 100.0
+                        opt_tab1, opt_tab2, opt_tab3 = st.tabs(["📈 隐含波动率微笑 (Volatility Smile)", "🛡️ 实时期权链与希腊字母矩阵", "🧮 独立 B-S 仿真沙盘 (Interactive Sandbox)"])
+                        
+                        with opt_tab1:
+                            st.markdown(f"**Volatility Smile / Skew for Expiry: {selected_expiry} (Days to maturity: {T_days})**")
+                            fig_smile = go.Figure()
+                            
+                            if not calls.empty and 'impliedVolatility' in calls.columns:
+                                valid_calls = calls[(calls['impliedVolatility'] > 0.01) & (calls['impliedVolatility'] < 3.0)]
+                                fig_smile.add_trace(go.Scatter(x=valid_calls['strike'], y=valid_calls['impliedVolatility']*100, mode='markers+lines', name='Calls IV (%)', marker=dict(color='#38bdf8', size=6)))
+                            
+                            if not puts.empty and 'impliedVolatility' in puts.columns:
+                                valid_puts = puts[(puts['impliedVolatility'] > 0.01) & (puts['impliedVolatility'] < 3.0)]
+                                fig_smile.add_trace(go.Scatter(x=valid_puts['strike'], y=valid_puts['impliedVolatility']*100, mode='markers+lines', name='Puts IV (%)', marker=dict(color='#ef4444', size=6)))
+                            
+                            # V9.4 Highlight: Spot Price Line
+                            fig_smile.add_vline(x=S, line_dash="dash", line_color="yellow", annotation_text=f"Spot Price: ${S:.2f}")
+                            
+                            fig_smile.update_layout(xaxis_title="Strike Price ($) ➡️", yaxis_title="Implied Volatility (%) ⬇️", plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#94a3b8'), height=400)
+                            st.plotly_chart(fig_smile, use_container_width=True)
+                            
+                            st.info("""
+                            💡 **机构级波动率微笑与斜面（Volatility Smile / Skew）专业解读：**
+                            * **现价对标 (Spot Price)**：图中黄色虚线代表当前股票市价。虚线左侧为价内看涨/价外看跌，右侧反之。
+                            * **下行避险溢价 (Downside Skew)**：在实际市场中，虚值看跌期权 (OTM Puts，位于黄线左侧) 的隐含波动率往往远高于平值或看涨期权，形成向左上倾斜的‘微笑曲线’。这反映了机构对**尾部黑天鹅暴跌风险**极其忌惮，愿意支付高昂的溢价来购买防跌保险。
+                            """)
 
-                greeks = engine.black_scholes_pricing(K, T_years, r_rate, vol, div_yield)
+                        with opt_tab2:
+                            st.markdown("**Live Call Option Chain with Black-Scholes Theoretical Pricing & Greeks**")
+                            if not calls.empty:
+                                sample_calls = calls.head(15).copy()
+                                bs_results = []
+                                for _, row in sample_calls.iterrows():
+                                    K = row['strike']
+                                    iv = row['impliedVolatility'] if row['impliedVolatility'] > 0 else 0.30
+                                    # 利用 V9.3 强大的 B-S 全解函数
+                                    greeks = engine.black_scholes_pricing(S, K, T_years, r, iv, q=0.0)
+                                    bs_results.append({
+                                        "Strike": K, "Market Price": row['lastPrice'], "BS Fair Price": round(greeks['Call'], 2),
+                                        "IV (%)": round(iv * 100, 1), "Delta": round(greeks['Delta_C'], 2), "Gamma": round(greeks['Gamma'], 3),
+                                        "Theta": round(greeks['Theta_C'], 2), "Vega": round(greeks['Vega'], 2)
+                                    })
+                                bs_df = pd.DataFrame(bs_results)
+                                st.dataframe(bs_df, use_container_width=True)
+                                st.caption("✨ *注：Delta 衡量股价每涨跌 1$ 带来的期权理论变动；Gamma 衡量 Delta 加速度；Theta 衡量期权每日时间价值损耗；Vega 衡量标的波动率每变动 1% 对期权价格的影响。*")
 
-                st.markdown("##### 💎 B-S 公允估值结果")
-                res_c1, res_c2 = st.columns(2)
-                res_c1.metric("European Call (看涨期权公道价)", f"{engine.currency} {greeks['Call']:.4f}")
-                res_c2.metric("European Put (看跌期权公道价)", f"{engine.currency} {greeks['Put']:.4f}")
+                        with opt_tab3:
+                            st.markdown("##### 🧮 交互式 Black-Scholes 期权定价器 (支持股息率)")
+                            st.caption("手动调整各项因子，观察期权理论价格与希腊字母的敏感度变化。")
+                            
+                            op_col1, op_col2, op_col3 = st.columns(3)
+                            strike_pct = op_col1.slider("行权价设定 (% 相对现价)", 80, 120, 100, 1) / 100
+                            K_default = engine.price * strike_pct
+                            custom_K = op_col2.number_input("行权价 (Strike K)", value=float(K_default), format="%.2f")
+                            custom_T_days = op_col3.number_input("剩余到期天数 (Days to Maturity)", value=30, min_value=1, max_value=730)
+                            custom_T_years = custom_T_days / 365.0
 
-                st.markdown("##### ⚡ 希腊字母风险敞口 (Greeks Risk Metrics)")
-                g_col1, g_col2, g_col3, g_col4, g_col5 = st.columns(5)
-                g_col1.metric("Delta (方向敏感度)", f"{greeks['Delta_C']:.3f} / {greeks['Delta_P']:.3f}")
-                g_col2.metric("Gamma (加速率)", f"{greeks['Gamma']:.4f}")
-                g_col3.metric("Vega (波动率风险)", f"{greeks['Vega']:.4f}")
-                g_col4.metric("Theta (时间日衰减)", f"{greeks['Theta_C']:.3f}")
-                g_col5.metric("Rho (利率敏感度)", f"{greeks['Rho_C']:.4f}")
+                            op_col4, op_col5, op_col6 = st.columns(3)
+                            custom_vol = op_col4.slider("波动率 (Volatility σ %)", 10.0, 150.0, 35.0, 1.0) / 100.0
+                            custom_r_rate = op_col5.slider("无风险利率 (Risk-Free Rate r %)", 1.0, 10.0, float(engine.rf * 100), 0.1) / 100.0
+                            custom_div_yield = op_col6.slider("股息率 (Dividend Yield q %)", 0.0, 10.0, 1.5, 0.1) / 100.0
 
-    # [模块 12：免责声明与版权信息]
+                            custom_greeks = engine.black_scholes_pricing(engine.price, custom_K, custom_T_years, custom_r_rate, custom_vol, custom_div_yield)
+
+                            st.markdown("##### 💎 B-S 公允估值结果")
+                            res_c1, res_c2 = st.columns(2)
+                            res_c1.metric("European Call (看涨公道价)", f"{engine.currency} {custom_greeks['Call']:.4f}")
+                            res_c2.metric("European Put (看跌公道价)", f"{engine.currency} {custom_greeks['Put']:.4f}")
+                            
+                    else:
+                        st.warning("⚠️ No option expiration dates found for this ticker on Yahoo Finance.")
+                except Exception as e:
+                    st.error(f"Unable to fetch option chain data: {e}")
+
+    # [模块 12：免责声明]
     st.markdown("---")
     with st.container(border=True):
         st.markdown(f"### {T['disclaimer_title']}")
