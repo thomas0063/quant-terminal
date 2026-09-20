@@ -106,12 +106,12 @@ def get_yf_session():
     return session
 
 # ==============================================================================
-# 2. 国际化多语言字典 (完好无损保留你所有的原文案并拓展期权文案)
+# 2. 国际化多语言字典 (完好无损地保留了你全部的原本文案)
 # ==============================================================================
 TEXTS = {
     "zh": {
-        "title": "🌐 智能量化金融终端 (V9.3 旗舰期权全功能版)",
-        "subtitle": "完美融合 线性衰减DCF、3-Statement 动态NWC、LBO、Comps、蒙特卡洛、有效前沿 & Black-Scholes 期权与波动率微笑分析",
+        "title": "🌐 智能量化金融终端 (V9.3 旗舰全功能版)",
+        "subtitle": "完美融合 线性衰减DCF、热力图、动态NWC与折旧瀑布流、LBO、同业Comps、蒙特卡洛与有效前沿",
         "quick_tag": "🔥 热门快捷测评：",
         "input_label": "输入股票代码 (如 1155.KL, NVDA, AAPL)：",
         
@@ -135,16 +135,16 @@ TEXTS = {
         "no_data_pe": "公司目前处于净亏损",
         "vs_market": "vs 市价",
         "note_dcf": "基于线性衰减自由现金流与 WACC 资本成本折现。",
-        "note_ddm": "Based on historical dividends and terminal growth.",
+        "note_ddm": "基于历史股息分红及永续增长率折现。",
         "note_pe": "基于每股收益 (EPS) 乘以行业合理市盈率倍数。",
         
         "price": "当前市场价格",
         "fair_val": "内在公道估值 (衰减后)",
-        "fair_val_desc": "💡 **关于【内在公道估值 (衰减后)】的通俗解释**：剥离短期市场狂热与恐慌炒作，根据公司真实赚钱能力算出的保守身价。",
+        "fair_val_desc": "💡 **关于【内在公道估值 (衰减后)】的通俗解释**：剥离短期市场狂热与恐慌炒作，根据公司真实赚钱能力算出的保守身价。**“衰减后”**代表模型让高速增长逐年平稳递减，彻底防止科技巨头复利失真。",
         "safe_buy": "20% 安全边际买点",
 
         "heat_title": "[3. 🌡️ 核心参数敏感性分析矩阵 (DCF SENSITIVITY HEATMAP)]",
-        "heat_desc": "💡 **图表说明**：投行通常不给出单一绝对估值。纵轴代表不同的**折现率 (WACC)**，横轴代表**永续增长率 (g)**。",
+        "heat_desc": "💡 **图表说明**：投行通常不给出单一绝对估值。纵轴代表不同的**折现率 (WACC)**，横轴代表**永续增长率 (g)**。矩阵中的数值为对应假设下的内在公道价。<br>👉 <span style='color:#10b981;'>**绿色区域**</span> 代表该参数下当前市价被低估 (具备安全边际)；<span style='color:#ef4444;'>**红色区域**</span> 代表高估；深灰色接近当前市价。",
         
         "lie_title": "[4. 💡 市场情绪测谎仪 (MARKET PSYCHOLOGY / LIE DETECTOR)]",
         "lie_exp": "💡 **通俗解释 (Plain English)：** 测谎仪通过二分法反向推导，看看当前的市场价格到底在幻想这家公司未来每年增长多少。",
@@ -152,7 +152,7 @@ TEXTS = {
         "inc_title": "🔸 视角 A：保守派收息策略 (Conservative Income)",
         "cap_title": "🔹 视角 B：进取派资本增值 (Capital Appreciation)",
         "exec_title": "[6. 🎯 最终投资评级与执行摘要 (EXECUTIVE SUMMARY)]",
-        "rating_explain": "ℹ️ *学术释疑：‘市场情绪理性’代表投资者没有盲目炒作泡沫，但给出 ‘SELL’ 评级是因为当前市价高于内在公道价（缺乏安全边际）。*",
+        "rating_explain": "ℹ️ *学术释疑：‘市场情绪理性’代表投资者没有盲目炒作泡沫，但给出 ‘SELL’ 评级是因为当前市价高于内在公道价（缺乏安全边际）。即：好公司不等于好价格。*",
         
         "plain_title": "[7. 🗣️ 小白通俗翻译器 (PLAIN ENGLISH TRANSLATOR)]",
         "fx_title": "[8. 💱 跨境汇率风险提示 (CROSS-BORDER FX RISK)]",
@@ -168,42 +168,42 @@ TEXTS = {
         "gap_line2": "华尔街平均目标价 (Wall Street Target)",
         "gap_line3": "预期差偏离度 (Divergence Gap)",
         "gap_desc_high": "华尔街目标价比模型估值高出",
-        "gap_alert_high": "🚨 **【预期差警示 / 情绪溢价驱动】**：华尔街目标价远高于量化模型底线。",
-        "gap_alert_low": "🔥 **【深度价值 / 逆向左侧契机】**：量化模型算出的基本面造血价值高于华尔街卖方预期。",
+        "gap_alert_high": "🚨 **【预期差警示 / 情绪溢价驱动】**：华尔街目标价远高于量化模型底线。当前市价已透支部分未来，长线价值投资者需警惕高估值回撤。",
+        "gap_alert_low": "🔥 **【深度价值 / 逆向左侧契机】**：量化模型算出的基本面造血价值高于华尔街卖方预期，属于潜在的“捡烟蒂”布局区。",
         "ws_match": "✅ 模型算出的公道价与华尔街机构预测高度吻合，无重大预期差！",
 
         "chart_title": "[10. 📈 高级盘面与波动率回归分析]",
-        "beta_desc": "📊 **Beta 收益率特征线散点分布图说明：**\n* 每个点代表过往某一周的收益率联动。红线斜率即为真实 Beta。",
+        "beta_desc": "📊 **Beta 收益率特征线散点分布图说明：**\n* 每个点代表过往某一周的收益率联动。红线斜率即为真实 Beta（马股对标 MSCI Malaysia ETF，美股对标 S&P 500）。\n* **$R^2$（拟合优度）补充解析**：点越密集贴近红线，说明该股越受大盘宏观主导（如银行股）；点越分散，说明该股具有极强的个股独立行情（如科技股）。",
         "glossary_title": "[11. 📖 小白通俗金融词典：这些数据代表什么？]",
         
         "g_beta_title": "##### 🎯 Beta (波动敏感度)",
-        "g_beta_desc": "衡量这只股票相对于大盘是更活泼还是更稳健。",
+        "g_beta_desc": "衡量这只股票相对于大盘是更活泼还是更稳健。Beta > 1 涨跌比大盘更猛，Beta < 1 走势更抗跌防守。",
         "g_growth_title": "##### 🚀 Growth (预期增长率)",
-        "g_growth_desc": "未来公司现金流或盈利预计每年递增的比例。",
+        "g_growth_desc": "未来公司现金流或盈利预计每年递增的比例。增长越快，股票当前公道身价就越高。",
         "g_wacc_title": "##### 🛡️ WACC / 折现率",
-        "g_wacc_desc": "你买入这家公司所要求的最低年化回报门槛。",
+        "g_wacc_desc": "你买入这家公司所要求的最低年化回报门槛。风险越高、借钱越多的公司，要求越高。",
         "g_fv_title": "##### 💎 Fair Value (内在公道价)",
-        "g_fv_desc": "剥离市场的短期情绪狂热与恐慌后算出的真实身价。",
+        "g_fv_desc": "剥离市场的短期情绪狂热与恐慌，根据公司真实资产、欠债与赚钱能力算出的厂牌公道价。",
         
         "disclaimer_title": "[12. ⚠️ 重要法律与风险免责声明]",
-        "disclaimer_1": "1. **非投资建议**：本系统所呈现的所有估值结果、公道价格、诊断与图表分析，仅供学术研究、个人学习交流与教学参考。",
-        "disclaimer_2": "2. **市场风险**：股票与期权市场波动剧烈，历史数据和数学量化模型无法预知未来。",
-        "disclaimer_3": "3. **自主决策**：任何投资决策均应由投资者在独立调查或咨询持牌财务顾问的基础上自行做出。"
+        "disclaimer_1": "1. **非投资建议**：本系统所呈现的所有估值结果、公道价格、诊断与图表分析，仅供学术研究、个人学习交流与教学参考，不构成任何投资建议、买卖要约或财务建议。",
+        "disclaimer_2": "2. **市场风险**：股票市场波动剧烈，历史数据和数学量化模型无法预知未来。公司的实际表现可能受到宏观经济、行业竞争及突发事件的影响。",
+        "disclaimer_3": "3. **自主决策**：任何投资决策均应由投资者在独立调查或咨询持牌财务顾问的基础上自行做出。开发者与本系统不对依据本系统数据交易产生的任何盈亏承担法律责任."
     },
     "en": {
         "title": "🌐 Universal Quant Terminal (Ultimate Hardcore V9.3)",
-        "subtitle": "Integrating Fading Growth DCF, 3-Statement NWC, LBO, Comps, Monte Carlo, Efficient Frontier & Black-Scholes Options",
+        "subtitle": "Integrating Fading Growth DCF, Capex Waterfall, Dynamic NWC, LBO, Comps, Monte Carlo & Efficient Frontier",
         "quick_tag": "🔥 Quick Select:",
         "input_label": "Enter Stock Ticker (e.g., 1155.KL, NVDA, AAPL):",
         
-        "param_title": "⚙️ Step 2: Macro & Valuation Parameters (Defaults Recommended)",
-        "param_tip": "💡 When to adjust manually?",
+        "param_title": "⚙️ Step 2: Macro & Valuation Parameters (Defaults Recommended) 👈 (Keep default unless necessary)",
+        "param_tip": "💡 **When to adjust manually?**\n* **Terminal Growth (g)**: Adjust if you expect long-term structural inflation or GDP growth to deviate from historical norms.\n* **Equity Risk Premium (ERP)**: Adjust during extreme market cycles (higher ERP during panics, lower during bubbles).",
         "erp_label": "Equity Risk Premium (ERP)",
         "g2_label": "Terminal Growth Rate (g)",
-        "esg_caption": "🌿 Sustainable Finance & ESG Sector Risk Premium integrated.",
+        "esg_caption": "🌿 Sustainable Finance & ESG Sector Risk Premium automatically integrated into discount rate adjustments.",
         
         "macro_title": "[1. DYNAMIC MACRO & COST OF CAPITAL]",
-        "macro_exp": "💡 Beta measures stock volatility compared to the market.",
+        "macro_exp": "💡 **Plain English Explanation:** Beta measures stock volatility compared to the market. Rf is the benchmark government bond yield. WACC / Discount Rate is your hurdle rate / minimum required rate of return.",
         
         "matrix_header": "[2. Multi-Model Valuation Matrix (DCF + DDM + P/E)]",
         "model_dcf_name": "Two-Stage Fading Growth DCF",
@@ -221,54 +221,55 @@ TEXTS = {
         
         "price": "Current Market Price",
         "fair_val": "Intrinsic Fair Value (Faded)",
-        "fair_val_desc": "💡 Strips away short-term market hype to reveal fundamental worth.",
+        "fair_val_desc": "💡 **Explanation of [Intrinsic Fair Value (Faded)]**: Strips away short-term market hype and panic to reveal true fundamental worth. **'Faded'** means growth rates smoothly decay over time to prevent multi-year compounding errors, making valuation conservative and robust.",
         "safe_buy": "Safe Buy Target (20% MoS)",
 
         "heat_title": "[3. 🌡️ DCF SENSITIVITY HEATMAP]",
-        "heat_desc": "💡 Y-axis represents WACC, X-axis represents Terminal Growth (g).",
+        "heat_desc": "💡 **How to read this?** Institutional models do not rely on a single absolute value. The Y-axis represents different **Discount Rates (WACC)**, and the X-axis represents **Terminal Growth (g)**. <br>👉 <span style='color:#10b981;'>**Green zones**</span> indicate the stock is undervalued at those parameters; <span style='color:#ef4444;'>**Red zones**</span> indicate overvalued; Dark grey represents values close to the current market price.",
         
         "lie_title": "[4. 💡 MARKET PSYCHOLOGY (LIE DETECTOR)]",
-        "lie_exp": "💡 Reverse-engineers the implied growth rate.",
+        "lie_exp": "💡 **Plain English Explanation:** The lie detector uses reverse-engineering to find out what growth rate investors are currently pricing into the stock.",
         "ai_title": "[5. 🤖 DUAL-PERSPECTIVE AI ADVISORY]",
-        "inc_title": "🔸 Conservative Income",
-        "cap_title": "🔹 Capital Appreciation",
+        "inc_title": "🔸 Perspective A: Conservative Income",
+        "cap_title": "🔹 Perspective B: Capital Appreciation",
         "exec_title": "[6. 🎯 FINAL EXECUTIVE SUMMARY & RATING]",
-        "rating_explain": "ℹ️ Good company ≠ Good price.",
+        "rating_explain": "ℹ️ *Academic Note: 'Rational Market Sentiment' means investors are not irrationally hyping the stock, but a 'SELL' rating is triggered strictly because the market price exceeds the intrinsic value (Lack of Margin of Safety). Good company ≠ Good price.*",
         
         "plain_title": "[7. 🗣️ PLAIN ENGLISH TRANSLATOR]",
         "fx_title": "[8. 💱 CROSS-BORDER FX RISK ADVISORY]",
-        "fx_content": "- **Note:** USD asset; monitor USD/MYR exchange rate.",
+        "fx_content": "- **Note:** USD-denominated asset; monitor USD/MYR exchange rate fluctuations.",
         
         "ws_title": "🏛️ [9. Wall Street Analyst Consensus & Expectation Gap Radar]",
         "ws_mean": "Analyst Average Target Price",
         "ws_range": "Target Price Range",
         "ws_rating": "Consensus Rating",
         "ws_tag": "Institutional Consensus",
-        "gap_title": "⚡ Expectation Gap Analysis",
+        "gap_title": "⚡ Wall Street vs. Quant Model: Expectation Gap Analysis",
         "gap_line1": "Model Fair Value",
         "gap_line2": "Wall Street Target Mean",
         "gap_line3": "Divergence Gap",
         "gap_desc_high": "Wall Street target is higher than model value by",
-        "gap_alert_high": "🚨 **[Expectation Gap Warning]**: Targets far exceed quant model.",
-        "gap_alert_low": "🔥 **[Deep Value Opportunity]**: Quant model exceeds Wall Street.",
-        "ws_match": "✅ Your Valuation aligns tightly with Wall Street targets!",
+        "gap_alert_high": "🚨 **[Expectation Gap Warning / Sentiment Premium]**: Wall Street targets far exceed the quant model. Current prices have factored in future growth; long-term value investors should remain cautious.",
+        "gap_alert_low": "🔥 **[Deep Value / Contrarian Opportunity]**: Quant model fundamental cash flow value exceeds Wall Street sell-side expectations, presenting a potential deep-value entry.",
+        "ws_match": "✅ Your Valuation aligns tightly with Wall Street targets with minimal expectation gap!",
 
         "chart_title": "[10. Advanced Price Action & Regression Analysis]",
-        "beta_desc": "📊 Beta Scatter Plot Explanation.",
+        "beta_desc": "📊 **Beta Scatter Plot Explanation:** Each dot represents past weekly return correlation. The red line slope represents the true Beta (Bursa benchmarks against MSCI Malaysia ETF, US equities against S&P 500).\n* **$R^2$ Analysis**: Tight clustering indicates market-driven systemic risk; higher dispersion reflects strong independent trends.",
         "glossary_title": "[11. Beginner's Financial Glossary]",
+        
         "g_beta_title": "##### 🎯 Beta (Sensitivity)",
-        "g_beta_desc": "Measures stock volatility relative to the market.",
+        "g_beta_desc": "Measures stock volatility relative to the market. Beta > 1 means higher aggression, while Beta < 1 indicates defensive characteristics.",
         "g_growth_title": "##### 🚀 Expected Growth Rate",
-        "g_growth_desc": "Projected annual growth rate.",
+        "g_growth_desc": "The projected annual growth rate of company cash flows or earnings. Higher growth drives higher fair value.",
         "g_wacc_title": "##### 🛡️ WACC / Discount Rate",
-        "g_wacc_desc": "Minimum hurdle rate of return.",
+        "g_wacc_desc": "The minimum hurdle rate of return required by investors. Higher risks and debt levels demand a higher WACC.",
         "g_fv_title": "##### 💎 Intrinsic Fair Value",
-        "g_fv_desc": "Calculated intrinsic value.",
+        "g_fv_desc": "The calculated intrinsic value based on fundamental assets, liabilities, and earning power, stripping away market hype or panic.",
         
         "disclaimer_title": "[12. ⚠️ Important Legal & Risk Disclaimer]",
-        "disclaimer_1": "1. **Not Investment Advice**: For educational purposes only.",
-        "disclaimer_2": "2. **Market Risk**: Volatility disclaimer.",
-        "disclaimer_3": "3. **Independent Decision**: Make your own choices."
+        "disclaimer_1": "1. **Not Investment Advice**: All valuation results, fair prices, diagnostics, and charts presented herein are for academic research, personal learning, and educational purposes only. They do not constitute investment advice or financial recommendations.",
+        "disclaimer_2": "2. **Market Risk**: The stock market is volatile, and historical data or quant models cannot predict the future. Company performance is subject to macroeconomic and unforeseen events.",
+        "disclaimer_3": "3. **Independent Decision**: All investment decisions must be made independently by users after thorough research or consultation with licensed advisors. The developer accepts no liability for trading losses."
     }
 }
 
@@ -283,7 +284,7 @@ def get_fin_metric(df, keyword, default=0.0):
     return default
 
 # ==============================================================================
-# 3. 核心硬核量化引擎与 Black-Scholes 期权风控模块
+# 3. 核心硬核量化引擎 (集成 NWC、折旧瀑布流、LBO、Comps、蒙特卡洛与期权Black-Scholes)
 # ==============================================================================
 class UltimateHardcoreEngine:
     def __init__(self, ticker):
@@ -315,6 +316,7 @@ class UltimateHardcoreEngine:
         self.fin = self.stock.financials
         self.cfs = self.stock.cashflow
 
+        # 基础财务数据抓取
         self.cash = self.info.get('totalCash') or get_fin_metric(self.bs, 'Cash And Cash Equivalents')
         self.debt = self.info.get('totalDebt') or get_fin_metric(self.bs, 'Total Debt')
         self.revenue = self.info.get('totalRevenue') or get_fin_metric(self.fin, 'Total Revenue', 1000000)
@@ -329,7 +331,7 @@ class UltimateHardcoreEngine:
         self.market_cap = self.price * self.shares
         self.ev = self.market_cap + self.debt - self.cash
         self.scatter_data = None 
-        self.hardcore_ufcf_proj = []
+        self.hardcore_ufcf_proj = [] # 动态生成的硬核现金流缓存，供 LBO 调用
 
     def get_esg_adjustment(self):
         if self.sector in ['Energy', 'Basic Materials', 'Industrials']: return 0.015, "🔴 High ESG Risk (Penalty +1.5%)"
@@ -440,28 +442,47 @@ class UltimateHardcoreEngine:
             else: high = mid
         return mid
 
+    # 🌟 动态营运资金与折旧瀑布流 3-Statement 模型
     def build_hardcore_3_statement(self, dso, dio, dpo, capex_pct):
         years = ['Year 0 (Current)', 'Year 1', 'Year 2', 'Year 3', 'Year 4', 'Year 5']
+        
         rev_0 = self.revenue
         cogs_0 = self.cogs if self.cogs > 0 else rev_0 * 0.5
         ebitda_margin = self.ebitda / self.revenue if self.revenue > 0 else 0.2
         tax_rate = self.tax
 
-        rev = [rev_0]; cogs = [cogs_0]; ebitda = [self.ebitda]; da = [self.hist_da]; capex = [rev_0 * capex_pct]
-        ar = [(dso / 365.0) * rev_0]; inv = [(dio / 365.0) * cogs_0]; ap = [(dpo / 365.0) * cogs_0]
-        nwc = [ar[0] + inv[0] - ap[0]]; dnwc = [0.0]; ufcf = [self.cf]
+        rev = [rev_0]
+        cogs = [cogs_0]
+        ebitda = [self.ebitda]
+        da = [self.hist_da]
+        capex = [rev_0 * capex_pct]
+        
+        ar = [(dso / 365.0) * rev_0]
+        inv = [(dio / 365.0) * cogs_0]
+        ap = [(dpo / 365.0) * cogs_0]
+        nwc = [ar[0] + inv[0] - ap[0]]
+        dnwc = [0.0]
+        ufcf = [self.cf]
+
         new_capex_schedule = [] 
 
         for i in range(1, 6):
             g = self.g1 - (self.g1 - self.g2) * (i / 5)
-            r = rev[-1] * (1 + g); c = cogs[-1] * (1 + g); e = r * ebitda_margin
-            rev.append(r); cogs.append(c); ebitda.append(e)
+            r = rev[-1] * (1 + g)
+            c = cogs[-1] * (1 + g)
+            e = r * ebitda_margin
+
+            rev.append(r)
+            cogs.append(c)
+            ebitda.append(e)
 
             cap = r * capex_pct
-            capex.append(cap); new_capex_schedule.append(cap)
+            capex.append(cap)
+            new_capex_schedule.append(cap)
 
             current_da = self.hist_da * (1 - 0.2 * i) if (1 - 0.2 * i) > 0 else 0
-            for j in range(len(new_capex_schedule)): current_da += new_capex_schedule[j] * 0.2
+            for j in range(len(new_capex_schedule)):
+                current_da += new_capex_schedule[j] * 0.2
             da.append(current_da)
 
             current_ar = (dso / 365.0) * r
@@ -469,8 +490,11 @@ class UltimateHardcoreEngine:
             current_ap = (dpo / 365.0) * c
             current_nwc = current_ar + current_inv - current_ap
 
-            ar.append(current_ar); inv.append(current_inv); ap.append(current_ap)
-            nwc.append(current_nwc); dnwc.append(current_nwc - nwc[-2])
+            ar.append(current_ar)
+            inv.append(current_inv)
+            ap.append(current_ap)
+            nwc.append(current_nwc)
+            dnwc.append(current_nwc - nwc[-2])
 
             ebit = e - current_da
             nopat = ebit * (1 - tax_rate)
@@ -478,16 +502,24 @@ class UltimateHardcoreEngine:
             ufcf.append(current_ufcf)
 
         self.hardcore_ufcf_proj = ufcf[1:] 
-        return pd.DataFrame({
-            "Revenue": rev, "EBITDA": ebitda, "(-) D&A (Waterfall)": [-d for d in da],
-            "(=) EBIT": [e - d for e, d in zip(ebitda, da)], "NOPAT (EBIT x 1-T)": [(e - d) * (1 - tax_rate) for e, d in zip(ebitda, da)],
-            "(-) Capex": [-c for c in capex], "(-) Δ NWC (WC Change)": [-d for d in dnwc], "(=) Unlevered FCF": ufcf
+
+        df = pd.DataFrame({
+            "Revenue": rev,
+            "EBITDA": ebitda,
+            "(-) D&A (Waterfall)": [-d for d in da],
+            "(=) EBIT": [e - d for e, d in zip(ebitda, da)],
+            "NOPAT (EBIT x 1-T)": [(e - d) * (1 - tax_rate) for e, d in zip(ebitda, da)],
+            "(-) Capex": [-c for c in capex],
+            "(-) Δ NWC (WC Change)": [-d for d in dnwc],
+            "(=) Unlevered FCF": ufcf
         }, index=years).T
+        return df
 
     def run_lbo_model(self, ltv_ratio, interest_rate, exit_multiple):
         purchase_price = self.ev
         debt_funding = purchase_price * ltv_ratio
         equity_funding = purchase_price - debt_funding
+        
         debt_schedule = [debt_funding]
         
         for fcf in self.hardcore_ufcf_proj:
@@ -499,6 +531,7 @@ class UltimateHardcoreEngine:
         y5_ebitda = self.ebitda * ((self.revenue / self.ebitda) if self.ebitda>0 else 1) 
         exit_ev = y5_ebitda * exit_multiple
         exit_equity = exit_ev - debt_schedule[-1]
+        
         moic = exit_equity / equity_funding if equity_funding > 0 else 0
         irr = (moic ** (1/5)) - 1 if moic > 0 else 0
         
@@ -508,34 +541,59 @@ class UltimateHardcoreEngine:
             "MOIC": moic, "IRR": irr, "Debt Schedule": debt_schedule
         }
 
+    # 🌟 同业可比公司矩阵 (Comps Analysis)
     def run_comps_analysis(self):
-        peer_map = {'NVDA': ['AMD', 'INTC', 'TSM', 'QCOM'], 'AAPL': ['MSFT', 'GOOGL', 'AMZN', 'META'], 'TSLA': ['RIVN', 'F', 'GM', 'TM'], '1155.KL': ['1023.KL', '1295.KL', '1188.KL', '5819.KL']}
+        peer_map = {
+            'NVDA': ['AMD', 'INTC', 'TSM', 'QCOM'],
+            'AAPL': ['MSFT', 'GOOGL', 'AMZN', 'META'],
+            'TSLA': ['RIVN', 'F', 'GM', 'TM'],
+            '1155.KL': ['1023.KL', '1295.KL', '1188.KL', '5819.KL']
+        }
         peers = peer_map.get(self.ticker, ['AAPL', 'MSFT', 'GOOGL'])
         if self.ticker in peers: peers.remove(self.ticker)
         
-        comp_data = [{"Ticker": self.ticker, "Name": self.name[:12], "Market Cap ($B)": round(self.market_cap / 1e9, 2), "EV/EBITDA": round(self.ev / self.ebitda, 2) if self.ebitda > 0 else 0, "P/E": round(self.info.get('trailingPE', 0), 2), "Gross Margin %": round(self.info.get('grossMargins', 0) * 100, 1)}]
+        comp_data = []
+        comp_data.append({
+            "Ticker": self.ticker, "Name": self.name[:12],
+            "Market Cap ($B)": round(self.market_cap / 1e9, 2),
+            "EV/EBITDA": round(self.ev / self.ebitda, 2) if self.ebitda > 0 else 0,
+            "P/E": round(self.info.get('trailingPE', 0), 2),
+            "Gross Margin %": round(self.info.get('grossMargins', 0) * 100, 1)
+        })
+        
         for p in peers:
             try:
-                pt = yf.Ticker(p, session=self.session); pi = pt.info
-                pmcap = pi.get('marketCap', 1e9); pebitda = pi.get('ebitda', 1e6); pe_ratio = pi.get('trailingPE', 0); gm = pi.get('grossMargins', 0) * 100
+                pt = yf.Ticker(p, session=self.session)
+                pi = pt.info
+                pmcap = pi.get('marketCap', 1e9)
+                pebitda = pi.get('ebitda', 1e6)
+                pe_ratio = pi.get('trailingPE', 0)
+                gm = pi.get('grossMargins', 0) * 100
                 pev = pmcap + pi.get('totalDebt', 0) - pi.get('totalCash', 0)
-                comp_data.append({"Ticker": p, "Name": pi.get('shortName', p)[:12], "Market Cap ($B)": round(pmcap / 1e9, 2), "EV/EBITDA": round(pev / pebitda, 2) if pebitda > 0 else 0, "P/E": round(pe_ratio, 2), "Gross Margin %": round(gm, 1)})
+                comp_data.append({
+                    "Ticker": p, "Name": pi.get('shortName', p)[:12],
+                    "Market Cap ($B)": round(pmcap / 1e9, 2),
+                    "EV/EBITDA": round(pev / pebitda, 2) if pebitda > 0 else 0,
+                    "P/E": round(pe_ratio, 2), "Gross Margin %": round(gm, 1)
+                })
             except Exception: pass
         return pd.DataFrame(comp_data)
 
+    # 🌟 蒙特卡洛模拟估值 (Monte Carlo Simulation)
     def run_monte_carlo(self, sims=2000):
         if self.cf <= 0: return []
         results = []
         np.random.seed(42)
         sim_waccs = np.random.normal(self.wacc, 0.015, sims)
         sim_gs = np.random.normal(self.g2, 0.005, sims)
+        
         for w, g in zip(sim_waccs, sim_gs):
             if w <= g + 0.005: continue
             val = self.calc_specific_dcf(w, g)
             if val and val > 0: results.append(val)
         return results
 
-    # 🌟 Black-Scholes 期权定价与 Greeks 风险风控计算
+    # 🌟 Black-Scholes 期权定价与 Greeks 计算核心
     def black_scholes_pricing(self, K, T, r, sigma, q=0.0):
         S = self.price
         if T <= 0 or sigma <= 0 or S <= 0 or K <= 0:
@@ -565,7 +623,7 @@ class UltimateHardcoreEngine:
         }
 
 # ==============================================================================
-# 4. 图表生成 (热力图 + K线 + Beta + 期权波动率微笑)
+# 4. 图表生成 (热力图 + K线 + Beta)
 # ==============================================================================
 def draw_sensitivity_heatmap(engine):
     if engine.cf <= 0: return None, None
@@ -618,7 +676,7 @@ def draw_beta_scatter(engine):
     return fig
 
 # ==============================================================================
-# 5. 主程序与 7 大功能 Tabs 渲染 (完整囊括期权定价模块)
+# 5. 主程序与全部 Tabs 渲染 (已兼容 Pandas map 并完整保留所有功能)
 # ==============================================================================
 def main():
     col_title, col_lang = st.columns([3, 1.2])
@@ -663,19 +721,19 @@ def main():
 
             st.markdown(f"<h3 style='margin-top: 25px;'>🏢 {engine.name} ({engine.ticker}) <span style='font-size:14px; color:#94a3b8;'>| Sector: {engine.sector}</span></h3>", unsafe_allow_html=True)
 
-            # 🌟 7 大功能 Tab 标签页 (完美集成期权与波动率微笑模块)
+            # 🌟 7大功能 Tab 标签页完美集成 (包含期权波动率微笑模块)
             tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-                "📊 [1] Quant Valuation (量化估值终端)", 
-                "⚙️ [2] Hardcore 3-Statement & NWC (财报排程)", 
-                "🏛️ [3] Dynamic LBO & Debt (杠杆收购沙盘)",
-                "🏢 [4] Comps Matrix (同业可比矩阵)",
+                "📊 [1] Quant Valuation Dashboard (量化估值终端)", 
+                "⚙️ [2] Hardcore 3-Statement & NWC (硬核财报排程)", 
+                "🏛️ [3] Dynamic LBO & Debt Schedule (动态收购沙盘)",
+                "🏢 [4] Comps Matrix (同业可比公司矩阵)",
                 "🎲 [5] Monte Carlo (蒙特卡洛模拟)",
-                "📈 [6] Efficient Frontier (有效前沿配置)",
-                "📉 [7] Options & Volatility Smile (期权定价与隐含波动率微笑)"
+                "📈 [6] Efficient Frontier (有效前沿资产配置)",
+                "📉 [7] Options & Volatility Smile (期权与波动率微笑)"
             ])
 
             # ==========================================
-            # TAB 1: Quant Valuation Dashboard
+            # TAB 1: 完整的原版 V9.1 (量化估值终端)
             # ==========================================
             with tab1:
                 with st.container(border=True):
@@ -687,6 +745,7 @@ def main():
                     st.caption(T['macro_exp'])
 
                 st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+
                 st.markdown(f"#### {T['matrix_header']}")
                 m_col1, m_col2, m_col3 = st.columns(3)
 
@@ -717,19 +776,25 @@ def main():
                     </div>
                     """
 
-                with m_col1: st.markdown(render_matrix_card(T["model_dcf_name"], engine.val_dcf, engine.price, engine.model_name == 'Discounted Cash Flow (DCF)', engine.currency, T["note_dcf"], T["no_data_dcf"]), unsafe_allow_html=True)
-                with m_col2: st.markdown(render_matrix_card(T["model_ddm_name"], engine.val_ddm, engine.price, engine.model_name == 'Dividend Discount Model (DDM)', engine.currency, T["note_ddm"], T["no_data_ddm"]), unsafe_allow_html=True)
-                with m_col3: st.markdown(render_matrix_card(T["model_pe_name"], engine.val_pe, engine.price, engine.model_name == 'P/E Multiples Valuation', engine.currency, T["note_pe"], T["no_data_pe"]), unsafe_allow_html=True)
+                with m_col1:
+                    st.markdown(render_matrix_card(T["model_dcf_name"], engine.val_dcf, engine.price, engine.model_name == 'Discounted Cash Flow (DCF)', engine.currency, T["note_dcf"], T["no_data_dcf"]), unsafe_allow_html=True)
+                with m_col2:
+                    st.markdown(render_matrix_card(T["model_ddm_name"], engine.val_ddm, engine.price, engine.model_name == 'Dividend Discount Model (DDM)', engine.currency, T["note_ddm"], T["no_data_ddm"]), unsafe_allow_html=True)
+                with m_col3:
+                    st.markdown(render_matrix_card(T["model_pe_name"], engine.val_pe, engine.price, engine.model_name == 'P/E Multiples Valuation', engine.currency, T["note_pe"], T["no_data_pe"]), unsafe_allow_html=True)
 
                 st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
+
                 p1, p2, p3 = st.columns(3)
                 p1.metric(T['price'], f"{engine.currency} {engine.price:.2f}")
                 p2.metric(T['fair_val'], f"{engine.currency} {val:.2f}")
                 p3.metric(T['safe_buy'], f"{engine.currency} {(val * 0.8):.2f}", "20% Margin of Safety")
+                
                 st.info(T['fair_val_desc'])
 
                 if val > 0 and engine.price > 0:
                     price_to_val = engine.price / val
+
                     if engine.val_dcf and engine.val_dcf > 0:
                         st.markdown(f"### {T['heat_title']}")
                         with st.container(border=True):
@@ -737,36 +802,152 @@ def main():
                             fig_heat, heat_stats = draw_sensitivity_heatmap(engine)
                             if fig_heat and heat_stats:
                                 st.plotly_chart(fig_heat, use_container_width=True)
+                                
+                                wr = heat_stats['win_rate']
+                                if wr >= 0.70:
+                                    ai_insight = f"🟢 <b>高胜率 / 低估 (High Margin of Safety):</b> 无论宏观折现率如何波动，绝大多数预测情景（{heat_stats['green_count']}/{heat_stats['total']}）都显示该公司当前市价被严重低估，具备极厚的安全垫。"
+                                elif wr <= 0.30:
+                                    ai_insight = f"🔴 <b>高风险 / 高估 (Overvalued & Fragile):</b> 当前市价已透支未来。除非公司能在极低利率下保持疯狂增长，否则面临估值杀跌风险。"
+                                else:
+                                    ai_insight = "🟡 <b>高度敏感 / 合理偏高 (Highly Sensitive):</b> 估值处于微妙的平衡点。当前价格对宏观利率(WACC)极为敏感，没有单边套利空间，属于“买定离手”的博弈区。"
+
+                                st.markdown(f"""
+                                <div style="background: rgba(15, 23, 42, 0.6); border-left: 4px solid #38bdf8; padding: 16px; border-radius: 6px; margin-top: 10px;">
+                                    <div style="color: #38bdf8; font-weight: 800; font-size: 15px; margin-bottom: 8px;">
+                                        🤖 AI 矩阵智能解析 (Sensitivity Summary)
+                                    </div>
+                                    <div style="color: #e2e8f0; font-size: 14px; margin-bottom: 12px; line-height: 1.6;">
+                                        {ai_insight}
+                                    </div>
+                                    <div style="display: flex; gap: 20px; color: #94a3b8; font-size: 12.5px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px;">
+                                        <div>⚡ <b>胜率测算:</b> 在 {heat_stats['total']} 种宏观情景中，有 <span style="color:#10b981; font-weight:bold;">{heat_stats['green_count']}</span> 种具备安全边际。</div>
+                                        <div>📉 <b>最悲观底线:</b> {engine.currency} {heat_stats['worst']:.2f}</div>
+                                        <div>🚀 <b>最乐观上限:</b> {engine.currency} {heat_stats['best']:.2f}</div>
+                                    </div>
+                                </div>
+                                """, unsafe_allow_html=True)
 
                     col_lie, col_ai = st.columns(2)
+                    
                     with col_lie:
                         with st.container(border=True):
                             st.markdown(f"**{T['lie_title']}**")
                             implied_g_str = f"{implied_g * 100:.2f}%" if implied_g is not None else "N/A"
-                            st.warning(f"To justify the current price of **{engine.price:.2f}**, market implies Growth Rate of **{implied_g_str}**.")
+                            st.warning(f"To justify the current price of **{engine.price:.2f}**, the market implies a Growth Rate of **{implied_g_str} per year for {engine.horizon} years**.")
+                            
+                            if implied_g is not None:
+                                if implied_g > 0.40: diag = "-> **Diagnosis: EXTREME HYPE (Bubble Territory).**"
+                                elif implied_g < 0.0: diag = "-> **Diagnosis: EXTREME PESSIMISM.**"
+                                else: diag = "-> **Diagnosis: MODERATE EXPECTATIONS.**"
+                                st.write(diag)
                             st.caption(T['lie_exp'])
+
                     with col_ai:
                         with st.container(border=True):
                             st.markdown(f"**{T['ai_title']}**")
                             div_rate = engine.info.get('dividendRate') or engine.info.get('trailingAnnualDividendRate') or 0
                             div_yield = (div_rate / engine.price) * 100 if engine.price > 0 else 0
+
                             st.markdown(T['inc_title'])
-                            st.write(f"- Dividend Yield: {div_yield:.2f}%")
+                            st.write(f"- Dividend Yield: {div_yield:.2f}% | Beta Risk: {engine.beta:.2f}")
+                            if engine.sector in ['Financial Services', 'Utilities', 'Real Estate'] and div_yield > 3.0:
+                                st.success("-> **Verdict:** 🟢 SUITABLE FOR INCOME.")
+                            else:
+                                st.error("-> **Verdict:** 🔴 NOT IDEAL FOR INCOME.")
+                            
                             st.markdown(T['cap_title'])
-                            st.write(f"- Implied Growth: {implied_g_str}")
+                            st.write(f"- Implied Growth: {implied_g_str} | Model Valuation: {val:.2f}")
+                            if implied_g is not None and implied_g < 0.0 and engine.price < val:
+                                st.success("-> **Verdict:** 🟢 MULTI-BAGGER POTENTIAL.")
+                            elif implied_g is not None and implied_g > 0.40:
+                                st.error("-> **Verdict:** 🔴 HIGH SPECULATION RISK.")
+                            else:
+                                st.info("-> **Verdict:** 🟢 / 🟡 FAIRLY PRICED.")
 
                     st.markdown(f"### {T['exec_title']}")
-                    if price_to_val <= 0.70: rating, reason = '🟢 STRONG BUY', 'Deeply undervalued with massive margin of safety.'
-                    elif price_to_val <= 0.85: rating, reason = '🟢 BUY', 'Meets 20% margin of safety.'
-                    elif 0.85 < price_to_val <= 1.15: rating, reason = '🟡 HOLD', 'Fairly valued.'
-                    else: rating, reason = '🔴 SELL', 'Overvalued relative to intrinsic cash flows.'
+                    if price_to_val <= 0.70 and (implied_g is not None and implied_g < 0.0):
+                        rating, reason = '🟢 STRONG BUY', f'Extreme pessimism creates massive margin of safety. Price ({engine.price:.2f}) heavily discounted vs intrinsic value ({val:.2f}).'
+                    elif price_to_val <= 0.85:
+                        rating, reason = '🟢 BUY', f'Solid value mispricing. Price ({engine.price:.2f}) meets 20% margin of safety.'
+                    elif 0.85 < price_to_val <= 1.15:
+                        rating, reason = '🟡 HOLD', f'Fairly valued. Price ({engine.price:.2f}) aligns with intrinsic value ({val:.2f}).'
+                    elif 1.15 < price_to_val <= 1.40:
+                        rating, reason = '🔴 SELL', f'Overvalued. Price ({engine.price:.2f}) exceeds intrinsic value ({val:.2f}).'
+                    else:
+                        rating, reason = '🔴 STRONG SELL', f'Severe bubble risk. Implied growth is priced for perfection.'
 
                     with st.container(border=True):
-                        st.markdown(f"- **Final Rating : {rating}**")
-                        st.markdown(f"- **Justification : {reason}**")
+                        st.markdown(f"- **Final Investment Rating : {rating}**")
+                        st.markdown(f"- **Core Justification : {reason}**")
+                        st.markdown("")
+                        st.caption(T['rating_explain'])
 
-                    chart_title = T['chart_title']
-                    st.markdown(f"### {chart_title}")
+                    col_t1, col_t2 = st.columns(2)
+                    with col_t1:
+                        with st.container(border=True):
+                            st.markdown(f"**{T['plain_title']}**")
+                            st.markdown(f"- **Required Hurdle Rate / Discount Rate:** {engine.r * 100:.2f}%")
+                            st.markdown("  👉 Minimum required return.")
+                            if implied_g is not None:
+                                st.markdown(f"- **Market Sentiment / Implied Growth:** {implied_g * 100:.2f}%")
+                                if implied_g > 0.35: st.markdown("  👉 **【⚠️ SEVERE BUBBLE WARNING】**")
+                                elif implied_g < 0.0: st.markdown("  👉 **【🔥 EXTREME PESSIMISM / DEEP VALUE】**")
+                                else: st.markdown("  👉 **【⚖️ BALANCED & RATIONAL】**")
+                    
+                    with col_t2:
+                        with st.container(border=True):
+                            if not engine.is_malaysia:
+                                st.markdown(f"**{T['fx_title']}**")
+                                st.warning(T['fx_content'])
+                            else:
+                                st.markdown(f"**{T['fx_title']}**")
+                                st.warning("- 🇲🇾 本地资产计价 (MYR)，无直接跨境外汇风险暴露。")
+
+                    if not engine.is_malaysia:
+                        target_mean = engine.info.get('targetMeanPrice')
+                        target_high = engine.info.get('targetHighPrice')
+                        target_low = engine.info.get('targetLowPrice')
+                        num_analysts = engine.info.get('numberOfAnalystOpinions', 0)
+                        rec_key = str(engine.info.get('recommendationKey', 'N/A')).upper()
+
+                        if target_mean and num_analysts > 0:
+                            st.markdown(f"<br><h3>{T['ws_title']}</h3>", unsafe_allow_html=True)
+                            ws_col1, ws_col2, ws_col3 = st.columns(3)
+                            
+                            with ws_col1:
+                                with st.container(border=True):
+                                    st.markdown(f"<div style='color:#94a3b8; font-size:13px; font-weight:600; text-align:center;'>{T['ws_mean']}</div>", unsafe_allow_html=True)
+                                    st.markdown(f"<div style='font-size:30px; font-weight:800; font-family:JetBrains Mono; text-align:center; color:#ffffff; margin: 10px 0;'>${target_mean:.2f}</div>", unsafe_allow_html=True)
+                                    st.markdown(f"<div style='color:#38bdf8; font-size:12.5px; text-align:center;'>👥 {num_analysts} Analysts</div>", unsafe_allow_html=True)
+                                    
+                            with ws_col2:
+                                with st.container(border=True):
+                                    st.markdown(f"<div style='color:#94a3b8; font-size:13px; font-weight:600; text-align:center;'>{T['ws_range']}</div>", unsafe_allow_html=True)
+                                    low_str = f"${target_low:.2f}" if target_low else "N/A"
+                                    high_str = f"${target_high:.2f}" if target_high else "N/A"
+                                    st.markdown(f"<div style='font-size:24px; font-weight:800; font-family:JetBrains Mono; text-align:center; color:#ffffff; margin: 12px 0;'>{low_str} ~ {high_str}</div>", unsafe_allow_html=True)
+                                    st.markdown(f"<div style='color:#cbd5e1; font-size:12px; text-align:center;'>Low / High Target</div>", unsafe_allow_html=True)
+
+                            with ws_col3:
+                                with st.container(border=True):
+                                    st.markdown(f"<div style='color:#94a3b8; font-size:13px; font-weight:600; text-align:center;'>{T['ws_rating']}</div>", unsafe_allow_html=True)
+                                    st.markdown(f"<div style='font-size:28px; font-weight:800; font-family:JetBrains Mono; text-align:center; color:#38bdf8; margin: 10px 0;'>{rec_key}</div>", unsafe_allow_html=True)
+                                    st.markdown(f"<div style='color:#4ade80; font-size:12px; text-align:center;'>🏛️ {T['ws_tag']}</div>", unsafe_allow_html=True)
+
+                            with st.container(border=True):
+                                st.markdown(f"**{T['gap_title']}**")
+                                gap_pct = ((target_mean - val) / val) * 100.0
+                                st.write(f"- **{T['gap_line1']}:** `${val:.2f}` | **{T['gap_line2']}:** `${target_mean:.2f}`")
+                                st.write(f"- **{T['gap_line3']}:** `+{gap_pct:.1f}%` ({T['gap_desc_high']} {gap_pct:.1f}%)")
+                                
+                                if gap_pct > 25.0 and rec_key in ["BUY", "STRONG_BUY"]:
+                                    st.error(T['gap_alert_high'])
+                                elif abs(gap_pct) <= 15.0:
+                                    st.success(T['ws_match'])
+                                elif gap_pct < -15.0:
+                                    st.info(T['gap_alert_low'])
+
+                    st.markdown(f"### {T['chart_title']}")
                     c_chart1, c_chart2 = st.columns(2)
                     with c_chart1:
                         with st.container(border=True):
@@ -778,71 +959,171 @@ def main():
                             st.plotly_chart(draw_beta_scatter(engine), use_container_width=True)
                             st.caption(T['beta_desc'])
 
+                    st.markdown(f"### {T['glossary_title']}")
+                    g1, g2, g3, g4 = st.columns(4)
+                    with g1:
+                        with st.container(border=True):
+                            st.markdown(T['g_beta_title'])
+                            st.caption(T['g_beta_desc'])
+                    with g2:
+                        with st.container(border=True):
+                            st.markdown(T['g_growth_title'])
+                            st.caption(T['g_growth_desc'])
+                    with g3:
+                        with st.container(border=True):
+                            st.markdown(T['g_wacc_title'])
+                            st.caption(T['g_wacc_desc'])
+                    with g4:
+                        with st.container(border=True):
+                            st.markdown(T['g_fv_title'])
+                            st.caption(T['g_fv_desc'])
+
             # ==========================================
-            # TAB 2: Hardcore 3-Statement & NWC
+            # TAB 2: 硬核 3-Statement & NWC (已修复 applymap -> map 报错)
             # ==========================================
             with tab2:
                 st.markdown("#### ⚙️ Hardcore 3-Statement Forecast (NWC & Depreciation Engine)")
+                st.caption("Adjust the Working Capital (DSO/DIO/DPO) and Capex drivers below to dynamically alter the Free Cash Flow (FCF) generation. See how pushing suppliers (DPO) improves cash flow!")
+                
                 with st.container(border=True):
-                    o1, o2, o3, o4 = st.columns(4)
-                    dso = o1.number_input("DSO", value=45)
-                    dio = o2.number_input("DIO", value=30)
-                    dpo = o3.number_input("DPO", value=60)
-                    capex_pct = o4.number_input("Capex % of Rev", value=5.0) / 100.0
+                    st.markdown("**🔧 Operating Assumptions (NWC & Capex Drivers)**")
+                    o_col1, o_col2, o_col3, o_col4 = st.columns(4)
+                    dso = o_col1.number_input("Days Sales Outstanding (DSO)", value=45)
+                    dio = o_col2.number_input("Days Inventory Outstanding (DIO)", value=30)
+                    dpo = o_col3.number_input("Days Payable Outstanding (DPO)", value=60)
+                    capex_pct = o_col4.number_input("Capex as % of Revenue", value=5.0) / 100.0
+
                 df_is = engine.build_hardcore_3_statement(dso, dio, dpo, capex_pct)
-                st.dataframe(df_is.applymap(lambda x: f"{x:,.0f}" if isinstance(x, (int, float)) else x), use_container_width=True)
+                
+                styled_df = df_is.copy()
+                for col in styled_df.columns:
+                    # 💡 此处已将原本过时的 applymap 替换为 map，完美解决报错
+                    styled_df[col] = styled_df[col].map(lambda x: f"{x:,.0f}" if isinstance(x, (int, float)) else x)
+                
+                st.dataframe(styled_df, use_container_width=True, height=320)
 
             # ==========================================
-            # TAB 3: Dynamic LBO & Debt
+            # TAB 3: 动态 LBO 杠杆收购沙盘
             # ==========================================
             with tab3:
                 st.markdown("#### 🏛️ Dynamic LBO Model & Cash Sweep Schedule")
-                l1, l2, l3 = st.columns(3)
-                ltv = l1.slider("LTV %", 30, 80, 60, 5) / 100
-                int_rate = l2.slider("Interest Rate %", 5.0, 15.0, 8.0, 0.5) / 100
-                exit_mult = l3.slider("Exit EV/EBITDA Multiple", 5.0, 25.0, 10.0, 0.5)
+                st.caption("This LBO is perfectly linked to the Hardcore UFCF generated in Tab 2. If you optimize NWC (e.g., increase DPO) in Tab 2, your Sponsor IRR here will spike because more cash is available to pay down debt!")
+                
+                col_l1, col_l2, col_l3 = st.columns(3)
+                ltv = col_l1.slider("Debt Leverage (LTV %)", 30, 80, 60, 5) / 100
+                int_rate = col_l2.slider("Debt Interest Rate (%)", 5.0, 15.0, 8.0, 0.5) / 100
+                exit_mult = col_l3.slider("Exit EV/EBITDA Multiple", 5.0, 25.0, max(5.0, (engine.ev/engine.ebitda if engine.ebitda>0 else 10.0)), 0.5)
+
                 lbo_res = engine.run_lbo_model(ltv, int_rate, exit_mult)
-                c1, c2, c3 = st.columns(3)
-                c1.metric("Sponsor IRR", f"{lbo_res['IRR']*100:.1f}%")
-                c2.metric("MOIC", f"{lbo_res['MOIC']:.2f}x")
-                c3.metric("Debt Paid Down", f"{engine.currency} {(lbo_res['Debt'] - lbo_res['Exit Debt'])/1e9:.2f}B")
+                
+                c_res1, c_res2, c_res3 = st.columns(3)
+                c_res1.metric("Sponsor IRR (5-Year)", f"{lbo_res['IRR']*100:.1f}%")
+                c_res2.metric("MOIC (Cash-on-Cash)", f"{lbo_res['MOIC']:.2f}x")
+                c_res3.metric("Total Debt Paid Down", f"{engine.currency} {(lbo_res['Debt'] - lbo_res['Exit Debt'])/1e9:.2f}B")
+
+                st.markdown("**Sources & Uses (Entry)**")
+                su_df = pd.DataFrame({
+                    "Sources": ["Sponsor Equity", "Senior Debt", "Total Sources"],
+                    "Amount": [lbo_res['Equity'], lbo_res['Debt'], lbo_res['Entry EV']],
+                    "%": [f"{(1-ltv)*100:.1f}%", f"{ltv*100:.1f}%", "100.0%"]
+                })
+                su_df['Amount'] = su_df['Amount'].map(lambda x: f"{x:,.0f}" if isinstance(x, (int, float)) else x)
+                st.table(su_df)
+
+                st.markdown("**Debt Schedule & Cash Sweep**")
+                debt_df = pd.DataFrame({"Year": ["0 (Entry)", "1", "2", "3", "4", "5"], "Ending Debt Balance": lbo_res['Debt Schedule']})
+                debt_df['Ending Debt Balance'] = debt_df['Ending Debt Balance'].map(lambda x: f"{x:,.0f}" if isinstance(x, (int, float)) else x)
+                st.table(debt_df.set_index('Year').T)
 
             # ==========================================
-            # TAB 4: Comps Matrix
+            # TAB 4: 同业可比公司矩阵 (Comps Matrix)
             # ==========================================
             with tab4:
-                st.markdown("#### 🏢 Comparable Company Analysis (Comps Matrix)")
-                st.dataframe(engine.run_comps_analysis(), use_container_width=True)
+                st.markdown("#### 🏢 Comparable Company Analysis (Peer Valuation Matrix)")
+                st.caption("Automatically retrieves sector peers to benchmark valuation multiples and profitability metrics.")
+                comps_df = engine.run_comps_analysis()
+                st.dataframe(comps_df, use_container_width=True)
 
             # ==========================================
-            # TAB 5: Monte Carlo
+            # TAB 5: 蒙特卡洛模拟估值
             # ==========================================
             with tab5:
                 st.markdown("#### 🎲 Monte Carlo Valuation Simulation (2,000 Iterations)")
-                mc_res = engine.run_monte_carlo(2000)
-                if mc_res:
-                    m1, m2, m3 = st.columns(3)
-                    m1.metric("Monte Carlo Mean", f"{engine.currency} {np.mean(mc_res):.2f}")
-                    m2.metric("10% Bear Floor", f"{engine.currency} {np.percentile(mc_res, 10):.2f}")
-                    m3.metric("90% Bull Ceiling", f"{engine.currency} {np.percentile(mc_res, 90):.2f}")
+                st.caption("Probabilistic valuation distribution addressing WACC and Terminal Growth uncertainties.")
+                mc_results = engine.run_monte_carlo(2000)
+                if mc_results:
+                    mc_mean = np.mean(mc_results)
+                    mc_p10 = np.percentile(mc_results, 10)
+                    mc_p90 = np.percentile(mc_results, 90)
+                    
+                    mc1, mc2, mc3 = st.columns(3)
+                    mc1.metric("Monte Carlo Mean Value", f"{engine.currency} {mc_mean:.2f}")
+                    mc2.metric("10% Bear Case (Floor)", f"{engine.currency} {mc_p10:.2f}")
+                    mc3.metric("90% Bull Case (Ceiling)", f"{engine.currency} {mc_p90:.2f}")
+
+                    fig_mc = px.histogram(x=mc_results, nbins=50, title="Intrinsic Value Probability Distribution", labels={'x': 'Fair Value', 'y': 'Frequency'})
+                    fig_mc.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#94a3b8'))
+                    st.plotly_chart(fig_mc, use_container_width=True)
+                else:
+                    st.warning("Insufficient cash flow data for Monte Carlo simulation.")
 
             # ==========================================
-            # TAB 6: Efficient Frontier
+            # TAB 6: 有效前沿资产配置 (Efficient Frontier)
             # ==========================================
             with tab6:
                 st.markdown("#### 📈 Markowitz Efficient Frontier & Portfolio Optimization")
-                basket = st.text_input("Tickers (Comma-separated)", value="NVDA, AAPL, MSFT, GOOGL" if not engine.is_malaysia else "1155.KL, 1023.KL, 1295.KL")
-                if st.button("🚀 Run Optimization"):
-                    st.success("Optimization complete! Portfolio optimized successfully.")
+                st.caption("Input a basket of comma-separated tickers to construct the optimal Sharpe-maximizing portfolio.")
+                
+                basket_input = st.text_input("Asset Basket Tickers (Comma-separated)", value="NVDA, AAPL, MSFT, GOOGL, AMZN" if not engine.is_malaysia else "1155.KL, 1023.KL, 1295.KL, 5819.KL")
+                tickers_list = [t.strip().upper() for t in basket_input.split(",") if t.strip()]
+                
+                if st.button("🚀 Run Portfolio Optimization"):
+                    with st.spinner("Simulating portfolios and computing covariance matrix..."):
+                        try:
+                            data = yf.download(tickers_list, period="1y", interval="1d", session=engine.session)['Close']
+                            if isinstance(data, pd.Series): data = data.to_frame()
+                            returns = data.pct_change().dropna()
+                            
+                            num_portfolios = 3000
+                            results_matrix = np.zeros((3 + len(tickers_list), num_portfolios))
+                            mean_returns = returns.mean() * 252
+                            cov_matrix = returns.cov() * 252
+                            
+                            for p in range(num_portfolios):
+                                weights = np.random.random(len(tickers_list))
+                                weights /= np.sum(weights)
+                                p_ret = np.sum(mean_returns * weights)
+                                p_vol = np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
+                                results_matrix[0, p] = p_ret
+                                results_matrix[1, p] = p_vol
+                                results_matrix[2, p] = (p_ret - 0.03) / p_vol 
+                                for i, w in enumerate(weights): results_matrix[3 + i, p] = w
+                                
+                            max_sharpe_idx = np.argmax(results_matrix[2])
+                            opt_weights = results_matrix[3:, max_sharpe_idx]
+                            
+                            opt1, opt2 = st.columns(2)
+                            opt1.metric("Optimal Portfolio Return", f"{results_matrix[0, max_sharpe_idx]*100:.2f}%")
+                            opt2.metric("Optimal Portfolio Volatility", f"{results_matrix[1, max_sharpe_idx]*100:.2f}%")
+                            
+                            st.markdown("**Optimal Asset Allocation Weights:**")
+                            weight_df = pd.DataFrame({"Asset": tickers_list, "Weight (%)": [f"{w*100:.1f}%" for w in opt_weights]})
+                            st.table(weight_df.set_index('Asset').T)
+
+                            fig_ef = px.scatter(x=results_matrix[1], y=results_matrix[0], color=results_matrix[2], labels={'x': 'Volatility (Risk)', 'y': 'Expected Return', 'color': 'Sharpe Ratio'}, title="Markowitz Efficient Frontier")
+                            fig_ef.add_trace(go.Scatter(x=[results_matrix[1, max_sharpe_idx]], y=[results_matrix[0, max_sharpe_idx]], mode='markers', marker=dict(color='yellow', size=15, symbol='star'), name='Max Sharpe Portfolio'))
+                            fig_ef.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#94a3b8'))
+                            st.plotly_chart(fig_ef, use_container_width=True)
+                        except Exception as e:
+                            st.error(f"Error fetching basket data: {e}")
 
             # ==========================================
-            # TAB 7: 📉 [7] Options & Volatility Smile (Black-Scholes & Greeks)
+            # TAB 7: 📉 期权定价与隐含波动率微笑分析 (Black-Scholes & Greeks)
             # ==========================================
             with tab7:
                 st.markdown("#### 📉 Black-Scholes 期权定价与隐含波动率微笑分析 (Options & Volatility Smile)")
                 st.caption("实时抓取期权链数据（美股），计算 B-S 公允价、希腊字母风险敞口（Greeks），并绘制机构级的隐含波动率微笑/斜面（Volatility Skew）图表。")
 
-                # 尝试获取美股期权到期日
                 try:
                     expirations = engine.stock.options
                 except Exception:
@@ -853,12 +1134,10 @@ def main():
                     try:
                         opt_chain = engine.stock.option_chain(selected_expiry)
                         calls_df = opt_chain.calls
-                        puts_df = opt_chain.puts
                         
                         st.markdown(f"**🟢 看涨期权链 (Calls - {selected_expiry})**")
                         st.dataframe(calls_df[['strike', 'lastPrice', 'bid', 'ask', 'volume', 'openInterest', 'impliedVolatility']].head(10), use_container_width=True)
 
-                        # 绘制隐含波动率微笑 / 斜面 (Volatility Smile / Skew)
                         if not calls_df.empty and 'impliedVolatility' in calls_df.columns:
                             valid_calls = calls_df[(calls_df['impliedVolatility'] > 0.01) & (calls_df['volume'] > 0)]
                             if not valid_calls.empty:
@@ -913,6 +1192,7 @@ def main():
         st.markdown(T['disclaimer_1'])
         st.markdown(T['disclaimer_2'])
         st.markdown(T['disclaimer_3'])
+        st.markdown("")
         st.markdown(
             "<div style='text-align: center; color: #94a3b8; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 10px;'>"
             "© 2026 Thomas. All rights reserved. | Developed for Academic & Quantitative Research."
