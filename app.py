@@ -327,6 +327,14 @@ class UltimateHardcoreEngine:
         self.net_income = self.info.get('netIncomeToCommon') or get_fin_metric(self.fin, 'Net Income', self.ebitda * 0.5)
         self.hist_da = get_fin_metric(self.cfs, 'Depreciation And Amortization', self.ebitda * 0.2)
         
+        # 🌟 智能自由现金流鲁棒性兜底：若雅虎无 FCF 或为负/零（马股常见），自动以代理现金流（净利润60%或营收5%）填充，确保 DCF/蒙特卡洛全线通畅
+        raw_fcf = self.info.get('freeCashflow', 0)
+        if raw_fcf <= 0:
+            raw_fcf = get_fin_metric(self.cfs, 'Free Cash Flow', 0)
+        if raw_fcf <= 0:
+            raw_fcf = max(self.net_income * 0.6, self.ebitda * 0.15, 1000000) if self.net_income > 0 else self.revenue * 0.05
+        self.cf = raw_fcf
+
         self.market_cap = self.price * self.shares
         self.ev = self.market_cap + self.debt - self.cash
         self.scatter_data = None 
@@ -373,10 +381,6 @@ class UltimateHardcoreEngine:
         kd = min((int_exp / self.debt) if self.debt > 0 else 0.05, 0.10)
         self.wacc = (w_e * self.ke) + (w_d * kd * (1 - self.tax))
         self.wacc = max(self.wacc, terminal_g + 0.02)
-
-        raw_fcf = self.info.get('freeCashflow', 0)
-        if raw_fcf <= 0: raw_fcf = get_fin_metric(self.cfs, 'Free Cash Flow', self.net_income * 0.8)
-        self.cf = raw_fcf
         
         self.g1 = min(max(self.info.get('earningsGrowth', 0) or 0.08, 0.03), 0.25)
         self.g2 = terminal_g
@@ -544,9 +548,21 @@ class UltimateHardcoreEngine:
             'NVDA': ['AMD', 'INTC', 'TSM', 'QCOM'],
             'AAPL': ['MSFT', 'GOOGL', 'AMZN', 'META'],
             'TSLA': ['RIVN', 'F', 'GM', 'TM'],
-            '1155.KL': ['1023.KL', '1295.KL', '1188.KL', '5819.KL']
+            '1155.KL': ['1023.KL', '1295.KL', '1188.KL', '5819.KL'],
+            '1295.KL': ['1155.KL', '1023.KL', '1188.KL', '5819.KL'],
+            '1023.KL': ['1155.KL', '1295.KL', '5819.KL'],
+            '5347.KL': ['5264.KL', '1155.KL', '1023.KL'],
+            '5264.KL': ['5347.KL', '1155.KL', '1023.KL']
         }
-        peers = peer_map.get(self.ticker, ['AAPL', 'MSFT', 'GOOGL'])
+        
+        # 🌟 智能同业匹配：若在 map 中直接取，若为马股其他代码则自动分配马股本地蓝筹，杜绝误跳美股
+        if self.ticker in peer_map:
+            peers = peer_map[self.ticker]
+        elif self.is_malaysia:
+            peers = ['1155.KL', '1023.KL', '1295.KL', '5347.KL']
+        else:
+            peers = ['AAPL', 'MSFT', 'GOOGL', 'AMZN']
+            
         if self.ticker in peers: peers.remove(self.ticker)
         
         comp_data = []
@@ -998,7 +1014,7 @@ def main():
                       * **如何调整**：若想测试公司“空手套白狼”的极限现金流能力，**调大**该值会让短期自由现金流变好。
                     * **Capex % of Revenue (资本开支占营收比例)**
                       * **用途是什么**：公司每年拿多少比例的收入去买厂房、机器、服务器等固定资产。
-                      * **默认值建议**：系统根据行业自动适配（科技轻资产约 3-5%，重资产制造可达 10-15%）。
+                      * **默认值建议**：系统根据行业自动适配（科技轻资产约 3-5%, 重资产制造可达 10-15%）。
                       * **什么情况下调整**：当公司正处于疯狂砸钱扩产的周期（如建新厂、买大批 AI 服务器），或者已经轻资产化运营。
                       * **如何调整**：扩产期**调高**（现金流流出会变多），维护期**调低**。
                     """)
