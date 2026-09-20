@@ -11,7 +11,7 @@ import scipy.stats as stats
 # ==============================================================================
 # 1. 页面基本配置与高级 CSS 视觉引擎 (Bento Box + Tabs)
 # ==============================================================================
-st.set_page_config(page_title="Ultimate Quant & PE Terminal V9.5", page_icon="💹", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Ultimate Quant & PE Terminal V9.6", page_icon="💹", layout="wide", initial_sidebar_state="collapsed")
 
 PREMIUM_CSS = """
 <style>
@@ -110,8 +110,8 @@ def get_yf_session():
 # ==============================================================================
 TEXTS = {
     "zh": {
-        "title": "🌐 智能量化与衍生品金融终端 (V9.5 旗舰全功能版)",
-        "subtitle": "完美融合 线性衰减DCF、热力图、动态NWC与折旧瀑布流、LBO、同业Comps、有效前沿与双轨期权分析",
+        "title": "🌐 智能量化与衍生品金融终端 (V9.6 旗舰全功能版)",
+        "subtitle": "完美融合 线性衰减DCF、热力图、动态NWC与折旧瀑布流、LBO、同业Comps、有效前沿与智能期权顾问",
         "quick_tag": "🔥 热门快捷测评：",
         "input_label": "输入股票代码 (如 1155.KL, NVDA, AAPL)：",
         
@@ -191,8 +191,8 @@ TEXTS = {
         "disclaimer_3": "3. **自主决策**：任何投资决策均应由投资者在独立调查或咨询持牌财务顾问的基础上自行做出。开发者与本系统不对依据本系统数据交易产生的任何盈亏承担法律责任."
     },
     "en": {
-        "title": "🌐 Universal Quant & Derivatives Terminal (Flagship V9.5)",
-        "subtitle": "Integrating Fading Growth DCF, Capex Waterfall, Dynamic NWC, LBO, Comps, Monte Carlo, Efficient Frontier & Live Black-Scholes",
+        "title": "🌐 Universal Quant & Derivatives Terminal (Flagship V9.6)",
+        "subtitle": "Integrating Fading Growth DCF, Capex Waterfall, Dynamic NWC, LBO, Comps, Monte Carlo, Efficient Frontier & AI Options Strategist",
         "quick_tag": "🔥 Quick Select:",
         "input_label": "Enter Stock Ticker (e.g., 1155.KL, NVDA, AAPL):",
         
@@ -723,7 +723,7 @@ def main():
                 "🏢 [4] Comps Matrix (同业可比公司矩阵)",
                 "🎲 [5] Monte Carlo (蒙特卡洛模拟)",
                 "📈 [6] Efficient Frontier (有效前沿资产配置)",
-                "📉 [7] Options & Volatility Smile (期权与波动率微笑)"
+                "📉 [7] Options & AI Strategist (期权与智能策略)"
             ])
 
             # ==========================================
@@ -1085,11 +1085,11 @@ def main():
                             st.error(f"Error fetching basket data: {e}")
 
             # ==========================================
-            # 🌟 修复融合版 TAB 7: 完美集成 V9.4 视图与 V9.3 核心
+            # 🌟 修复融合版 TAB 7: 完美集成 V9.4 视图与 V9.3 核心 + AI策略顾问
             # ==========================================
             with tab7:
-                st.markdown("#### 📉 Options Chain, Black-Scholes Pricing & Implied Volatility Smile")
-                st.caption("Analyze options sentiment, implied volatility skew, and institutional risk Greeks (Delta, Gamma, Theta, Vega).")
+                st.markdown("#### 📉 Options Chain, Volatility Smile & AI Strategist")
+                st.caption("综合期权定价、隐含波动率斜面分析，以及针对持股者与投机者的智能策略推荐。")
                 
                 if engine.is_malaysia:
                     st.warning("⚠️ 马股（Bursa Malaysia）期权数据在 Yahoo Finance 上极度稀疏。建议切换至美股代码（如 NVDA, AAPL, TSLA）体验完整的期权与波动率微笑分析！")
@@ -1108,7 +1108,13 @@ def main():
                         r = engine.rf
                         S = engine.price
 
-                        opt_tab1, opt_tab2, opt_tab3 = st.tabs(["📈 隐含波动率微笑 (Volatility Smile)", "🛡️ 实时期权链与希腊字母矩阵", "🧮 独立 B-S 仿真沙盘 (Interactive Sandbox)"])
+                        # 🌟 新增第四个 Tab：智能期权策略库
+                        opt_tab1, opt_tab2, opt_tab3, opt_tab4 = st.tabs([
+                            "📈 隐含波动率微笑 (Volatility Smile)", 
+                            "🛡️ 实时期权链与希腊字母矩阵", 
+                            "🧮 独立 B-S 仿真沙盘 (Interactive Sandbox)",
+                            "💡 AI 智能期权策略顾问 (AI Strategist) ⭐"
+                        ])
                         
                         with opt_tab1:
                             st.markdown(f"**Volatility Smile / Skew for Expiry: {selected_expiry} (Days to maturity: {T_days})**")
@@ -1175,6 +1181,63 @@ def main():
                             res_c1, res_c2 = st.columns(2)
                             res_c1.metric("European Call (看涨公道价)", f"{engine.currency} {custom_greeks['Call']:.4f}")
                             res_c2.metric("European Put (看跌公道价)", f"{engine.currency} {custom_greeks['Put']:.4f}")
+
+                        # 🌟 新增模块：AI 智能期权策略库
+                        with opt_tab4:
+                            st.markdown("### 🤖 智能期权策略顾问 (AI Options Strategist)")
+                            st.caption(f"针对 **{engine.ticker}** (当前市价 ${engine.price:.2f})，根据您的持仓状态与对未来走势的判断，推荐以下经典策略：")
+
+                            strategy_col1, strategy_col2 = st.columns(2)
+
+                            with strategy_col1:
+                                with st.container(border=True):
+                                    st.markdown("#### 🛡️ 持股防御与收息派 (Hedging & Income)")
+                                    
+                                    with st.expander("1. 备兑看涨期权 (Covered Call) - 赚取额外被动收入", expanded=True):
+                                        st.markdown(f"""
+                                        - **🎯 适合对象:** 你已经持有至少 100 股 {engine.ticker} 正股，并且觉得它短期内不会暴涨。
+                                        - **🛠️ 操作方案:** **卖出** 1 张虚值 (OTM) 看涨期权 (Call)，比如行权价设在 ${(engine.price * 1.05):.2f} (现价的 105%)。
+                                        - **📈 预期效果:** 你将立刻收到一笔期权费（权利金）。如果到期前股价**没有**涨过 ${(engine.price * 1.05):.2f}，期权作废，你白赚这笔钱，可以反复操作降低持仓成本；如果涨破了，你的股票会按 ${(engine.price * 1.05):.2f} 被强制卖出（你依然赚了 5% 的差价 + 期权费，只是错过了更高的利润）。
+                                        """)
+                                        
+                                    with st.expander("2. 保护性看跌 (Protective Put) - 买保险防暴跌"):
+                                        st.markdown(f"""
+                                        - **🎯 适合对象:** 你持有 {engine.ticker} 正股，害怕即将到来的财报暴雷或大盘崩盘，但又不想卖掉股票（比如为了避税或长期看好）。
+                                        - **🛠️ 操作方案:** **买入** 1 张虚值看跌期权 (Put)，比如行权价设在 ${(engine.price * 0.9):.2f}。
+                                        - **📈 预期效果:** 类似于给车买车险。付出一笔保费，如果股票真的腰斩，你有权在 ${(engine.price * 0.9):.2f} 这个价位强制卖出。无论跌多惨，你的最大损失都被锁死在 10% 以内。
+                                        """)
+                                        
+                                    with st.expander("3. 领型期权 (Collar Strategy) - 零成本对冲保险"):
+                                        st.markdown(f"""
+                                        - **🎯 适合对象:** 想买 Put 保护正股，但觉得期权费（保费）太贵了，不舍得花钱。
+                                        - **🛠️ 操作方案:** **买入** 1 张 OTM Put 防暴跌，同时 **卖出** 1 张 OTM Call 赚权利金来补贴买 Put 的钱。
+                                        - **📈 预期效果:** 几乎“零成本”上保险。代价是：你不仅封死了下跌空间，也把向上暴涨的利润空间给封死了。非常适合想安心睡大觉的长期投资者。
+                                        """)
+
+                            with strategy_col2:
+                                with st.container(border=True):
+                                    st.markdown("#### ⚔️ 纯投机与波动率派 (Speculation & Volatility)")
+                                    
+                                    with st.expander("1. 牛市看涨价差 (Bull Call Spread) - 以小博大，控制风险", expanded=True):
+                                        st.markdown(f"""
+                                        - **🎯 适合对象:** 强烈看涨 {engine.ticker}，但觉得直接买 Call 太贵，且不想承受太大的时间损耗 (Theta)。
+                                        - **🛠️ 操作方案:** **买入** 1 张平值 (ATM) Call，同时 **卖出** 1 张更高行权价的虚值 (OTM) Call。
+                                        - **📈 预期效果:** 卖 Call 收到的钱抵消了部分买 Call 的成本，大大降低了你的入场费。你的最大亏损变小了，但在暴涨情况下的最大利润也被封顶了。适合“稳中求胜”的投机者。
+                                        """)
+
+                                    with st.expander("2. 铁鹰 / 蝴蝶期权 (Iron Condor / Butterfly) - 震荡市收割机"):
+                                        st.markdown(f"""
+                                        - **🎯 适合对象:** 预测 {engine.ticker} 接下来一段时间会**横盘震荡**，不会大涨也不会大跌。
+                                        - **🛠️ 操作方案 (铁鹰):** 卖出一个 OTM Call Spread，同时卖出一个 OTM Put Spread（构建一个无风险的盈利区间）。
+                                        - **📈 预期效果:** 时间 (Theta) 是你最好的朋友。只要股价在到期日乖乖待在中间的区间里，四大期权全部作废，你安稳收割所有的期权费。
+                                        """)
+
+                                    with st.expander("3. 跨式组合 (Straddle) - 押注大事件与财报方向"):
+                                        st.markdown(f"""
+                                        - **🎯 适合对象:** 马上要发财报了，你预感 {engine.ticker} 会有**剧烈波动（非暴涨即暴跌）**，但你**不知道方向**。
+                                        - **🛠️ 操作方案:** 同时 **买入** 1 张同等行权价的 Call 和 Put。
+                                        - **📈 预期效果:** 你付出了两份高昂的期权费。只要最终股票的涨跌幅超过了你付出的总期权费成本，哪怕其中一边归零，另一边的暴涨也能让你大幅盈利。最怕的是“雷声大雨点小”（横盘），这样两边的钱都会输光。
+                                        """)
                             
                     else:
                         st.warning("⚠️ No option expiration dates found for this ticker on Yahoo Finance.")
