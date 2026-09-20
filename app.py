@@ -407,7 +407,6 @@ class UniversalQuantEngine:
 
         return val, self.find_implied_growth()
 
-    # 🌟 核心升级：抽取出的通用型 DCF 计算器，为热力图矩阵提供支持
     def calc_specific_dcf(self, test_wacc, test_g2):
         if self.cf <= 0 or test_wacc <= test_g2: return None
         pv1 = 0
@@ -444,7 +443,7 @@ class UniversalQuantEngine:
 # 6. 图表生成函数 (包含带有 AI 动态胜率解析的敏感性热力图)
 # ==============================================================================
 def draw_sensitivity_heatmap(engine):
-    """ 生成机构级 DCF 估值矩阵，X轴为永续增长率 (g)，Y轴为折现率 (WACC) """
+    """ 生成机构级 DCF 估值矩阵，并附带胜率数据统计 """
     if engine.cf <= 0: return None, None
     
     # 设定 5x5 的参数漂移网格: WACC跨度 +-2%, G跨度 +-1%
@@ -478,7 +477,7 @@ def draw_sensitivity_heatmap(engine):
         c_min = engine.price - max_diff
         c_max = engine.price + max_diff
         
-        # 🤖 AI 智能解析核心：计算胜率与情景极限
+        # 🤖 核心统计逻辑：计算胜率与情景极限
         green_count = sum(1 for v in valid_z if v >= engine.price)
         win_rate = green_count / len(valid_z)
         stats = {
@@ -665,7 +664,7 @@ def main():
             if val > 0 and engine.price > 0:
                 price_to_val = engine.price / val
 
-                # 🌟 [模块 3：核心参数敏感性分析热力图 + AI 胜率分析]
+                # 🌟 [模块 3：核心参数敏感性分析热力图 + 🤖 动态 AI 执行摘要]
                 if engine.val_dcf and engine.val_dcf > 0:
                     st.markdown(f"### {T['heat_title']}")
                     with st.container(border=True):
@@ -674,16 +673,14 @@ def main():
                         if fig_heat and heat_stats:
                             st.plotly_chart(fig_heat, use_container_width=True)
                             
-                            # 🤖 AI 智能解析总结逻辑
                             wr = heat_stats['win_rate']
                             if wr >= 0.70:
-                                ai_insight = "🟢 <b>高胜率 / 低估 (High Margin of Safety):</b> 无论宏观折现率如何波动，绝大多数预测情景（绿色区域）都显示该公司当前市价被严重低估，具备极厚的安全垫。"
+                                ai_insight = f"🟢 <b>高胜率 / 低估 (High Margin of Safety):</b> 无论宏观折现率如何波动，绝大多数预测情景（{heat_stats['green_count']}/{heat_stats['total']}）都显示该公司当前市价被严重低估，具备极厚的安全垫。"
                             elif wr <= 0.30:
-                                ai_insight = "🔴 <b>高风险 / 高估 (Overvalued & Fragile):</b> 当前市价已透支未来。除非公司能在极低利率下保持疯狂增长（仅右上角少数情景），否则大概率面临估值杀跌。"
+                                ai_insight = f"🔴 <b>高风险 / 高估 (Overvalued & Fragile):</b> 当前市价已透支未来。除非公司能在极低利率下保持疯狂增长，否则面临估值杀跌风险。"
                             else:
                                 ai_insight = "🟡 <b>高度敏感 / 合理偏高 (Highly Sensitive):</b> 估值处于微妙的平衡点。当前价格对宏观利率(WACC)极为敏感，没有单边套利空间，属于“买定离手”的博弈区。"
 
-                            # 🎨 渲染专属 AI 执行摘要面板
                             st.markdown(f"""
                             <div style="background: rgba(15, 23, 42, 0.6); border-left: 4px solid #38bdf8; padding: 16px; border-radius: 6px; margin-top: 10px;">
                                 <div style="color: #38bdf8; font-weight: 800; font-size: 15px; margin-bottom: 8px;">
