@@ -463,15 +463,27 @@ def draw_sensitivity_heatmap(engine):
             val = engine.calc_specific_dcf(w, g)
             if val is not None and val > 0:
                 row.append(val)
-                text_row.append(f"WACC: {w*100:.1f}%<br>Tg: {g*100:.1f}%<br>Fair Value: {engine.currency} {val:.2f}")
+                # 升级点：Tooltip 自动计算百分比差距 (溢价/折价幅度)
+                diff_pct = ((val - engine.price) / engine.price) * 100
+                text_row.append(f"WACC: {w*100:.1f}%<br>Tg: {g*100:.1f}%<br>Fair Value: {engine.currency} {val:.2f}<br>vs Price: {diff_pct:+.1f}%")
             else:
                 row.append(np.nan)
                 text_row.append("N/A (Invalid params)")
         z_vals.append(row)
         hover_text.append(text_row)
 
-    # 🌟 视觉降维打击：动态红绿温控技术
-    # zmid = engine.price 强行把当前市价设为色彩分水岭。FV > Price 为绿(低估/买入)，FV < Price 为红(高估/卖出)
+    # 🌟 【完美温控补丁】强制手动计算绝对对称区间，彻底解决 Plotly 偏色问题
+    valid_z = [v for row in z_vals for v in row if pd.notna(v)]
+    if valid_z:
+        max_val, min_val = max(valid_z), min(valid_z)
+        # 计算矩阵中偏离当前市价的最大绝对差值，确保红绿渐变完美对称
+        max_diff = max(abs(max_val - engine.price), abs(min_val - engine.price))
+        max_diff = max_diff if max_diff > 0 else 1.0 
+        c_min = engine.price - max_diff
+        c_max = engine.price + max_diff
+    else:
+        c_min, c_max = 0, 1
+
     fig = go.Figure(data=go.Heatmap(
         z=z_vals,
         x=[f"{g*100:.1f}%" for g in g2_vals],
@@ -481,7 +493,8 @@ def draw_sensitivity_heatmap(engine):
         hoverinfo="text",
         hovertext=hover_text,
         colorscale=[[0.0, '#ef4444'], [0.5, '#1e293b'], [1.0, '#10b981']],
-        zmid=engine.price,
+        zmin=c_min,   # 🔒 强制锁死：底线必为纯红
+        zmax=c_max,   # 🔒 强制锁死：顶线必为纯绿
         showscale=False
     ))
 
