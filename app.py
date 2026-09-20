@@ -428,7 +428,6 @@ class UniversalQuantEngine:
         low, high = -0.50, 2.00
         for _ in range(50):
             mid = (low + high) / 2
-            # 复用基础 WACC，反推短期成长率
             pv1, curr_cf = 0, self.cf
             growth_rates = np.linspace(mid, self.g2, self.horizon)
             for y in range(1, self.horizon + 1):
@@ -442,11 +441,11 @@ class UniversalQuantEngine:
         return mid
 
 # ==============================================================================
-# 6. 图表生成函数 (包含全新的 DCF 敏感性分析热力图)
+# 6. 图表生成函数 (包含带有 AI 动态胜率解析的敏感性热力图)
 # ==============================================================================
 def draw_sensitivity_heatmap(engine):
     """ 生成机构级 DCF 估值矩阵，X轴为永续增长率 (g)，Y轴为折现率 (WACC) """
-    if engine.cf <= 0: return None
+    if engine.cf <= 0: return None, None
     
     # 设定 5x5 的参数漂移网格: WACC跨度 +-2%, G跨度 +-1%
     w_steps = np.array([-0.02, -0.01, 0.0, 0.01, 0.02])
@@ -463,7 +462,6 @@ def draw_sensitivity_heatmap(engine):
             val = engine.calc_specific_dcf(w, g)
             if val is not None and val > 0:
                 row.append(val)
-                # 升级点：Tooltip 自动计算百分比差距 (溢价/折价幅度)
                 diff_pct = ((val - engine.price) / engine.price) * 100
                 text_row.append(f"WACC: {w*100:.1f}%<br>Tg: {g*100:.1f}%<br>Fair Value: {engine.currency} {val:.2f}<br>vs Price: {diff_pct:+.1f}%")
             else:
@@ -472,17 +470,27 @@ def draw_sensitivity_heatmap(engine):
         z_vals.append(row)
         hover_text.append(text_row)
 
-    # 🌟 【完美温控补丁】强制手动计算绝对对称区间，彻底解决 Plotly 偏色问题
     valid_z = [v for row in z_vals for v in row if pd.notna(v)]
     if valid_z:
         max_val, min_val = max(valid_z), min(valid_z)
-        # 计算矩阵中偏离当前市价的最大绝对差值，确保红绿渐变完美对称
         max_diff = max(abs(max_val - engine.price), abs(min_val - engine.price))
         max_diff = max_diff if max_diff > 0 else 1.0 
         c_min = engine.price - max_diff
         c_max = engine.price + max_diff
+        
+        # 🤖 AI 智能解析核心：计算胜率与情景极限
+        green_count = sum(1 for v in valid_z if v >= engine.price)
+        win_rate = green_count / len(valid_z)
+        stats = {
+            'best': max_val, 
+            'worst': min_val, 
+            'green_count': green_count, 
+            'total': len(valid_z), 
+            'win_rate': win_rate
+        }
     else:
         c_min, c_max = 0, 1
+        stats = None
 
     fig = go.Figure(data=go.Heatmap(
         z=z_vals,
@@ -493,8 +501,8 @@ def draw_sensitivity_heatmap(engine):
         hoverinfo="text",
         hovertext=hover_text,
         colorscale=[[0.0, '#ef4444'], [0.5, '#1e293b'], [1.0, '#10b981']],
-        zmin=c_min,   # 🔒 强制锁死：底线必为纯红
-        zmax=c_max,   # 🔒 强制锁死：顶线必为纯绿
+        zmin=c_min,
+        zmax=c_max,
         showscale=False
     ))
 
@@ -509,7 +517,7 @@ def draw_sensitivity_heatmap(engine):
         paper_bgcolor='rgba(0,0,0,0)',
         font=dict(color='#94a3b8')
     )
-    return fig
+    return fig, stats
 
 def draw_pro_candlestick(ticker, session):
     hist = yf.Ticker(ticker, session=session).history(period="1y", interval="1d")
@@ -657,14 +665,40 @@ def main():
             if val > 0 and engine.price > 0:
                 price_to_val = engine.price / val
 
-                # 🌟 [模块 3：核心参数敏感性分析热力图]
+                # 🌟 [模块 3：核心参数敏感性分析热力图 + AI 胜率分析]
                 if engine.val_dcf and engine.val_dcf > 0:
                     st.markdown(f"### {T['heat_title']}")
                     with st.container(border=True):
                         st.markdown(T['heat_desc'], unsafe_allow_html=True)
-                        fig_heat = draw_sensitivity_heatmap(engine)
-                        if fig_heat:
+                        fig_heat, heat_stats = draw_sensitivity_heatmap(engine)
+                        if fig_heat and heat_stats:
                             st.plotly_chart(fig_heat, use_container_width=True)
+                            
+                            # 🤖 AI 智能解析总结逻辑
+                            wr = heat_stats['win_rate']
+                            if wr >= 0.70:
+                                ai_insight = "🟢 <b>高胜率 / 低估 (High Margin of Safety):</b> 无论宏观折现率如何波动，绝大多数预测情景（绿色区域）都显示该公司当前市价被严重低估，具备极厚的安全垫。"
+                            elif wr <= 0.30:
+                                ai_insight = "🔴 <b>高风险 / 高估 (Overvalued & Fragile):</b> 当前市价已透支未来。除非公司能在极低利率下保持疯狂增长（仅右上角少数情景），否则大概率面临估值杀跌。"
+                            else:
+                                ai_insight = "🟡 <b>高度敏感 / 合理偏高 (Highly Sensitive):</b> 估值处于微妙的平衡点。当前价格对宏观利率(WACC)极为敏感，没有单边套利空间，属于“买定离手”的博弈区。"
+
+                            # 🎨 渲染专属 AI 执行摘要面板
+                            st.markdown(f"""
+                            <div style="background: rgba(15, 23, 42, 0.6); border-left: 4px solid #38bdf8; padding: 16px; border-radius: 6px; margin-top: 10px;">
+                                <div style="color: #38bdf8; font-weight: 800; font-size: 15px; margin-bottom: 8px;">
+                                    🤖 AI 矩阵智能解析 (Sensitivity Summary)
+                                </div>
+                                <div style="color: #e2e8f0; font-size: 14px; margin-bottom: 12px; line-height: 1.6;">
+                                    {ai_insight}
+                                </div>
+                                <div style="display: flex; gap: 20px; color: #94a3b8; font-size: 12.5px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 10px;">
+                                    <div>⚡ <b>胜率测算:</b> 在 {heat_stats['total']} 种宏观情景中，有 <span style="color:#10b981; font-weight:bold;">{heat_stats['green_count']}</span> 种具备安全边际。</div>
+                                    <div>📉 <b>最悲观底线:</b> {engine.currency} {heat_stats['worst']:.2f}</div>
+                                    <div>🚀 <b>最乐观上限:</b> {engine.currency} {heat_stats['best']:.2f}</div>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
 
                 # [模块 4：市场情绪测谎仪] & [模块 5：双视角 AI 投资顾问]
                 col_lie, col_ai = st.columns(2)
