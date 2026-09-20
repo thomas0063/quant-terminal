@@ -6,12 +6,11 @@ import yfinance as yf
 import streamlit as st
 import plotly.graph_objects as go
 import plotly.express as px
-from scipy.stats import norm
 
 # ==============================================================================
 # 1. 页面基本配置与高级 CSS 视觉引擎 (Bento Box + Tabs)
 # ==============================================================================
-st.set_page_config(page_title="Ultimate Quant & Derivatives Terminal V9.4", page_icon="💹", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="Ultimate Quant & PE Terminal V9.3", page_icon="💹", layout="wide", initial_sidebar_state="collapsed")
 
 PREMIUM_CSS = """
 <style>
@@ -28,7 +27,7 @@ header[data-testid="stHeader"] { background: transparent !important; }
 
 /* 🌟 Tabs 标签页高级样式 */
 .stTabs [data-baseweb="tab-list"] {
-    gap: 8px;
+    gap: 10px;
     background-color: rgba(15, 23, 42, 0.6);
     border-radius: 12px;
     padding: 10px;
@@ -38,8 +37,8 @@ header[data-testid="stHeader"] { background: transparent !important; }
     color: #94a3b8 !important;
     font-weight: 600 !important;
     border-radius: 8px !important;
-    padding: 10px 16px !important;
-    font-size: 12px !important;
+    padding: 12px 20px !important;
+    font-size: 13px !important;
     transition: all 0.3s ease;
 }
 .stTabs [aria-selected="true"] {
@@ -106,12 +105,12 @@ def get_yf_session():
     return session
 
 # ==============================================================================
-# 2. 国际化多语言字典 (原版全量保留)
+# 2. 国际化多语言字典 (100% 保留你原版的所有文案)
 # ==============================================================================
 TEXTS = {
     "zh": {
-        "title": "🌐 智能量化与衍生品金融终端 (V9.4 旗舰全功能版)",
-        "subtitle": "完美融合 线性衰减DCF、热力图、动态NWC与折旧瀑布流、LBO、同业Comps、蒙特卡洛、有效前沿与期权波动率微笑",
+        "title": "🌐 智能量化金融终端 (V9.3 旗舰全功能版)",
+        "subtitle": "完美融合 线性衰减DCF、热力图、动态NWC与折旧瀑布流、LBO、同业Comps、蒙特卡洛与有效前沿",
         "quick_tag": "🔥 热门快捷测评：",
         "input_label": "输入股票代码 (如 1155.KL, NVDA, AAPL)：",
         
@@ -191,8 +190,8 @@ TEXTS = {
         "disclaimer_3": "3. **自主决策**：任何投资决策均应由投资者在独立调查或咨询持牌财务顾问的基础上自行做出。开发者与本系统不对依据本系统数据交易产生的任何盈亏承担法律责任."
     },
     "en": {
-        "title": "🌐 Universal Quant & Derivatives Terminal (Flagship V9.4)",
-        "subtitle": "Integrating Fading Growth DCF, Capex Waterfall, Dynamic NWC, LBO, Comps, Monte Carlo, Efficient Frontier & Black-Scholes Volatility Smile",
+        "title": "🌐 Universal Quant Terminal (Ultimate Hardcore V9.3)",
+        "subtitle": "Integrating Fading Growth DCF, Capex Waterfall, Dynamic NWC, LBO, Comps, Monte Carlo & Efficient Frontier",
         "quick_tag": "🔥 Quick Select:",
         "input_label": "Enter Stock Ticker (e.g., 1155.KL, NVDA, AAPL):",
         
@@ -284,7 +283,7 @@ def get_fin_metric(df, keyword, default=0.0):
     return default
 
 # ==============================================================================
-# 3. 核心硬核量化引擎
+# 3. 核心硬核量化引擎 (集成 NWC、折旧瀑布流、LBO、Comps 与 蒙特卡洛)
 # ==============================================================================
 class UltimateHardcoreEngine:
     def __init__(self, ticker):
@@ -316,6 +315,7 @@ class UltimateHardcoreEngine:
         self.fin = self.stock.financials
         self.cfs = self.stock.cashflow
 
+        # 基础财务数据抓取
         self.cash = self.info.get('totalCash') or get_fin_metric(self.bs, 'Cash And Cash Equivalents')
         self.debt = self.info.get('totalDebt') or get_fin_metric(self.bs, 'Total Debt')
         self.revenue = self.info.get('totalRevenue') or get_fin_metric(self.fin, 'Total Revenue', 1000000)
@@ -330,7 +330,7 @@ class UltimateHardcoreEngine:
         self.market_cap = self.price * self.shares
         self.ev = self.market_cap + self.debt - self.cash
         self.scatter_data = None 
-        self.hardcore_ufcf_proj = []
+        self.hardcore_ufcf_proj = [] # 动态生成的硬核现金流缓存，供 LBO 调用
 
     def get_esg_adjustment(self):
         if self.sector in ['Energy', 'Basic Materials', 'Industrials']: return 0.015, "🔴 High ESG Risk (Penalty +1.5%)"
@@ -441,6 +441,7 @@ class UltimateHardcoreEngine:
             else: high = mid
         return mid
 
+    # 🌟 动态营运资金与折旧瀑布流 3-Statement 模型
     def build_hardcore_3_statement(self, dso, dio, dpo, capex_pct):
         years = ['Year 0 (Current)', 'Year 1', 'Year 2', 'Year 3', 'Year 4', 'Year 5']
         
@@ -539,6 +540,7 @@ class UltimateHardcoreEngine:
             "MOIC": moic, "IRR": irr, "Debt Schedule": debt_schedule
         }
 
+    # 🌟 同业可比公司矩阵 (Comps Analysis)
     def run_comps_analysis(self):
         peer_map = {
             'NVDA': ['AMD', 'INTC', 'TSM', 'QCOM'],
@@ -576,6 +578,7 @@ class UltimateHardcoreEngine:
             except Exception: pass
         return pd.DataFrame(comp_data)
 
+    # 🌟 蒙特卡洛模拟估值 (Monte Carlo Simulation)
     def run_monte_carlo(self, sims=2000):
         if self.cf <= 0: return []
         results = []
@@ -589,24 +592,8 @@ class UltimateHardcoreEngine:
             if val and val > 0: results.append(val)
         return results
 
-    def black_scholes(self, S, K, T, r, sigma, option_type='call'):
-        if T <= 0 or sigma <= 0 or S <= 0 or K <= 0: return 0, 0, 0, 0, 0
-        d1 = (np.log(S / K) + (r + 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))
-        d2 = d1 - sigma * np.sqrt(T)
-        if option_type == 'call':
-            price = S * norm.cdf(d1) - K * np.exp(-r * T) * norm.cdf(d2)
-            delta = norm.cdf(d1)
-            theta = (- (S * norm.pdf(d1) * sigma) / (2 * np.sqrt(T)) - r * K * np.exp(-r * T) * norm.cdf(d2)) / 365.0
-        else:
-            price = K * np.exp(-r * T) * norm.cdf(-d2) - S * norm.cdf(-d1)
-            delta = norm.cdf(d1) - 1
-            theta = (- (S * norm.pdf(d1) * sigma) / (2 * np.sqrt(T)) + r * K * np.exp(-r * T) * norm.cdf(-d2)) / 365.0
-        gamma = norm.pdf(d1) / (S * sigma * np.sqrt(T))
-        vega = S * norm.pdf(d1) * np.sqrt(T) / 100.0
-        return price, delta, gamma, theta, vega
-
 # ==============================================================================
-# 4. 图表生成
+# 4. 图表生成 (热力图 + K线 + Beta)
 # ==============================================================================
 def draw_sensitivity_heatmap(engine):
     if engine.cf <= 0: return None, None
@@ -659,18 +646,19 @@ def draw_beta_scatter(engine):
     return fig
 
 # ==============================================================================
-# 5. 主程序与 7 大功能 Tabs 渲染
+# 5. 主程序与 6 大功能 Tabs 渲染 (带防错安全封装)
 # ==============================================================================
 def main():
     col_title, col_lang = st.columns([3, 1.2])
     with col_lang:
         selected_lang = st.selectbox("🌐 Language / 语言", options=["中文", "English"], index=0)
-    
+        
+    # 安全捕获语言环境
     lang_key = "zh" if selected_lang == "中文" else "en"
     T = TEXTS.get(lang_key, TEXTS["zh"]) if isinstance(TEXTS, dict) else TEXTS["zh"]
 
     with col_title:
-        title_text = T.get('title', 'Terminal') if isinstance(T, dict) else 'Terminal'
+        title_text = T.get('title', '') if isinstance(T, dict) else ''
         sub_text = T.get('subtitle', '') if isinstance(T, dict) else ''
         st.markdown(f"<h1 style='color: #ffffff; font-weight: 800; font-size: 2rem;'>{title_text}</h1>", unsafe_allow_html=True)
         st.markdown(f"<p style='color: #38bdf8; font-weight: 600; font-size: 14px; margin-top: -5px;'>{sub_text}</p>", unsafe_allow_html=True)
@@ -681,8 +669,8 @@ def main():
         if "ticker_input" not in st.session_state: st.session_state.ticker_input = "NVDA"
         def set_ticker(t): st.session_state.ticker_input = t
         
-        quick_tag_text = T.get('quick_tag', '🔥 Quick Select:') if isinstance(T, dict) else '🔥 Quick Select:'
-        st.write(quick_tag_text)
+        quick_tag = T.get('quick_tag', '') if isinstance(T, dict) else ''
+        st.write(quick_tag)
         q1, q2, q3, q4 = st.columns(4)
         q1.button("🇺🇸 NVDA", on_click=set_ticker, args=("NVDA",), use_container_width=True)
         q2.button("🇺🇸 AAPL", on_click=set_ticker, args=("AAPL",), use_container_width=True)
@@ -691,13 +679,13 @@ def main():
         
         col_in1, col_in2 = st.columns([2, 2])
         with col_in1:
-            input_lbl = T.get('input_label', 'Enter Ticker:') if isinstance(T, dict) else 'Enter Ticker:'
+            input_lbl = T.get('input_label', '') if isinstance(T, dict) else ''
             ticker_input = st.text_input(input_lbl, key="ticker_input")
         
-        param_title = T.get('param_title', 'Parameters') if isinstance(T, dict) else 'Parameters'
+        param_title = T.get('param_title', '') if isinstance(T, dict) else ''
         param_tip = T.get('param_tip', '') if isinstance(T, dict) else ''
-        erp_lbl = T.get('erp_label', 'ERP') if isinstance(T, dict) else 'ERP'
-        g2_lbl = T.get('g2_label', 'g') if isinstance(T, dict) else 'g'
+        erp_lbl = T.get('erp_label', '') if isinstance(T, dict) else ''
+        g2_lbl = T.get('g2_label', '') if isinstance(T, dict) else ''
         esg_caption = T.get('esg_caption', '') if isinstance(T, dict) else ''
 
         with st.expander(param_title, expanded=False):
@@ -715,22 +703,22 @@ def main():
 
             st.markdown(f"<h3 style='margin-top: 25px;'>🏢 {engine.name} ({engine.ticker}) <span style='font-size:14px; color:#94a3b8;'>| Sector: {engine.sector}</span></h3>", unsafe_allow_html=True)
 
-            tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+            # 🌟 你的原版 6 大功能 Tab 标签页完美集成
+            tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
                 "📊 [1] Quant Valuation Dashboard (量化估值终端)", 
                 "⚙️ [2] Hardcore 3-Statement & NWC (硬核财报排程)", 
                 "🏛️ [3] Dynamic LBO & Debt Schedule (动态收购沙盘)",
                 "🏢 [4] Comps Matrix (同业可比公司矩阵)",
                 "🎲 [5] Monte Carlo (蒙特卡洛模拟)",
-                "📈 [6] Efficient Frontier (有效前沿资产配置)",
-                "📉 [7] Options & Volatility Smile (期权与波动率微笑)"
+                "📈 [6] Efficient Frontier (有效前沿资产配置)"
             ])
 
             # ==========================================
-            # TAB 1: 完整的原版逻辑（包含华尔街预期差雷达）
+            # TAB 1: 完整的原版 V9.3 逻辑（全量且排版完整的保留）
             # ==========================================
             with tab1:
                 with st.container(border=True):
-                    macro_title = T.get('macro_title', '[1. MACRO]') if isinstance(T, dict) else '[1. MACRO]'
+                    macro_title = T.get('macro_title', '') if isinstance(T, dict) else ''
                     st.markdown(f"**{macro_title}**")
                     c1, c2, c3 = st.columns(3)
                     c1.metric("Beta Risk", f"{engine.beta:.2f}", delta=engine.beta_type, delta_color="off")
@@ -741,23 +729,23 @@ def main():
 
                 st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
 
-                matrix_header = T.get('matrix_header', '[2. Matrix]') if isinstance(T, dict) else '[2. Matrix]'
+                matrix_header = T.get('matrix_header', '') if isinstance(T, dict) else ''
                 st.markdown(f"#### {matrix_header}")
                 m_col1, m_col2, m_col3 = st.columns(3)
 
                 def render_matrix_card(title, model_val, price, is_rec, currency, note, empty_msg):
-                    badge_recommended = T.get('badge_recommended', 'Recommended') if isinstance(T, dict) else 'Recommended'
-                    badge_reference = T.get('badge_reference', 'Reference') if isinstance(T, dict) else 'Reference'
-                    vs_market_str = T.get('vs_market', 'vs Market') if isinstance(T, dict) else 'vs Market'
+                    badge_rec = T.get('badge_recommended', '') if isinstance(T, dict) else ''
+                    badge_ref = T.get('badge_reference', '') if isinstance(T, dict) else ''
+                    vs_mkt = T.get('vs_market', '') if isinstance(T, dict) else ''
 
-                    badge_text = badge_recommended if is_rec else badge_reference
+                    badge_text = badge_rec if is_rec else badge_ref
                     card_border = "#10b981" if is_rec else "#334155"
                     if model_val and model_val > 0:
                         val_str = f"{currency} {model_val:.2f}"
                         diff = (model_val - price) / price * 100.0 if price > 0 else 0
                         diff_sign = "+" if diff > 0 else ""
                         pill_color = "#22c55e" if diff > 0 else "#f43f5e"
-                        status_html = f"<div style='color: {pill_color}; font-weight: 700; font-size: 13px;'>{diff_sign}{diff:.1f}% {vs_market_str}</div>"
+                        status_html = f"<div style='color: {pill_color}; font-weight: 700; font-size: 13px;'>{diff_sign}{diff:.1f}% {vs_mkt}</div>"
                     else:
                         val_str = "N/A"
                         status_html = f"<div style='color: #f87171; font-size: 12px;'>⚠️ {empty_msg}</div>"
@@ -777,18 +765,18 @@ def main():
                     """
 
                 with m_col1:
-                    st.markdown(render_matrix_card(T.get('model_dcf_name','DCF'), engine.val_dcf, engine.price, engine.model_name == 'Discounted Cash Flow (DCF)', engine.currency, T.get('note_dcf',''), T.get('no_data_dcf','')), unsafe_allow_html=True)
+                    st.markdown(render_matrix_card(T.get('model_dcf_name',''), engine.val_dcf, engine.price, engine.model_name == 'Discounted Cash Flow (DCF)', engine.currency, T.get('note_dcf',''), T.get('no_data_dcf','')), unsafe_allow_html=True)
                 with m_col2:
-                    st.markdown(render_matrix_card(T.get('model_ddm_name','DDM'), engine.val_ddm, engine.price, engine.model_name == 'Dividend Discount Model (DDM)', engine.currency, T.get('note_ddm',''), T.get('no_data_ddm','')), unsafe_allow_html=True)
+                    st.markdown(render_matrix_card(T.get('model_ddm_name',''), engine.val_ddm, engine.price, engine.model_name == 'Dividend Discount Model (DDM)', engine.currency, T.get('note_ddm',''), T.get('no_data_ddm','')), unsafe_allow_html=True)
                 with m_col3:
-                    st.markdown(render_matrix_card(T.get('model_pe_name','PE'), engine.val_pe, engine.price, engine.model_name == 'P/E Multiples Valuation', engine.currency, T.get('note_pe',''), T.get('no_data_pe','')), unsafe_allow_html=True)
+                    st.markdown(render_matrix_card(T.get('model_pe_name',''), engine.val_pe, engine.price, engine.model_name == 'P/E Multiples Valuation', engine.currency, T.get('note_pe',''), T.get('no_data_pe','')), unsafe_allow_html=True)
 
                 st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
 
                 p1, p2, p3 = st.columns(3)
-                p1.metric(T.get('price','Price'), f"{engine.currency} {engine.price:.2f}")
-                p2.metric(T.get('fair_val','Fair Value'), f"{engine.currency} {val:.2f}")
-                p3.metric(T.get('safe_buy','Safe Buy'), f"{engine.currency} {(val * 0.8):.2f}", "20% Margin of Safety")
+                p1.metric(T.get('price',''), f"{engine.currency} {engine.price:.2f}")
+                p2.metric(T.get('fair_val',''), f"{engine.currency} {val:.2f}")
+                p3.metric(T.get('safe_buy',''), f"{engine.currency} {(val * 0.8):.2f}", "20% Margin of Safety")
                 
                 st.info(T.get('fair_val_desc',''))
 
@@ -802,6 +790,7 @@ def main():
                             fig_heat, heat_stats = draw_sensitivity_heatmap(engine)
                             if fig_heat and heat_stats:
                                 st.plotly_chart(fig_heat, use_container_width=True)
+                                
                                 wr = heat_stats['win_rate']
                                 if wr >= 0.70:
                                     ai_insight = f"🟢 <b>高胜率 / 低估 (High Margin of Safety):</b> 无论宏观折现率如何波动，绝大多数预测情景（{heat_stats['green_count']}/{heat_stats['total']}）都显示该公司当前市价被严重低估，具备极厚的安全垫。"
@@ -895,14 +884,15 @@ def main():
                     
                     with col_t2:
                         with st.container(border=True):
-                            fx_title = T.get('fx_title', 'FX Risk')
-                            st.markdown(f"**{fx_title}**")
+                            fx_title = T.get('fx_title', '')
+                            fx_content = T.get('fx_content', '')
                             if not engine.is_malaysia:
-                                st.warning(T.get('fx_content',''))
+                                st.markdown(f"**{fx_title}**")
+                                st.warning(fx_content)
                             else:
+                                st.markdown(f"**{fx_title}**")
                                 st.warning("- 🇲🇾 本地资产计价 (MYR)，无直接跨境外汇风险暴露。")
 
-                    # 🏛️ 华尔街投行分析师共识与预期差雷达（完整恢复）
                     if not engine.is_malaysia:
                         target_mean = engine.info.get('targetMeanPrice')
                         target_high = engine.info.get('targetHighPrice')
@@ -911,18 +901,32 @@ def main():
                         rec_key = str(engine.info.get('recommendationKey', 'N/A')).upper()
 
                         if target_mean and num_analysts > 0:
-                            st.markdown(f"<br><h3>{T.get('ws_title','')}</h3>", unsafe_allow_html=True)
+                            ws_title = T.get('ws_title', '')
+                            ws_mean = T.get('ws_mean', '')
+                            ws_range = T.get('ws_range', '')
+                            ws_rating = T.get('ws_rating', '')
+                            ws_tag = T.get('ws_tag', '')
+                            gap_title = T.get('gap_title', '')
+                            gap_line1 = T.get('gap_line1', '')
+                            gap_line2 = T.get('gap_line2', '')
+                            gap_line3 = T.get('gap_line3', '')
+                            gap_desc_high = T.get('gap_desc_high', '')
+                            gap_alert_high = T.get('gap_alert_high', '')
+                            gap_alert_low = T.get('gap_alert_low', '')
+                            ws_match = T.get('ws_match', '')
+
+                            st.markdown(f"<br><h3>{ws_title}</h3>", unsafe_allow_html=True)
                             ws_col1, ws_col2, ws_col3 = st.columns(3)
                             
                             with ws_col1:
                                 with st.container(border=True):
-                                    st.markdown(f"<div style='color:#94a3b8; font-size:13px; font-weight:600; text-align:center;'>{T.get('ws_mean','')}</div>", unsafe_allow_html=True)
+                                    st.markdown(f"<div style='color:#94a3b8; font-size:13px; font-weight:600; text-align:center;'>{ws_mean}</div>", unsafe_allow_html=True)
                                     st.markdown(f"<div style='font-size:30px; font-weight:800; font-family:JetBrains Mono; text-align:center; color:#ffffff; margin: 10px 0;'>${target_mean:.2f}</div>", unsafe_allow_html=True)
                                     st.markdown(f"<div style='color:#38bdf8; font-size:12.5px; text-align:center;'>👥 {num_analysts} Analysts</div>", unsafe_allow_html=True)
                                     
                             with ws_col2:
                                 with st.container(border=True):
-                                    st.markdown(f"<div style='color:#94a3b8; font-size:13px; font-weight:600; text-align:center;'>{T.get('ws_range','')}</div>", unsafe_allow_html=True)
+                                    st.markdown(f"<div style='color:#94a3b8; font-size:13px; font-weight:600; text-align:center;'>{ws_range}</div>", unsafe_allow_html=True)
                                     low_str = f"${target_low:.2f}" if target_low else "N/A"
                                     high_str = f"${target_high:.2f}" if target_high else "N/A"
                                     st.markdown(f"<div style='font-size:24px; font-weight:800; font-family:JetBrains Mono; text-align:center; color:#ffffff; margin: 12px 0;'>{low_str} ~ {high_str}</div>", unsafe_allow_html=True)
@@ -930,24 +934,25 @@ def main():
 
                             with ws_col3:
                                 with st.container(border=True):
-                                    st.markdown(f"<div style='color:#94a3b8; font-size:13px; font-weight:600; text-align:center;'>{T.get('ws_rating','')}</div>", unsafe_allow_html=True)
+                                    st.markdown(f"<div style='color:#94a3b8; font-size:13px; font-weight:600; text-align:center;'>{ws_rating}</div>", unsafe_allow_html=True)
                                     st.markdown(f"<div style='font-size:28px; font-weight:800; font-family:JetBrains Mono; text-align:center; color:#38bdf8; margin: 10px 0;'>{rec_key}</div>", unsafe_allow_html=True)
-                                    st.markdown(f"<div style='color:#4ade80; font-size:12px; text-align:center;'>🏛️ {T.get('ws_tag','')}</div>", unsafe_allow_html=True)
+                                    st.markdown(f"<div style='color:#4ade80; font-size:12px; text-align:center;'>🏛️ {ws_tag}</div>", unsafe_allow_html=True)
 
                             with st.container(border=True):
-                                st.markdown(f"**{T.get('gap_title','')}**")
+                                st.markdown(f"**{gap_title}**")
                                 gap_pct = ((target_mean - val) / val) * 100.0
-                                st.write(f"- **{T.get('gap_line1','')}:** `${val:.2f}` | **{T.get('gap_line2','')}:** `${target_mean:.2f}`")
-                                st.write(f"- **{T.get('gap_line3','')}:** `+{gap_pct:.1f}%` ({T.get('gap_desc_high','')} {gap_pct:.1f}%)")
+                                st.write(f"- **{gap_line1}:** `${val:.2f}` | **{gap_line2}:** `${target_mean:.2f}`")
+                                st.write(f"- **{gap_line3}:** `+{gap_pct:.1f}%` ({gap_desc_high} {gap_pct:.1f}%)")
                                 
                                 if gap_pct > 25.0 and rec_key in ["BUY", "STRONG_BUY"]:
-                                    st.error(T.get('gap_alert_high',''))
+                                    st.error(gap_alert_high)
                                 elif abs(gap_pct) <= 15.0:
-                                    st.success(T.get('ws_match',''))
+                                    st.success(ws_match)
                                 elif gap_pct < -15.0:
-                                    st.info(T.get('gap_alert_low',''))
+                                    st.info(gap_alert_low)
 
-                    st.markdown(f"### {T.get('chart_title','')}")
+                    chart_title = T.get('chart_title', '')
+                    st.markdown(f"### {chart_title}")
                     c_chart1, c_chart2 = st.columns(2)
                     with c_chart1:
                         with st.container(border=True):
@@ -959,7 +964,8 @@ def main():
                             st.plotly_chart(draw_beta_scatter(engine), use_container_width=True)
                             st.caption(T.get('beta_desc',''))
 
-                    st.markdown(f"### {T.get('glossary_title','')}")
+                    glossary_title = T.get('glossary_title', '')
+                    st.markdown(f"### {glossary_title}")
                     g1, g2, g3, g4 = st.columns(4)
                     with g1:
                         with st.container(border=True):
@@ -979,7 +985,7 @@ def main():
                             st.caption(T.get('g_fv_desc',''))
 
             # ==========================================
-            # TAB 2: 硬核财报排程 (NWC 与折旧瀑布流)
+            # TAB 2: 硬核财报排程 (NWC 与 瀑布流折旧)
             # ==========================================
             with tab2:
                 st.markdown("#### ⚙️ Hardcore 3-Statement Forecast (NWC & Depreciation Engine)")
@@ -1002,7 +1008,7 @@ def main():
                 st.dataframe(styled_df, use_container_width=True, height=320)
 
             # ==========================================
-            # TAB 3: 动态 LBO 杠杆收购沙盘
+            # TAB 3: 完美联动的 LBO 杠杆收购沙盘
             # ==========================================
             with tab3:
                 st.markdown("#### 🏛️ Dynamic LBO Model & Cash Sweep Schedule")
@@ -1035,7 +1041,7 @@ def main():
                 st.table(debt_df.set_index('Year').T)
 
             # ==========================================
-            # TAB 4: 同业可比公司矩阵
+            # TAB 4: 同业可比公司矩阵 (Comps Matrix)
             # ==========================================
             with tab4:
                 st.markdown("#### 🏢 Comparable Company Analysis (Peer Valuation Matrix)")
@@ -1044,7 +1050,7 @@ def main():
                 st.dataframe(comps_df, use_container_width=True)
 
             # ==========================================
-            # TAB 5: 蒙特卡洛模拟估值
+            # TAB 5: 蒙特卡洛模拟估值 (Monte Carlo Simulation)
             # ==========================================
             with tab5:
                 st.markdown("#### 🎲 Monte Carlo Valuation Simulation (2,000 Iterations)")
@@ -1067,7 +1073,7 @@ def main():
                     st.warning("Insufficient cash flow data for Monte Carlo simulation.")
 
             # ==========================================
-            # TAB 6: 有效前沿与投资组合优化
+            # TAB 6: 马科维茨有效前沿与投资组合优化 (Efficient Frontier)
             # ==========================================
             with tab6:
                 st.markdown("#### 📈 Markowitz Efficient Frontier & Portfolio Optimization")
@@ -1116,77 +1122,14 @@ def main():
                         except Exception as e:
                             st.error(f"Error fetching basket data: {e}")
 
-            # ==========================================
-            # TAB 7: 期权链与波动率微笑 (完整恢复 Black-Scholes 希腊字母矩阵)
-            # ==========================================
-            with tab7:
-                st.markdown("#### 📉 Options Chain, Black-Scholes Pricing & Implied Volatility Smile")
-                st.caption("Analyze options sentiment, implied volatility skew, and institutional risk Greeks (Delta, Gamma, Theta, Vega).")
-                
-                if engine.is_malaysia:
-                    st.warning("⚠️ 马股（Bursa Malaysia）期权数据在 Yahoo Finance 上极度稀疏。建议切换至美股代码（如 NVDA, AAPL, TSLA）体验完整的期权与波动率微笑分析！")
-                
-                try:
-                    exp_dates = engine.stock.options
-                    if exp_dates:
-                        selected_expiry = st.selectbox("Select Option Expiration Date", options=exp_dates)
-                        opt_chain = engine.stock.option_chain(selected_expiry)
-                        calls = opt_chain.calls
-                        puts = opt_chain.puts
-                        
-                        exp_dt = datetime.datetime.strptime(selected_expiry, "%Y-%m-%d")
-                        T_days = (exp_dt - datetime.datetime.now()).days
-                        T = max(T_days / 365.0, 0.01)
-                        r = engine.rf
-                        S = engine.price
-
-                        opt_tab1, opt_tab2 = st.tabs(["📈 Implied Volatility Smile (波动率微笑)", "🛡️ Black-Scholes & Greeks Table (完整希腊字母矩阵)"])
-                        
-                        with opt_tab1:
-                            st.markdown(f"**Volatility Smile / Skew for Expiry: {selected_expiry} (T = {T_days} days)**")
-                            fig_smile = go.Figure()
-                            if not calls.empty and 'impliedVolatility' in calls.columns:
-                                valid_calls = calls[(calls['impliedVolatility'] > 0.01) & (calls['impliedVolatility'] < 3.0)]
-                                fig_smile.add_trace(go.Scatter(x=valid_calls['strike'], y=valid_calls['impliedVolatility']*100, mode='markers+lines', name='Calls IV (%)', marker=dict(color='#38bdf8', size=6)))
-                            if not puts.empty and 'impliedVolatility' in puts.columns:
-                                valid_puts = puts[(puts['impliedVolatility'] > 0.01) & (puts['impliedVolatility'] < 3.0)]
-                                fig_smile.add_trace(go.Scatter(x=valid_puts['strike'], y=valid_puts['impliedVolatility']*100, mode='markers+lines', name='Puts IV (%)', marker=dict(color='#ef4444', size=6)))
-                            
-                            fig_smile.add_vline(x=S, line_dash="dash", line_color="yellow", annotation_text=f"Spot Price: ${S:.2f}")
-                            fig_smile.update_layout(xaxis_title="Strike Price ($) ➡️", yaxis_title="Implied Volatility (%) ⬇️", plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#94a3b8'), height=400)
-                            st.plotly_chart(fig_smile, use_container_width=True)
-                            st.info("💡 **波动率微笑 / 斜面 (Volatility Smile / Skew) 解读**：在实际市场中，虚值看跌期权 (OTM Puts) 的隐含波动率往往高于平值或看涨期权，形成向左上倾斜的‘微笑曲线’，反映了机构对尾部黑天鹅下跌风险的避险买盘需求。")
-
-                        with opt_tab2:
-                            st.markdown("**Live Option Chain with Black-Scholes Theoretical Pricing & Complete Greeks**")
-                            if not calls.empty:
-                                sample_calls = calls.head(15).copy()
-                                bs_results = []
-                                for _, row in sample_calls.iterrows():
-                                    K = row['strike']
-                                    iv = row['impliedVolatility'] if row['impliedVolatility'] > 0 else 0.30
-                                    bs_p, delta, gamma, theta, vega = engine.black_scholes(S, K, T, r, iv, 'call')
-                                    bs_results.append({
-                                        "Strike": K, "Market Price": row['lastPrice'], "BS Fair Price": round(bs_p, 2),
-                                        "IV (%)": round(iv * 100, 1), "Delta": round(delta, 2), "Gamma": round(gamma, 3),
-                                        "Theta": round(theta, 2), "Vega": round(vega, 2)
-                                    })
-                                bs_df = pd.DataFrame(bs_results)
-                                st.dataframe(bs_df, use_container_width=True)
-                                st.caption("✨ *注：Delta 衡量股价变动 1$ 带来的期权变动；Gamma 衡量 Delta 加速度；Theta 衡量每日时间价值损耗；Vega 衡量波动率每变动 1% 的期权盈亏。*")
-                    else:
-                        st.warning("No option expiration dates found for this ticker.")
-                except Exception as e:
-                    st.error(f"Unable to fetch option chain data: {e}")
-
-    # [模块 12：免责声明与版权信息]
+    # [模块 12：免责声明与版权信息（带安全封装）]
     st.markdown("---")
     with st.container(border=True):
         d_title = T.get('disclaimer_title', '免责声明') if isinstance(T, dict) else 'Disclaimer'
         d_1 = T.get('disclaimer_1', '') if isinstance(T, dict) else ''
         d_2 = T.get('disclaimer_2', '') if isinstance(T, dict) else ''
         d_3 = T.get('disclaimer_3', '') if isinstance(T, dict) else ''
-        
+
         st.markdown(f"### {d_title}")
         st.markdown(d_1)
         st.markdown(d_2)
