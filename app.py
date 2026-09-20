@@ -973,12 +973,36 @@ def main():
                             st.caption(T['g_fv_desc'])
 
             # ==========================================
-            # TAB 2: 硬核财报排程
+            # TAB 2: 硬核财报排程 (已集成详细白话文指南)
             # ==========================================
             with tab2:
                 st.markdown("#### ⚙️ Hardcore 3-Statement Forecast (NWC & Depreciation Engine)")
                 st.caption("Adjust the Working Capital (DSO/DIO/DPO) and Capex drivers below to dynamically alter the Free Cash Flow (FCF) generation.")
                 
+                with st.expander("📖 【新手必读 / 核心参数调整指南】营运资本与资本开支 (点击展开)", expanded=False):
+                    st.markdown("""
+                    * **DSO (应收账款天数 - Days Sales Outstanding)**
+                      * **用途是什么**：衡量公司卖出产品后，客户平均需要多少天把现金付清。
+                      * **默认值建议**：系统自动根据历史数据适配（通常为 45 天左右），**小白用户直接保持默认即可**。
+                      * **什么情况下调整**：当分析客户拖账严重的行业（如建筑贸易，可调高至 90 天）或收钱极快的行业（如零售、软件，可调低至 15 天以内）。
+                      * **如何调整**：若预计产业链资金变紧、客户赖账增多，可**调大**该值（现金流会变差）。
+                    * **DIO (存货天数 - Days Inventory Outstanding)**
+                      * **用途是什么**：衡量货物从生产出来到最终卖掉，平均要在仓库里躺几天。
+                      * **默认值建议**：系统默认一般在 30 天左右。
+                      * **什么情况下调整**：重工业、汽车制造或芯片行业（库存积压严重，通常要调高）；生鲜或数字软件（库存几乎为 0，需调低）。
+                      * **如何调整**：当行业出现滞销、供应链堵塞时，**调大**该值。
+                    * **DPO (应付账款天数 - Days Payable Outstanding)**
+                      * **用途是什么**：公司平均多少天付钱给上游供应商（即公司“欠供应商钱”的时间）。
+                      * **默认值建议**：系统默认通常在 60 天左右。
+                      * **什么情况下调整**：当公司对上游供应链话语权强、可以长达几个月不付款时（如大超市、巨头企业）。
+                      * **如何调整**：若想测试公司“空手套白狼”的极限现金流能力，**调大**该值会让短期自由现金流变好。
+                    * **Capex % of Revenue (资本开支占营收比例)**
+                      * **用途是什么**：公司每年拿多少比例的收入去买厂房、机器、服务器等固定资产。
+                      * **默认值建议**：系统根据行业自动适配（科技轻资产约 3-5%，重资产制造可达 10-15%）。
+                      * **什么情况下调整**：当公司正处于疯狂砸钱扩产的周期（如建新厂、买大批 AI 服务器），或者已经轻资产化运营。
+                      * **如何调整**：扩产期**调高**（现金流流出会变多），维护期**调低**。
+                    """)
+
                 with st.container(border=True):
                     st.markdown("**🔧 Operating Assumptions (NWC & Capex Drivers)**")
                     o_col1, o_col2, o_col3, o_col4 = st.columns(4)
@@ -995,12 +1019,31 @@ def main():
                 st.dataframe(styled_df, use_container_width=True, height=320)
 
             # ==========================================
-            # TAB 3: LBO
+            # TAB 3: LBO (已集成详细白话文指南)
             # ==========================================
             with tab3:
                 st.markdown("#### 🏛️ Dynamic LBO Model & Cash Sweep Schedule")
                 st.caption("This LBO is perfectly linked to the Hardcore UFCF generated in Tab 2.")
                 
+                with st.expander("📖 【新手必读 / 核心参数调整指南】杠杆收购 (LBO) 模型参数 (点击展开)", expanded=False):
+                    st.markdown("""
+                    * **Debt Leverage (LTV % / 债务杠杆比例)**
+                      * **用途是什么**：决定收购时向银行借多少钱，占总收购价的百分比。
+                      * **默认值建议**：行业经典默认值为 **60%**，**新手建议直接使用默认值**。
+                      * **什么情况下调整**：金融市场银根紧缩、银行不愿放贷时（**调低**至 30-40%）；资金面极度宽松、流行高杠杆时（**调高**至 70-80%）。
+                      * **如何调整**：通过滑块拖动。比例越高，若公司赚钱，自有资金的翻倍速度（MOIC）越快，但破产风险也同步飙升。
+                    * **Debt Interest Rate (%) / 债务年化利率**
+                      * **用途是什么**：向银行借钱的年利息成本。
+                      * **默认值建议**：系统根据当前宏观环境默认合理的基准值（如 8.0%）。
+                      * **什么情况下调整**：处于高息加息周期（需手动调高至 9-10% 以上）或低息宽松期。
+                      * **如何调整**：根据当下的真实市场贷款利率手动对齐。
+                    * **Exit EV/EBITDA Multiple / 退出估值倍数**
+                      * **用途是什么**：预测 5 年后把公司卖掉时，市场愿意给它的估值倍数。
+                      * **默认值建议**：系统默认带入该公司当前的初始估值倍数。
+                      * **什么情况下调整**：若认为 5 年后行业会遭遇泡沫破裂（估值杀跌，需**调低**倍数）或者景气度极高（估值溢价，需**调高**倍数）。
+                      * **如何调整**：根据对未来市场宏观景气周期的预期来手动增减。
+                    """)
+
                 col_l1, col_l2, col_l3 = st.columns(3)
                 ltv = col_l1.slider("Debt Leverage (LTV %)", 30, 80, 60, 5) / 100
                 int_rate = col_l2.slider("Debt Interest Rate (%)", 5.0, 15.0, 8.0, 0.5) / 100
@@ -1048,8 +1091,18 @@ def main():
                     fig_mc.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#94a3b8'))
                     st.plotly_chart(fig_mc, use_container_width=True)
 
+            # 有效前沿 (已集成使用指南)
             with tab6:
                 st.markdown("#### 📈 Markowitz Efficient Frontier & Portfolio Optimization")
+                
+                with st.expander("📖 【新手必读 / 使用指南】马科维茨有效前沿资产配置 (点击展开)", expanded=False):
+                    st.markdown("""
+                    * **用途是什么**：根据现代资产组合理论，把几只股票放在一起进行数学优化，算出怎么分配资金才能做到“风险最低、收益最高”。
+                    * **默认值建议**：系统自带一组精选跨国科技巨头（美股：`NVDA, AAPL, MSFT, GOOGL, AMZN`）或马股银行组合，**可以直接点击运行测试**。
+                    * **什么情况下调整**：当你拥有自己的一篮子自选股，想知道每只股票具体该买多少比例资金时。
+                    * **如何调整**：直接在输入框中用**英文逗号**隔开输入你想要的股票代码（例如 `TSLA, AAPL, AMD`），然后点击下方的 **Run Portfolio Optimization** 运行按钮即可。
+                    """)
+
                 basket_input = st.text_input("Asset Basket Tickers (Comma-separated)", value="NVDA, AAPL, MSFT, GOOGL, AMZN" if not engine.is_malaysia else "1155.KL, 1023.KL, 1295.KL, 5819.KL")
                 tickers_list = [t.strip().upper() for t in basket_input.split(",") if t.strip()]
                 if st.button("🚀 Run Portfolio Optimization"):
@@ -1085,7 +1138,7 @@ def main():
                             st.error(f"Error fetching basket data: {e}")
 
             # ==========================================
-            # 🌟 修复融合版 TAB 7: 完美集成 V9.4 视图与 V9.3 核心 + AI策略顾问
+            # TAB 7: 期权与智能策略
             # ==========================================
             with tab7:
                 st.markdown("#### 📉 Options Chain, Volatility Smile & AI Strategist")
@@ -1108,7 +1161,6 @@ def main():
                         r = engine.rf
                         S = engine.price
 
-                        # 🌟 新增第四个 Tab：智能期权策略库
                         opt_tab1, opt_tab2, opt_tab3, opt_tab4 = st.tabs([
                             "📈 隐含波动率微笑 (Volatility Smile)", 
                             "🛡️ 实时期权链与希腊字母矩阵", 
@@ -1128,9 +1180,7 @@ def main():
                                 valid_puts = puts[(puts['impliedVolatility'] > 0.01) & (puts['impliedVolatility'] < 3.0)]
                                 fig_smile.add_trace(go.Scatter(x=valid_puts['strike'], y=valid_puts['impliedVolatility']*100, mode='markers+lines', name='Puts IV (%)', marker=dict(color='#ef4444', size=6)))
                             
-                            # V9.4 Highlight: Spot Price Line
                             fig_smile.add_vline(x=S, line_dash="dash", line_color="yellow", annotation_text=f"Spot Price: ${S:.2f}")
-                            
                             fig_smile.update_layout(xaxis_title="Strike Price ($) ➡️", yaxis_title="Implied Volatility (%) ⬇️", plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#94a3b8'), height=400)
                             st.plotly_chart(fig_smile, use_container_width=True)
                             
@@ -1148,7 +1198,6 @@ def main():
                                 for _, row in sample_calls.iterrows():
                                     K = row['strike']
                                     iv = row['impliedVolatility'] if row['impliedVolatility'] > 0 else 0.30
-                                    # 利用 V9.3 强大的 B-S 全解函数
                                     greeks = engine.black_scholes_pricing(S, K, T_years, r, iv, q=0.0)
                                     bs_results.append({
                                         "Strike": K, "Market Price": row['lastPrice'], "BS Fair Price": round(greeks['Call'], 2),
@@ -1159,10 +1208,33 @@ def main():
                                 st.dataframe(bs_df, use_container_width=True)
                                 st.caption("✨ *注：Delta 衡量股价每涨跌 1$ 带来的期权理论变动；Gamma 衡量 Delta 加速度；Theta 衡量期权每日时间价值损耗；Vega 衡量标的波动率每变动 1% 对期权价格的影响。*")
 
+                        # B-S 沙盘 (已集成详细白话文指南)
                         with opt_tab3:
                             st.markdown("##### 🧮 交互式 Black-Scholes 期权定价器 (支持股息率)")
                             st.caption("手动调整各项因子，观察期权理论价格与希腊字母的敏感度变化。")
                             
+                            with st.expander("📖 【新手必读 / 参数详解】Black-Scholes 仿真沙盘调节指南 (点击展开)", expanded=False):
+                                st.markdown("""
+                                * **行权价设定 (%) / 行权价 (K)**
+                                  * **用途是什么**：决定你想计算或模拟哪个价格的看涨/看跌期权。
+                                  * **默认值建议**：系统默认 **100%**（即平值期权 At-the-Money，行权价正好等于当前股价），**新手强烈建议从 100% 开始**。
+                                  * **什么情况下调整**：想测试深度价外（更便宜、以小博大的彩票期权）或者价内期权时调整。
+                                  * **如何调整**：通过滑动条或直接输入具体金额。
+                                * **剩余到期天数 (Days to Maturity)**
+                                  * **用途是什么**：离这份期权合约失效还有多少天。
+                                  * **默认值建议**：系统默认 **30 天**（标准的月度期权）。
+                                  * **什么情况下调整**：想看周权（如 7 天，时间价值损耗极快）或者长线期权（LEAPS，如 365 天）的价格。
+                                  * **如何调整**：根据你想模拟的合约期限直接修改天数。
+                                * **波动率 (Volatility σ %)**
+                                  * **用途是什么**：市场对该股票未来剧烈震荡的预期。波动率越高，期权越贵（因为暴涨暴跌概率大）。
+                                  * **默认值建议**：系统默认提取合理的初始值（如 35%）。
+                                  * **什么情况下调整**：当公司即将发布财报（财报前波动率会暴增，可调高至 60-80%）；或者大盘风平浪静、股价死水一潭时（可调低至 15-20%）。
+                                  * **如何调整**：预期有大事件（如大选、财报）时**调高**；风平浪静时**调低**。
+                                * **无风险利率 (Risk-Free Rate r %) & 股息率 (Dividend Yield q %)**
+                                  * **用途是什么**：折现因子与分红对期权定价的微调影响。
+                                  * **默认值建议**：**小白用户强烈建议直接保持默认**，不需要频繁手动更改。
+                                """)
+
                             op_col1, op_col2, op_col3 = st.columns(3)
                             strike_pct = op_col1.slider("行权价设定 (% 相对现价)", 80, 120, 100, 1) / 100
                             K_default = engine.price * strike_pct
@@ -1182,7 +1254,6 @@ def main():
                             res_c1.metric("European Call (看涨公道价)", f"{engine.currency} {custom_greeks['Call']:.4f}")
                             res_c2.metric("European Put (看跌公道价)", f"{engine.currency} {custom_greeks['Put']:.4f}")
 
-                        # 🌟 新增模块：AI 智能期权策略库
                         with opt_tab4:
                             st.markdown("### 🤖 智能期权策略顾问 (AI Options Strategist)")
                             st.caption(f"针对 **{engine.ticker}** (当前市价 ${engine.price:.2f})，根据您的持仓状态与对未来走势的判断，推荐以下经典策略：")
