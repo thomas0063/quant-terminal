@@ -979,7 +979,7 @@ def main():
                             st.caption(T['g_fv_desc'])
 
             # ==========================================
-            # TAB 2: 硬核 3-Statement & NWC (已修复 applymap -> map 报错)
+            # TAB 2: 硬核 3-Statement & NWC
             # ==========================================
             with tab2:
                 st.markdown("#### ⚙️ Hardcore 3-Statement Forecast (NWC & Depreciation Engine)")
@@ -997,7 +997,6 @@ def main():
                 
                 styled_df = df_is.copy()
                 for col in styled_df.columns:
-                    # 💡 此处已将原本过时的 applymap 替换为 map，完美解决报错
                     styled_df[col] = styled_df[col].map(lambda x: f"{x:,.0f}" if isinstance(x, (int, float)) else x)
                 
                 st.dataframe(styled_df, use_container_width=True, height=320)
@@ -1147,9 +1146,22 @@ def main():
                                     labels={'strike': 'Strike Price (行权价)', 'impliedVolatility': 'Implied Volatility (隐含波动率)'},
                                     trendline="lowess"
                                 )
-                                fig_smile.update_layout(plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#94a3b8'))
+                                # 🌟 强制将 LOWESS 趋势线设为醒目的红线，并加粗
+                                fig_smile.update_traces(selector=dict(mode="lines"), line=dict(color="#ef4444", width=2.5))
+                                fig_smile.update_layout(
+                                    plot_bgcolor='rgba(0,0,0,0)', 
+                                    paper_bgcolor='rgba(0,0,0,0)', 
+                                    font=dict(color='#94a3b8')
+                                )
                                 st.plotly_chart(fig_smile, use_container_width=True)
-                                st.caption("💡 **机构解读：** 如果曲线上扬呈‘微笑’或向左下方倾斜（Skew），说明市场对尾部风险（暴跌/暴涨）支付了极高的防范溢价。")
+                                
+                                # 🌟 补齐完整的专业机构解读与 Strike Price 释义
+                                st.markdown("""
+                                💡 **机构级波动率微笑与斜面（Volatility Smile / Skew）专业解读：**
+                                * **X轴 (Strike Price / 行权价)**：展示了不同行权价（虚值、平值、实值）的看涨期权分布。
+                                * **Y轴 (Implied Volatility / 隐含波动率)**：反映市场资金对该行权价未来波动幅度的真实预期定价。
+                                * **红线趋势 (LOWESS Trendline)**：通过非参数局部回归平滑拟合出的波动率走向。若呈现向左下方倾斜的斜面（Skew），说明机构正大量买入虚值 Put 来防范**黑天鹅暴跌风险**，从而支付了极高的防范溢价。
+                                """)
                     except Exception as e:
                         st.warning(f"⚠️ 期权链数据加载遇到网络或格式限制: {e}")
                 else:
