@@ -1280,7 +1280,29 @@ def main():
                                 st.dataframe(bs_df, use_container_width=True)
                                 
                                 greeks_note = "✨ *注：Delta 衡量股价每涨跌 1$ 带来的期权理论变动；Gamma 衡量 Delta 加速度；Theta 衡量期权每日时间价值损耗；Vega 衡量标的波动率每变动 1% 对期权价格的影响。*" if lang_key == "zh" else "✨ *Note: Delta measures price sensitivity; Gamma measures Delta acceleration; Theta captures daily time decay; Vega measures IV sensitivity.*"
-                                st.caption(greeks_note)
+                                st.caption(greeks_note) 
+                                bs_df = pd.DataFrame(bs_results)
+    st.dataframe(bs_df, use_container_width=True)
+
+    greeks_note = "✨ *注：Delta 衡量股价每涨跌 1$ 带来的期权理论变动；Gamma 衡量 Delta 加速度；Theta 衡量期权每日时间价值损耗；Vega 衡量标的波动率每变动 1% 对期权价格的影响。*"
+    st.caption(greeks_note)
+
+    # 💡 直接加在这个位置（注意保持缩进对齐）
+    with st.expander("📖 【新手必看】希腊字母 (Greeks) 到底怎么用？(点击展开)", expanded=False):
+        st.markdown("""
+        * **Delta ($\Delta$) —— 股价方向盘**
+          * **含义**：正股涨 $1，期权理论变动多少。
+          * **怎么利用**：想稳妥选 Delta 0.6~0.7 的合约（紧跟正股）；想以小博大（彩票玩法）选 Delta 0.3 左右的虚值合约。
+        * **Gamma ($\Gamma$) —— 加速度油门**
+          * **含义**：Delta 变化的剧烈程度。临近到期日的平值期权 Gamma 极大。
+          * **怎么利用**：买入高 Gamma 的近月平值期权，可以捕捉正股短期的暴动行情，让盈利呈指数级放大。
+        * **Theta ($\Theta$) —— 时间倒计时（租金损耗）**
+          * **含义**：时间每过一天，期权无条件缩水多少。
+          * **怎么利用**：**期权买方的敌人**。千万不要盲目买入离到期日太短（小于7天）的期权，避免被时间价值归零吞噬；如果是期权卖方（收租），则可以利用高 Theta 每天赚取时间红利。
+        * **Vega ($\nu$) —— 波动率晴雨表（情绪开关）**
+          * **含义**：市场隐含波动率 (IV) 变动 1%，期权价格的变动额。
+          * **怎么利用**：**切忌在财报前夕盲目买入期权**。因为财报一旦落地会发生“波动率坍塌 (IV Crush)”，导致哪怕方向看对、期权价格也大跌。要在 IV 较低时买入。
+        """)
 
                         with opt_tab3:
                             sandbox_title = "##### 🧮 交互式 Black-Scholes 期权定价器 (支持股息率)" if lang_key == "zh" else "##### 🧮 Interactive Black-Scholes Pricer (Dividend Supported)"
