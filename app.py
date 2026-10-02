@@ -704,7 +704,7 @@ def main():
             tabs_names = [
                 "📊 [1] Quant Valuation Dashboard (量化估值终端)" if lang_key == "zh" else "📊 [1] Quant Valuation Dashboard",
                 "⚙️ [2] Hardcore 3-Statement & NWC (硬核财报排程)" if lang_key == "zh" else "⚙️ [2] Hardcore 3-Statement & NWC",
-                "🏛️ [3] Dynamic LBO & Debt Schedule (动态收购沙盘)" if lang_key == "zh" else "🏛️ [3] Dynamic LBO & Debt Schedule",
+                "🏛️ [3] Dynamic LBO & Debt Schedule (动态收购沙盘)" if lang_key == "zh" else "🏛️️ [3] Dynamic LBO & Debt Schedule",
                 "🏢 [4] Comps Matrix (同业可比公司矩阵)" if lang_key == "zh" else "🏢 [4] Comps Matrix",
                 "🎲 [5] Monte Carlo (蒙特卡洛模拟)" if lang_key == "zh" else "🎲 [5] Monte Carlo Simulation",
                 "📈 [6] Efficient Frontier (有效前沿资产配置)" if lang_key == "zh" else "📈 [6] Efficient Frontier",
@@ -881,7 +881,7 @@ def main():
                                 st.markdown(f"- **Market Sentiment / Implied Growth:** {implied_g * 100:.2f}%")
                                 if implied_g > 0.35: st.markdown("  👉 **【⚠️ SEVERE BUBBLE WARNING】**" if lang_key == "en" else "  👉 **【⚠️ 严重泡沫警示】市场极度狂热**")
                                 elif implied_g < 0.0: st.markdown("  👉 **【🔥 EXTREME PESSIMISM / DEEP VALUE】**" if lang_key == "en" else "  👉 **【🔥 极度悲观 / 深度价值】情绪错杀**")
-                                else: st.markdown("  👉 **【⚖️ BALANCED & RATIONAL】**" if lang_key == "en" else "  👉 **【⚖️️ 平衡理性】无盲目炒作**")
+                                else: st.markdown("  👉 **【⚖️ BALANCED & RATIONAL】**" if lang_key == "en" else "  👉 **【⚖ 平衡理性】无盲目炒作**")
                     
                     with col_t2:
                         with st.container(border=True):
@@ -1279,7 +1279,43 @@ def main():
                                 bs_df = pd.DataFrame(bs_results)
                                 st.dataframe(bs_df, use_container_width=True)
                                 
-                                greeks_note = "✨ *注：Delta 衡量股价每涨跌 1$ 带来的期权理论变动；Gamma 衡量 Delta 加速度；Theta 衡量期权每日时间价值损耗；Vega 衡量标的波动率每变动 1% 对期权价格的影响。*" if lang_key == "zh" else "✨ *Note: Delta measures price sensitivity; Gamma measures Delta acceleration; Theta captures daily time decay; Vega measures IV sensitivity.*"
+                                # 🌟 新增的希腊字母解释展开项 (Greeks Expander)
+                                exp_title_greeks = "📖 【新手必读 / 希腊字母百科】这些期权参数代表什么风险？ (点击展开)" if lang_key == "zh" else "📖 [Beginner's Guide] Understanding Options Greeks (Click to Expand)"
+                                
+                                guide_greeks_zh = """
+                                * **Delta (Δ - 方向与概率)**:
+                                  * **含义**: 衡量股价每涨跌 1$，期权价格理论上跟着变动多少。
+                                  * **实战**: Delta = 0.5 代表股票涨 1 块，期权理论涨 0.5 块。它也常被华尔街用来粗估期权到期时变成价内 (ITM) 的概率（例如 Delta 0.30 约等于只有 30% 胜率）。
+                                * **Gamma (Γ - 爆发力与加速度)**:
+                                  * **含义**: 衡量 Delta 的变化速度（即 Delta 的加速度）。
+                                  * **实战**: Gamma 越高，期权价格随股价波动的幅度越剧烈。平值期权 (ATM) 临近到期时 Gamma 达到最大，俗称“末日轮”的疯狂翻倍或瞬间归零，就是极高的 Gamma 导致的。
+                                * **Theta (Θ - 时间损耗)**:
+                                  * **含义**: 距离到期日每过去一天，你的期权会自动蒸发多少价值。
+                                  * **实战**: 期权买方的“死神”，卖方的“提款机”。临近到期时，时间价值流失会疯狂加速（Theta 绝对值变大）。
+                                * **Vega (ν - 恐慌与波动率)**:
+                                  * **含义**: 市场隐含波动率 (IV) 每上升 1%，期权会变贵多少。
+                                  * **实战**: 财报前大家恐慌买保险，IV 暴涨，期权也随之变贵。财报后 IV 瞬间暴跌（IV Crush），买方往往会遭遇“哪怕股价方向看对了，但期权还是亏钱”的惨剧。
+                                """
+
+                                guide_greeks_en = """
+                                * **Delta (Δ - Direction & Probability)**:
+                                  * **Meaning**: How much the option premium changes for a $1 move in the underlying stock.
+                                  * **Practical**: A 0.50 Delta means the option gains $0.50 for every $1 stock rise. It is also widely used as a proxy for the probability of expiring In-The-Money (ITM).
+                                * **Gamma (Γ - Acceleration & Convexity)**:
+                                  * **Meaning**: The rate of change of Delta.
+                                  * **Practical**: High Gamma means the option's sensitivity changes rapidly. At-The-Money (ATM) options close to expiration have the highest Gamma, creating explosive, lottery-like price swings.
+                                * **Theta (Θ - Time Decay)**:
+                                  * **Meaning**: How much value the option loses each passing day.
+                                  * **Practical**: The enemy of option buyers, the best friend of sellers. Time decay accelerates aggressively as expiration approaches.
+                                * **Vega (ν - Volatility & Panic)**:
+                                  * **Meaning**: How much the option price changes for a 1% shift in Implied Volatility (IV).
+                                  * **Practical**: Options get extremely expensive before Earnings due to surging Vega. After Earnings, IV collapses (IV Crush), which can cause buyers to lose money even if they guessed the stock direction correctly.
+                                """
+
+                                with st.expander(exp_title_greeks, expanded=False):
+                                    st.markdown(guide_greeks_zh if lang_key == "zh" else guide_greeks_en)
+
+                                greeks_note = "✨ *简明注：Delta 测方向；Gamma 测爆发力；Theta 测时间流失；Vega 测波动率影响。*" if lang_key == "zh" else "✨ *TL;DR: Delta = Direction; Gamma = Acceleration; Theta = Time Decay; Vega = Volatility.*"
                                 st.caption(greeks_note)
 
                         with opt_tab3:
@@ -1480,7 +1516,7 @@ def main():
                                         st.markdown(s3_3)
                                         
                     else:
-                        st.warning("⚠️️ No option expiration dates found for this ticker on Yahoo Finance.")
+                        st.warning("⚠ No option expiration dates found for this ticker on Yahoo Finance.")
                 except Exception as e:
                     st.error(f"Unable to fetch option chain data: {e}")
 
