@@ -66,6 +66,14 @@ div[data-baseweb="input"] > div, div[data-baseweb="select"] > div { background-c
 """
 st.markdown(PREMIUM_CSS, unsafe_allow_html=True)
 
+@st.cache_resource
+def get_yf_session():
+    session = requests.Session()
+    session.headers.update({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
+    })
+    return session
+
 # ==============================================================================
 # 2. 国际化多语言字典
 # ==============================================================================
@@ -250,8 +258,8 @@ def get_fin_metric(df, keyword, default=0.0):
 class UltimateHardcoreEngine:
     def __init__(self, ticker):
         self.ticker = ticker.strip().upper()
-        # 移除自定义 session，防止破坏 yfinance 自带的 Cookie/Crumb 验证机制
-        self.stock = yf.Ticker(self.ticker)
+        self.session = get_yf_session()
+        self.stock = yf.Ticker(self.ticker, session=self.session)
         
         try:
             self.info = self.stock.info
@@ -288,7 +296,7 @@ class UltimateHardcoreEngine:
         self.net_income = self.info.get('netIncomeToCommon') or get_fin_metric(self.fin, 'Net Income', self.ebitda * 0.5)
         self.hist_da = get_fin_metric(self.cfs, 'Depreciation And Amortization', self.ebitda * 0.2)
         
-        # 🌟 智能自由现金流鲁棒性兜底
+        # 🌟 智能自由现金流鲁棒性兜底：若雅虎无 FCF 或为负/零（马股常见），自动以代理现金流（净利润60%或营收5%）填充，确保 DCF/蒙特卡洛全线通畅
         raw_fcf = self.info.get('freeCashflow', 0)
         if raw_fcf <= 0:
             raw_fcf = get_fin_metric(self.cfs, 'Free Cash Flow', 0)
@@ -310,8 +318,8 @@ class UltimateHardcoreEngine:
         fallback = 1.0
         try:
             market_sym = '^KLSE' if self.is_malaysia else '^GSPC'
-            s_hist = yf.Ticker(self.ticker).history(period='3y', interval='1mo')
-            m_hist = yf.Ticker(market_sym).history(period='3y', interval='1mo')
+            s_hist = yf.Ticker(self.ticker, session=self.session).history(period='3y', interval='1mo')
+            m_hist = yf.Ticker(market_sym, session=self.session).history(period='3y', interval='1mo')
             s_ret = s_hist['Close'].pct_change().dropna()
             m_ret = m_hist['Close'].pct_change().dropna()
             aligned = pd.concat([s_ret, m_ret], axis=1).dropna()
@@ -516,6 +524,7 @@ class UltimateHardcoreEngine:
             '5264.KL': ['5347.KL', '1155.KL', '1023.KL']
         }
         
+        # 🌟 智能同业匹配：若在 map 中直接取，若为马股其他代码则自动分配马股本地蓝筹，杜绝误跳美股
         if self.ticker in peer_map:
             peers = peer_map[self.ticker]
         elif self.is_malaysia:
@@ -536,7 +545,7 @@ class UltimateHardcoreEngine:
         
         for p in peers:
             try:
-                pt = yf.Ticker(p)
+                pt = yf.Ticker(p, session=self.session)
                 pi = pt.info
                 pmcap = pi.get('marketCap', 1e9)
                 pebitda = pi.get('ebitda', 1e6)
@@ -565,7 +574,7 @@ class UltimateHardcoreEngine:
             if val and val > 0: results.append(val)
         return results
 
-    # 🌟 融合版最强 B-S 引擎
+    # 🌟 融合版最强 B-S 引擎 (支持双向、希腊字母全解及股息率)
     def black_scholes_pricing(self, S, K, T, r, sigma, q=0.0):
         if T <= 0 or sigma <= 0 or S <= 0 or K <= 0:
             return {"Call": 0.0, "Put": 0.0, "Delta_C": 0.0, "Delta_P": 0.0, "Gamma": 0.0, "Theta_C": 0.0, "Theta_P": 0.0, "Vega": 0.0, "Rho_C": 0.0, "Rho_P": 0.0}
@@ -624,8 +633,8 @@ def draw_sensitivity_heatmap(engine):
     fig.update_layout(margin=dict(l=0, r=0, t=10, b=0), height=320, xaxis_title="Terminal Growth Rate (g) ➡️", yaxis_title="WACC (Discount Rate) ⬇️", yaxis=dict(autorange='reversed', showgrid=False, zeroline=False), xaxis=dict(showgrid=False, zeroline=False), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#94a3b8'))
     return fig, stats
 
-def draw_pro_candlestick(ticker):
-    hist = yf.Ticker(ticker).history(period="1y", interval="1d")
+def draw_pro_candlestick(ticker, session):
+    hist = yf.Ticker(ticker, session=session).history(period="1y", interval="1d")
     if hist.empty: return None
     hist['MA20'], hist['MA50'] = hist['Close'].rolling(20).mean(), hist['Close'].rolling(50).mean()
     fig = go.Figure()
@@ -870,9 +879,9 @@ def main():
                             st.markdown("  👉 Minimum required return." if lang_key == "en" else "  👉 您买入这家公司应当要求的最低回报门槛。")
                             if implied_g is not None:
                                 st.markdown(f"- **Market Sentiment / Implied Growth:** {implied_g * 100:.2f}%")
-                                if implied_g > 0.35: st.markdown("  👉 **【⚠️️ SEVERE BUBBLE WARNING】**" if lang_key == "en" else "  👉 **【⚠️ 严重泡沫警示】市场极度狂热**")
+                                if implied_g > 0.35: st.markdown("  👉 **【⚠️ SEVERE BUBBLE WARNING】**" if lang_key == "en" else "  👉 **【⚠️ 严重泡沫警示】市场极度狂热**")
                                 elif implied_g < 0.0: st.markdown("  👉 **【🔥 EXTREME PESSIMISM / DEEP VALUE】**" if lang_key == "en" else "  👉 **【🔥 极度悲观 / 深度价值】情绪错杀**")
-                                else: st.markdown("  👉 **【⚖️ BALANCED & RATIONAL】**" if lang_key == "en" else "  👉 **【⚖ 平衡理性】无盲目炒作**")
+                                else: st.markdown("  👉 **【⚖️ BALANCED & RATIONAL】**" if lang_key == "en" else "  👉 **【⚖️️ 平衡理性】无盲目炒作**")
                     
                     with col_t2:
                         with st.container(border=True):
@@ -931,7 +940,7 @@ def main():
                     with c_chart1:
                         with st.container(border=True):
                             st.markdown("**1-Year Candlestick (MA20 & MA50)**")
-                            st.plotly_chart(draw_pro_candlestick(engine.ticker), use_container_width=True)
+                            st.plotly_chart(draw_pro_candlestick(engine.ticker, engine.session), use_container_width=True)
                     with c_chart2:
                         with st.container(border=True):
                             st.markdown(f"**3-Year Beta Regression (β = {engine.beta:.2f})**")
@@ -1161,7 +1170,7 @@ def main():
                 if st.button("🚀 Run Portfolio Optimization" if lang_key == "en" else "🚀 运行资产组合最优化计算"):
                     with st.spinner("Simulating portfolios..." if lang_key == "en" else "正在进行蒙特卡洛组合演练..."):
                         try:
-                            data = yf.download(tickers_list, period="1y", interval="1d")['Close']
+                            data = yf.download(tickers_list, period="1y", interval="1d", session=engine.session)['Close']
                             if isinstance(data, pd.Series): data = data.to_frame()
                             returns = data.pct_change().dropna()
                             num_portfolios = 3000
@@ -1471,7 +1480,7 @@ def main():
                                         st.markdown(s3_3)
                                         
                     else:
-                        st.warning("⚠ No option expiration dates found for this ticker on Yahoo Finance.")
+                        st.warning("⚠️️ No option expiration dates found for this ticker on Yahoo Finance.")
                 except Exception as e:
                     st.error(f"Unable to fetch option chain data: {e}")
 
