@@ -881,7 +881,7 @@ def main():
                                 st.markdown(f"- **Market Sentiment / Implied Growth:** {implied_g * 100:.2f}%")
                                 if implied_g > 0.35: st.markdown("  👉 **【⚠️ SEVERE BUBBLE WARNING】**" if lang_key == "en" else "  👉 **【⚠️ 严重泡沫警示】市场极度狂热**")
                                 elif implied_g < 0.0: st.markdown("  👉 **【🔥 EXTREME PESSIMISM / DEEP VALUE】**" if lang_key == "en" else "  👉 **【🔥 极度悲观 / 深度价值】情绪错杀**")
-                                else: st.markdown("  👉 **【⚖️ BALANCED & RATIONAL】**" if lang_key == "en" else "  👉 **【⚖️️ 平衡理性】无盲目炒作**")
+                                else: st.markdown("  👉 **【⚖️ BALANCED & RATIONAL】**" if lang_key == "en" else "  👉 **【⚖ 平衡理性】无盲目炒作**")
                     
                     with col_t2:
                         with st.container(border=True):
@@ -1203,7 +1203,7 @@ def main():
                             st.error(f"Error fetching basket data: {e}")
 
             # ==========================================
-            # TAB 7: 期权与智能策略 (完整中英切换指南)
+            # TAB 7: 期权与智能策略 (已修复缩进并集成希腊字母指南)
             # ==========================================
             with tab7:
                 st.markdown("#### 📉 Options Chain, Volatility Smile & AI Strategist")
@@ -1280,29 +1280,40 @@ def main():
                                 st.dataframe(bs_df, use_container_width=True)
                                 
                                 greeks_note = "✨ *注：Delta 衡量股价每涨跌 1$ 带来的期权理论变动；Gamma 衡量 Delta 加速度；Theta 衡量期权每日时间价值损耗；Vega 衡量标的波动率每变动 1% 对期权价格的影响。*" if lang_key == "zh" else "✨ *Note: Delta measures price sensitivity; Gamma measures Delta acceleration; Theta captures daily time decay; Vega measures IV sensitivity.*"
-                                st.caption(greeks_note) 
-                                bs_df = pd.DataFrame(bs_results)
-    st.dataframe(bs_df, use_container_width=True)
-
-    greeks_note = "✨ *注：Delta 衡量股价每涨跌 1$ 带来的期权理论变动；Gamma 衡量 Delta 加速度；Theta 衡量期权每日时间价值损耗；Vega 衡量标的波动率每变动 1% 对期权价格的影响。*"
-    st.caption(greeks_note)
-
-    # 💡 直接加在这个位置（注意保持缩进对齐）
-    with st.expander("📖 【新手必看】希腊字母 (Greeks) 到底怎么用？(点击展开)", expanded=False):
-        st.markdown("""
-        * **Delta ($\Delta$) —— 股价方向盘**
-          * **含义**：正股涨 $1，期权理论变动多少。
-          * **怎么利用**：想稳妥选 Delta 0.6~0.7 的合约（紧跟正股）；想以小博大（彩票玩法）选 Delta 0.3 左右的虚值合约。
-        * **Gamma ($\Gamma$) —— 加速度油门**
-          * **含义**：Delta 变化的剧烈程度。临近到期日的平值期权 Gamma 极大。
-          * **怎么利用**：买入高 Gamma 的近月平值期权，可以捕捉正股短期的暴动行情，让盈利呈指数级放大。
-        * **Theta ($\Theta$) —— 时间倒计时（租金损耗）**
-          * **含义**：时间每过一天，期权无条件缩水多少。
-          * **怎么利用**：**期权买方的敌人**。千万不要盲目买入离到期日太短（小于7天）的期权，避免被时间价值归零吞噬；如果是期权卖方（收租），则可以利用高 Theta 每天赚取时间红利。
-        * **Vega ($\nu$) —— 波动率晴雨表（情绪开关）**
-          * **含义**：市场隐含波动率 (IV) 变动 1%，期权价格的变动额。
-          * **怎么利用**：**切忌在财报前夕盲目买入期权**。因为财报一旦落地会发生“波动率坍塌 (IV Crush)”，导致哪怕方向看对、期权价格也大跌。要在 IV 较低时买入。
-        """)
+                                st.caption(greeks_note)
+                                
+                                # 🌟 新增：新手必看希腊字母通俗指引（完美支持中英双语）
+                                exp_title_greeks = "📖 【新手必看】希腊字母 (Greeks) 到底怎么用？(点击展开)" if lang_key == "zh" else "📖 [Beginner's Guide] How to Use Greeks? (Click to Expand)"
+                                guide_greeks_zh = """
+                                * **Delta (Δ) —— 股价方向盘**
+                                  * **含义**：正股涨 $1，期权理论变动多少。
+                                  * **怎么利用**：想稳妥选 Delta 0.6~0.7 的合约（紧跟正股）；想以小博大（彩票玩法）选 Delta 0.3 左右的虚值合约。
+                                * **Gamma (Γ) —— 加速度油门**
+                                  * **含义**：Delta 变化的剧烈程度。临近到期日的平值期权 Gamma 极大。
+                                  * **怎么利用**：买入高 Gamma 的近月平值期权，可以捕捉正股短期的暴动行情，让盈利呈指数级放大。
+                                * **Theta (Θ) —— 时间倒计时（租金损耗）**
+                                  * **含义**：时间每过一天，期权无条件缩水多少。
+                                  * **怎么利用**：**期权买方的敌人**。千万不要盲目买入离到期日太短（小于7天）的期权，避免被时间价值归零吞噬；如果是期权卖方（收租），则可以利用高 Theta 每天赚取时间红利。
+                                * **Vega (ν) —— 波动率晴雨表（情绪开关）**
+                                  * **含义**：市场隐含波动率 (IV) 变动 1%，期权价格的变动额。
+                                  * **怎么利用**：**切忌在财报前夕盲目买入期权**。因为财报一旦落地会发生“波动率坍塌 (IV Crush)”，导致哪怕方向看对、期权价格也大跌。要在 IV 较低时买入。
+                                """
+                                guide_greeks_en = """
+                                * **Delta (Δ) —— Directional Steering Wheel**
+                                  * **Meaning**: Expected option price change per $1 move in the underlying stock.
+                                  * **How to use**: Choose Delta 0.6~0.7 for stable tracking; choose ~0.3 OTM options for high-leverage lottery plays.
+                                * **Gamma (Γ) —— Acceleration Pedal**
+                                  * **Meaning**: Rate of change in Delta. Highest for ATM options near expiry.
+                                  * **How to use**: Buy high-Gamma near-expiry options to capture explosive moves where profits compound exponentially.
+                                * **Theta (Θ) —— Time Decay Countdown**
+                                  * **Meaning**: Daily loss of option value due to passing time.
+                                  * **How to use**: **Enemy of option buyers**. Avoid options expiring in <7 days unless trading immediate momentum. Friends of option sellers (collecting rent).
+                                * **Vega (ν) —— Volatility Barometer**
+                                  * **Meaning**: Price change per 1% move in Implied Volatility (IV).
+                                  * **How to use**: **Never buy naked options right before earnings** due to subsequent IV Crush. Buy when IV is low.
+                                """
+                                with st.expander(exp_title_greeks, expanded=False):
+                                    st.markdown(guide_greeks_zh if lang_key == "zh" else guide_greeks_en)
 
                         with opt_tab3:
                             sandbox_title = "##### 🧮 交互式 Black-Scholes 期权定价器 (支持股息率)" if lang_key == "zh" else "##### 🧮 Interactive Black-Scholes Pricer (Dividend Supported)"
@@ -1332,7 +1343,6 @@ def main():
                               * **用途是什么**：折现因子与分红对期权定价的微调影响。
                               * **默认值建议**：**小白用户强烈建议直接保持默认**，不需要频繁手动更改。
                             """
-
                             guide_t7_en = """
                             * **Strike Price Setting (%) / Strike (K)**
                               * **Purpose**: Determines the strike price for the simulated option.
@@ -1382,82 +1392,66 @@ def main():
 
                             strategy_col1, strategy_col2 = st.columns(2)
 
-                            # AI Strategist Language Parsing Logic
                             if lang_key == "zh":
                                 h_title = "#### 🛡️ 持股防御与收息派 (Hedging & Income)"
                                 s_title = "#### ⚔️ 纯投机与波动率派 (Speculation & Volatility)"
-                                
-                                # Strategy 1
                                 c1_t = "1. 备兑看涨期权 (Covered Call) - 赚取额外被动收入"
                                 c1_1 = f"- **🎯 适合对象:** 你已经持有至少 100 股 {engine.ticker} 正股，并且觉得它短期内不会暴涨。"
                                 c1_2 = f"- **🛠️ 操作方案:** **卖出** 1 张虚值 (OTM) 看涨期权 (Call)，比如行权价设在 ${(engine.price * 1.05):.2f} (现价的 105%)。"
                                 c1_3 = f"- **📈 预期效果:** 你将立刻收到一笔期权费（权利金）。如果到期前股价**没有**涨过 ${(engine.price * 1.05):.2f}，期权作废，你白赚这笔钱，可以反复操作降低持仓成本；如果涨破了，你的股票会按 ${(engine.price * 1.05):.2f} 被强制卖出（你依然赚了 5% 的差价 + 期权费，只是错过了更高的利润）。"
                                 
-                                # Strategy 2
                                 c2_t = "2. 保护性看跌 (Protective Put) - 买保险防暴跌"
                                 c2_1 = f"- **🎯 适合对象:** 你持有 {engine.ticker} 正股，害怕即将到来的财报暴雷或大盘崩盘，但又不想卖掉股票（比如为了避税或长期看好）。"
                                 c2_2 = f"- **🛠️ 操作方案:** **买入** 1 张虚值看跌期权 (Put)，比如行权价设在 ${(engine.price * 0.9):.2f}。"
                                 c2_3 = f"- **📈 预期效果:** 类似于给车买车险。付出一笔保费，如果股票真的腰斩，你有权在 ${(engine.price * 0.9):.2f} 这个价位强制卖出。无论跌多惨，你的最大损失都被锁死在 10% 以内。"
                                 
-                                # Strategy 3
                                 c3_t = "3. 领型期权 (Collar Strategy) - 零成本对冲保险"
                                 c3_1 = f"- **🎯 适合对象:** 想买 Put 保护正股，但觉得期权费（保费）太贵了，不舍得花钱。"
                                 c3_2 = f"- **🛠️ 操作方案:** **买入** 1 张 OTM Put 防暴跌，同时 **卖出** 1 张 OTM Call 赚权利金来补贴买 Put 的钱。"
                                 c3_3 = f"- **📈 预期效果:** 几乎“零成本”上保险。代价是：你不仅封死了下跌空间，也把向上暴涨的利润空间给封死了。非常适合想安心睡大觉的长期投资者。"
                                 
-                                # Strategy 4
                                 s1_t = "1. 牛市看涨价差 (Bull Call Spread) - 以小博大，控制风险"
                                 s1_1 = f"- **🎯 适合对象:** 强烈看涨 {engine.ticker}，但觉得直接买 Call 太贵，且不想承受太大的时间损耗 (Theta)。"
                                 s1_2 = f"- **🛠️ 操作方案:** **买入** 1 张平值 (ATM) Call，同时 **卖出** 1 张更高行权价的虚值 (OTM) Call。"
                                 s1_3 = f"- **📈 预期效果:** 卖 Call 收到的钱抵消了部分买 Call 的成本，大大降低了你的入场费。你的最大亏损变小了，但在暴涨情况下的最大利润也被封顶了。适合“稳中求胜”的投机者。"
                                 
-                                # Strategy 5
                                 s2_t = "2. 铁鹰 / 蝴蝶期权 (Iron Condor / Butterfly) - 震荡市收割机"
                                 s2_1 = f"- **🎯 适合对象:** 预测 {engine.ticker} 接下来一段时间会**横盘震荡**，不会大涨也不会大跌。"
                                 s2_2 = f"- **🛠️ 操作方案 (铁鹰):** 卖出一个 OTM Call Spread，同时卖出一个 OTM Put Spread（构建一个无风险的盈利区间）。"
                                 s2_3 = f"- **📈 预期效果:** 时间 (Theta) 是你最好的朋友。只要股价在到期日乖乖待在中间的区间里，四大期权全部作废，你安稳收割所有的期权费。"
                                 
-                                # Strategy 6
                                 s3_t = "3. 跨式组合 (Straddle) - 押注大事件与财报方向"
                                 s3_1 = f"- **🎯 适合对象:** 马上要发财报了，你预感 {engine.ticker} 会有**剧烈波动（非暴涨即暴跌）**，但你**不知道方向**。"
                                 s3_2 = f"- **🛠️ 操作方案:** 同时 **买入** 1 张同等行权价的 Call 和 Put。"
                                 s3_3 = f"- **📈 预期效果:** 你付出了两份高昂的期权费。只要最终股票的涨跌幅超过了你付出的总期权费成本，哪怕其中一边归零，另一边的暴涨也能让你大幅盈利。最怕的是“雷声大雨点小”（横盘），这样两边的钱都会输光。"
-                            
                             else:
                                 h_title = "#### 🛡️ Hedgers & Income Seekers"
                                 s_title = "#### ⚔️ Speculators & Volatility Seekers"
-                                
-                                # Strategy 1
                                 c1_t = "1. Covered Call - Passive Income Generator"
                                 c1_1 = f"- **🎯 Best For:** You own at least 100 shares of {engine.ticker} and expect a neutral to slightly bullish market."
                                 c1_2 = f"- **🛠️ Action:** **Sell** 1 Out-of-the-Money (OTM) Call, e.g., Strike ${(engine.price * 1.05):.2f}."
                                 c1_3 = f"- **📈 Expected Result:** You instantly collect a premium. If the stock stays below ${(engine.price * 1.05):.2f}, you keep the cash. If it surges, your shares are called away at a 5% profit. Win-win, but upside is capped."
                                 
-                                # Strategy 2
                                 c2_t = "2. Protective Put - Crash Insurance"
                                 c2_1 = f"- **🎯 Best For:** You own {engine.ticker} but fear an upcoming earnings miss or macro crash, yet you don't want to sell."
                                 c2_2 = f"- **🛠️ Action:** **Buy** 1 OTM Put, e.g., Strike ${(engine.price * 0.9):.2f}."
                                 c2_3 = f"- **📈 Expected Result:** You pay a premium (insurance fee). No matter how far the stock plummets, your max loss is strictly capped at 10%. Perfect for downside protection."
                                 
-                                # Strategy 3
                                 c3_t = "3. Collar Strategy - Zero-Cost Hedge"
                                 c3_1 = f"- **🎯 Best For:** You want a Protective Put but don't want to pay the expensive premium."
                                 c3_2 = f"- **🛠️ Action:** **Buy** an OTM Put AND **Sell** an OTM Call simultaneously."
                                 c3_3 = f"- **📈 Expected Result:** The premium received from the Call finances the Put. You lock in a hard floor for losses, but completely surrender any breakout profits. Total peace of mind."
                                 
-                                # Strategy 4
                                 s1_t = "1. Bull Call Spread - Leveraged Upside"
                                 s1_1 = f"- **🎯 Best For:** Highly bullish on {engine.ticker} but naked Calls are too expensive (high IV)."
                                 s1_2 = f"- **🛠️ Action:** **Buy** 1 ATM Call AND **Sell** 1 higher OTM Call."
                                 s1_3 = f"- **📈 Expected Result:** Massively reduces capital entry requirement and mitigates time decay (Theta). Max loss is low, but max profit is rigidly capped."
                                 
-                                # Strategy 5
                                 s2_t = "2. Iron Condor - Sideways Harvester"
                                 s2_1 = f"- **🎯 Best For:** You expect {engine.ticker} to chop sideways (low volatility)."
                                 s2_2 = f"- **🛠️ Action:** Sell an OTM Call Spread AND an OTM Put Spread."
                                 s2_3 = f"- **📈 Expected Result:** Theta (time) is your friend. As long as the stock remains within the defined corridor by expiry, all options expire worthless, and you harvest the total premium."
                                 
-                                # Strategy 6
                                 s3_t = "3. Straddle - Earnings Volatility Play"
                                 s3_1 = f"- **🎯 Best For:** Major binary event upcoming (Earnings, FDA trial). You expect massive movement but **don't know the direction**."
                                 s3_2 = f"- **🛠️ Action:** **Buy** 1 ATM Call AND **Buy** 1 ATM Put."
@@ -1466,43 +1460,24 @@ def main():
                             with strategy_col1:
                                 with st.container(border=True):
                                     st.markdown(h_title)
-                                    
                                     with st.expander(c1_t, expanded=True):
-                                        st.markdown(c1_1)
-                                        st.markdown(c1_2)
-                                        st.markdown(c1_3)
-                                        
+                                        st.markdown(c1_1); st.markdown(c1_2); st.markdown(c1_3)
                                     with st.expander(c2_t):
-                                        st.markdown(c2_1)
-                                        st.markdown(c2_2)
-                                        st.markdown(c2_3)
-                                        
+                                        st.markdown(c2_1); st.markdown(c2_2); st.markdown(c2_3)
                                     with st.expander(c3_t):
-                                        st.markdown(c3_1)
-                                        st.markdown(c3_2)
-                                        st.markdown(c3_3)
+                                        st.markdown(c3_1); st.markdown(c3_2); st.markdown(c3_3)
 
                             with strategy_col2:
                                 with st.container(border=True):
                                     st.markdown(s_title)
-                                    
                                     with st.expander(s1_t, expanded=True):
-                                        st.markdown(s1_1)
-                                        st.markdown(s1_2)
-                                        st.markdown(s1_3)
-
+                                        st.markdown(s1_1); st.markdown(s1_2); st.markdown(s1_3)
                                     with st.expander(s2_t):
-                                        st.markdown(s2_1)
-                                        st.markdown(s2_2)
-                                        st.markdown(s2_3)
-
+                                        st.markdown(s2_1); st.markdown(s2_2); st.markdown(s2_3)
                                     with st.expander(s3_t):
-                                        st.markdown(s3_1)
-                                        st.markdown(s3_2)
-                                        st.markdown(s3_3)
-                                        
+                                        st.markdown(s3_1); st.markdown(s3_2); st.markdown(s3_3)
                     else:
-                        st.warning("⚠️️ No option expiration dates found for this ticker on Yahoo Finance.")
+                        st.warning("⚠️ No option expiration dates found for this ticker on Yahoo Finance.")
                 except Exception as e:
                     st.error(f"Unable to fetch option chain data: {e}")
 
