@@ -714,11 +714,12 @@ class UltimateHardcoreEngine:
         equity_funding = purchase_price - debt_funding
 
         debt_schedule = [debt_funding]
-        interest_schedule = [0.0]
-        tax_shield_schedule = [0.0]
-        pik_schedule = [0.0]
+        interest_schedule = []
+        tax_shield_schedule = []
+        pik_schedule = []
 
-        for fcf in self.hardcore_ufcf_proj:
+        ufcf_list = self.hardcore_ufcf_proj if (self.hardcore_ufcf_proj and len(self.hardcore_ufcf_proj) == 5) else [self.cf * ((1.0 + self.g2) ** i) for i in range(1, 6)]
+        for fcf in ufcf_list:
             prev_debt = debt_schedule[-1]
             interest = prev_debt * interest_rate
             tax_shield = interest * self.tax
@@ -2634,10 +2635,10 @@ def main():
                 st.markdown("**Institutional Debt Schedule, Interest Tax Shield & PIK Accrual**")
                 debt_df = pd.DataFrame({
                     "Year": ["0 (Entry)", "1", "2", "3", "4", "5"],
-                    "Ending Debt Balance": [f"{x:,.0f}" for x in lbo_res['Debt Schedule']],
-                    "Gross Interest": ["—"] + [f"{x:,.0f}" for x in lbo_res['Interest Schedule']],
-                    "Interest Tax Shield (+)": ["—"] + [f"{x:,.0f}" for x in lbo_res['Tax Shield Schedule']],
-                    "PIK Interest Capitalized": ["—"] + [f"{x:,.0f}" for x in lbo_res['PIK Schedule']]
+                    "Ending Debt Balance": [f"{x:,.0f}" for x in lbo_res['Debt Schedule'][:6]],
+                    "Gross Interest": ["—"] + [f"{x:,.0f}" for x in lbo_res['Interest Schedule'][-5:]],
+                    "Interest Tax Shield (+)": ["—"] + [f"{x:,.0f}" for x in lbo_res['Tax Shield Schedule'][-5:]],
+                    "PIK Interest Capitalized": ["—"] + [f"{x:,.0f}" for x in lbo_res['PIK Schedule'][-5:]]
                 })
                 st.table(debt_df.set_index('Year').T)
 
