@@ -867,8 +867,10 @@ class UltimateHardcoreEngine:
             "peer_mean_pe": peer_mean_pe,
             "peer_median_ev_ebitda": peer_med_ev,
             "peer_mean_ev_ebitda": peer_mean_ev,
-            "implied_pe_price": implied_pe_price,
-            "implied_ev_price": implied_ev_price
+            "implied_pe_price": float(implied_pe_price or 0.0),
+            "implied_price_pe": float(implied_pe_price or 0.0),
+            "implied_ev_price": float(implied_ev_price or 0.0),
+            "implied_price_ev_ebitda": float(implied_ev_price or 0.0)
         }
         df_out = pd.DataFrame(comp_data)
         st.session_state[cache_key] = (df_out, self.comps_summary)
@@ -1416,9 +1418,13 @@ class UltimateHardcoreEngine:
             "take_profit": take_profit,
             "alloc_pct": alloc_pct,
             "kelly_win_prob": kelly_win_prob * 100.0,
+            "win_prob_p": kelly_win_prob,
             "kelly_odds": kelly_odds,
+            "odds_b": kelly_odds,
             "kelly_full_pct": round(kelly_full_pct, 1),
+            "full_kelly_pct": round(kelly_full_pct, 1),
             "kelly_half_pct": kelly_half_pct,
+            "half_kelly_pct": kelly_half_pct,
             "opt_strat_key": opt_strat_key,
             "opt_strategy_name": opt_strategy_name,
             "opt_action_detail": opt_action_detail,
@@ -1923,7 +1929,7 @@ def draw_option_payoff_diagram(engine, strategy_key, T_years, iv, lang_key="zh",
         height=390, margin=dict(l=0, r=0, t=58, b=0)
     )
     if return_stats:
-        return fig, float(np.max(pnl_contract)), float(np.min(pnl_contract)), breakevens, pop_pct
+        return fig, float(np.max(pnl_contract)), float(np.min(pnl_contract)), {"breakevens": breakevens, "pop_pct": pop_pct}
     return fig, float(np.max(pnl_contract)), float(np.min(pnl_contract))
 
 
@@ -2925,8 +2931,7 @@ def main():
                                         iv = raw_iv
                                         iv_src = "Exchange"
                                     else:
-                                        iv = engine.solve_implied_volatility(mid_v, S, K, T_years, r, q=q_yield, is_call=is_call_view, default_iv=0.35)
-                                        iv_src = "Brentq Solved"
+                                        iv, iv_src = engine.solve_implied_volatility(mid_v, S, K, T_years, r, q=q_yield, is_call=is_call_view, fallback_iv=0.35)
 
                                     greeks = engine.black_scholes_pricing(S, K, T_years, r, iv, q=q_yield)
                                     bs_results.append({
