@@ -1856,8 +1856,15 @@ def draw_option_payoff_diagram(engine, strategy_key, T_years, iv, lang_key="zh",
     mu_log = np.log(max(S, 1e-4)) + (r - q - 0.5 * (atm_iv ** 2)) * T_years
     std_log = max(atm_iv * np.sqrt(T_years), 1e-4)
     pdf_vals = (1.0 / (s_pop_grid * std_log * np.sqrt(2.0 * np.pi))) * np.exp(-0.5 * ((np.log(s_pop_grid) - mu_log) / std_log) ** 2)
-    total_prob = float(np.trapz(pdf_vals, s_pop_grid))
-    profit_prob = float(np.trapz(np.where(pnl_pop > 0, pdf_vals, 0.0), s_pop_grid))
+    _trapz_fn = getattr(np, "trapezoid", getattr(np, "trapz", None))
+    if _trapz_fn is not None:
+        total_prob = float(_trapz_fn(pdf_vals, s_pop_grid))
+        profit_prob = float(_trapz_fn(np.where(pnl_pop > 0, pdf_vals, 0.0), s_pop_grid))
+    else:
+        dx = np.diff(s_pop_grid)
+        total_prob = float(np.sum(0.5 * (pdf_vals[:-1] + pdf_vals[1:]) * dx))
+        prof_y = np.where(pnl_pop > 0, pdf_vals, 0.0)
+        profit_prob = float(np.sum(0.5 * (prof_y[:-1] + prof_y[1:]) * dx))
     pop_pct = float(np.clip((profit_prob / total_prob) * 100.0 if total_prob > 0 else 50.0, 1.0, 99.0))
 
     pnl_contract = pnl * 100.0
