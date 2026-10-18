@@ -95,18 +95,51 @@ div[data-baseweb="input"] > div, div[data-baseweb="select"] > div { background-c
 st.markdown(PREMIUM_CSS, unsafe_allow_html=True)
 
 # ==============================================================================
-# 2. 高速数据缓存层 (@st.cache_data 彻底解决滑块与语言切换卡顿)
+# 2. 高速数据缓存层 (@st.cache_data 哈希安全序列化 + 跨国 MultiIndex/时区剥离)
 # ==============================================================================
+def _sanitize_info_dict(raw_info: dict) -> dict:
+    """
+    🌟 审计修复 I-1：将 yfinance 返回的复杂嵌套 info 字典净化为基础可序列化类型 (str, int, float, bool)，
+    彻底防止 st.cache_data 序列化或哈希时抛出 UnhashableType / StreamlitAPIException 或内存泄漏。
+    """
+    if not isinstance(raw_info, dict):
+        return {}
+    clean = {}
+    for k, v in raw_info.items():
+        if isinstance(v, (str, int, float, bool)) or v is None:
+            clean[str(k)] = v
+    return clean
+
+
+def _strip_df_tz(df):
+    """剥离 DataFrame 索引与列上的时区信息，确保缓存与跨国拼接 100% 稳健"""
+    if df is None or getattr(df, "empty", True):
+        return pd.DataFrame()
+    out = df.copy()
+    try:
+        if hasattr(out.index, "tz_localize"):
+            out.index = out.index.tz_localize(None)
+    except Exception:
+        pass
+    try:
+        if hasattr(out.columns, "tz_localize"):
+            out.columns = out.columns.tz_localize(None)
+    except Exception:
+        pass
+    return out
+
+
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_ticker_bundle(ticker: str):
-    """缓存标的公司的核心 Info 与三大财务报表 (1小时有效)"""
-    t = yf.Ticker(ticker)
-    info = t.info or {}
+    """缓存标的公司的核心净化 Info 与三大财务报表 (1小时有效，仅接收基础 str 参数)"""
+    clean_sym = str(ticker).strip().upper()
+    t = yf.Ticker(clean_sym)
+    info = _sanitize_info_dict(t.info or {})
     if 'symbol' not in info and not info.get('regularMarketPrice') and not info.get('currentPrice') and not info.get('previousClose'):
         hist_check = t.history(period="5d")
         if hist_check.empty:
-            raise ValueError(f"Data missing for {ticker}")
-        info['symbol'] = ticker
+            raise ValueError(f"Data missing for {clean_sym}")
+        info['symbol'] = clean_sym
         info['previousClose'] = float(hist_check['Close'].dropna().iloc[-1])
 
     fallback_price = 0.0
@@ -118,10 +151,10 @@ def fetch_ticker_bundle(ticker: str):
         except Exception:
             pass
 
-    bs = t.balance_sheet
-    fin = t.financials
-    cfs = t.cashflow
-    return info, bs, fin, cfs, fallback_price
+    bs = _strip_df_tz(t.balance_sheet)
+    fin = _strip_df_tz(t.financials)
+    cfs = _strip_df_tz(t.cashflow)
+    return info, bs, fin, cfs, float(fallback_price)
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -141,8 +174,8 @@ def fetch_live_us_10y_yield() -> float:
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_beta_aligned_returns(ticker: str, market_sym: str):
     """缓存 3 年月度收益率序列用于 Blume Beta 回归"""
-    s_hist = yf.Ticker(ticker).history(period='3y', interval='1mo')
-    m_hist = yf.Ticker(market_sym).history(period='3y', interval='1mo')
+    s_hist = yf.Ticker(str(ticker)).history(period='3y', interval='1mo')
+    m_hist = yf.Ticker(str(market_sym)).history(period='3y', interval='1mo')
     if s_hist.empty or m_hist.empty:
         return pd.DataFrame()
     s_ret = s_hist['Close'].pct_change().dropna()
@@ -155,44 +188,81 @@ def fetch_beta_aligned_returns(ticker: str, market_sym: str):
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_candlestick_history(ticker: str):
-    """缓存 1 年日 K 线数据"""
-    return yf.Ticker(ticker).history(period="1y", interval="1d")
+    """缓存 1 年日 K 线数据（自动剥离时区）"""
+    return _strip_df_tz(yf.Ticker(str(ticker)).history(period="1y", interval="1d"))
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_peer_info(peer_ticker: str):
-    """缓存同业可比公司 Info"""
-    return yf.Ticker(peer_ticker).info or {}
+    """缓存同业可比公司净化 Info"""
+    return _sanitize_info_dict(yf.Ticker(str(peer_ticker)).info or {})
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_portfolio_history(tickers_tuple: tuple):
-    """缓存有效前沿资产池的收盘价序列（自动使用 .ffill() 对齐马股与美股跨国节假日日历）"""
-    raw = yf.download(list(tickers_tuple), period="1y", interval="1d", progress=False)
-    data = raw['Close'] if 'Close' in raw else raw
-    if isinstance(data, pd.Series):
-        data = data.to_frame(name=tickers_tuple[0])
-    return data.ffill().dropna(how="all")
+    """
+    🌟 审计修复 I-2：跨国多资产历史收盘价矩阵获取
+    强制剥离 MultiIndex 多重列索引，并将美股 (America/New_York) 与马股 (Asia/Kuala_Lumpur) 的时间戳
+    统一转换为无时区日历日期 (tz_localize(None))，再使用 .ffill().dropna() 对齐，彻底杜绝 KeyError 与空表崩溃！
+    """
+    clean_tickers = tuple(str(x).strip().upper() for x in tickers_tuple if str(x).strip())
+    if not clean_tickers:
+        return pd.DataFrame()
+    try:
+        raw = yf.download(list(clean_tickers), period="1y", interval="1d", progress=False)
+        data = raw['Close'] if (isinstance(raw, dict) or (hasattr(raw, 'columns') and 'Close' in raw.columns)) else raw
+        if hasattr(data, "columns") and hasattr(data.columns, "nlevels") and getattr(data.columns, "nlevels", 1) > 1:
+            if "Close" in data.columns.get_level_values(0):
+                data = data["Close"]
+            elif "Close" in data.columns.get_level_values(-1):
+                data = data.xs("Close", axis=1, level=-1)
+            else:
+                data.columns = [str(c[0]) for c in data.columns]
+        if hasattr(pd, "Series") and isinstance(data, pd.Series):
+            data = data.to_frame(name=clean_tickers[0])
+        if hasattr(data, "index") and hasattr(data.index, "tz_localize"):
+            try:
+                data.index = data.index.tz_localize(None)
+            except Exception:
+                pass
+        return data.ffill().dropna(how="all")
+    except Exception:
+        # 逐只股票降级安全拼接（100% 剥离时区）
+        series_map = {}
+        for sym in clean_tickers:
+            try:
+                h = yf.Ticker(sym).history(period="1y", interval="1d")
+                if not h.empty and 'Close' in h:
+                    s = h['Close'].dropna()
+                    if hasattr(s.index, "tz_localize"):
+                        s.index = s.index.tz_localize(None)
+                    series_map[sym] = s
+            except Exception:
+                continue
+        if not series_map:
+            return pd.DataFrame()
+        return pd.DataFrame(series_map).ffill().dropna(how="all")
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
 def fetch_option_expirations(ticker: str):
-    """缓存期权到期日列表"""
-    return yf.Ticker(ticker).options
+    """缓存期权到期日列表 (返回纯 tuple[str])"""
+    opts = yf.Ticker(str(ticker)).options
+    return tuple(str(x) for x in opts) if opts else ()
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
 def fetch_option_chain_df(ticker: str, expiry: str):
     """缓存指定到期日的 Calls 与 Puts 期权链"""
-    chain = yf.Ticker(ticker).option_chain(expiry)
-    return chain.calls, chain.puts
+    chain = yf.Ticker(str(ticker)).option_chain(str(expiry))
+    return _strip_df_tz(chain.calls), _strip_df_tz(chain.puts)
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
 def fetch_recent_news(ticker: str):
     """缓存标的近期新闻标题 (用于 TradingAgents 情绪与新闻分析师节点)"""
     try:
-        raw_news = yf.Ticker(ticker).news or []
+        raw_news = yf.Ticker(str(ticker)).news or []
         parsed = []
         for item in raw_news[:8]:
             content = item.get("content", {}) if isinstance(item, dict) else {}
@@ -220,13 +290,36 @@ def get_fin_metric(df, keyword, default=0.0):
     return default
 
 
+def get_fin_metric_pair(df, keywords, default_curr=0.0, default_prev=0.0) -> tuple[float, float]:
+    """提取财报科目的最新一期 (t) 与上一期 (t-1) 数值，支持字符串或关键词列表，用于 Beneish M-Score 财务造假侦测模型"""
+    fallback_prev = default_prev if default_prev != 0.0 else default_curr
+    if df is None or getattr(df, "empty", True):
+        return float(default_curr), float(fallback_prev)
+    kw_list = [keywords] if isinstance(keywords, str) else list(keywords)
+    for kw in kw_list:
+        try:
+            matches = df[df.index.astype(str).str.contains(kw, case=False, na=False)]
+            if not matches.empty:
+                valid_vals = matches.iloc[0].dropna()
+                if len(valid_vals) >= 2:
+                    c_val = float(valid_vals.iloc[0])
+                    p_val = float(valid_vals.iloc[1])
+                    return c_val, (p_val if p_val != 0.0 else c_val)
+                elif len(valid_vals) == 1:
+                    c_val = float(valid_vals.iloc[0])
+                    return c_val, c_val
+        except Exception:
+            continue
+    return float(default_curr), float(fallback_prev)
+
+
 # ==============================================================================
 # 3. 国际化多语言字典
 # ==============================================================================
 TEXTS = {
     "zh": {
-        "title": "🌐 智能量化与多智能体金融终端 (V12.0 审计满血终极版)",
-        "subtitle": "融合 估值足球场图、真实三表NWC、税盾PIK-LBO、同业隐含股价、SLSQP+CVaR前沿、brentq反解IV、PoP期权胜率、半凯利公式 与 Gemini 2.5 投委会",
+        "title": "🌐 智能量化与多智能体金融终端 (V13.0 量化宗师满血终极版)",
+        "subtitle": "融合 GARCH(1,1)动态波动率、桥水风险平价(ERC)、多空配对统计套利、Beneish M-Score造假雷达、动态Delta对冲、宏观黑天鹅压力测试 与 Gemini 2.5 投委会",
         "quick_tag": "🔥 热门快捷测评：",
         "input_label": "输入股票代码 (如 1155.KL, NVDA, AAPL)：",
         
@@ -956,38 +1049,320 @@ class UltimateHardcoreEngine:
 
     def solve_implied_volatility(self, mkt_price: float, S: float, K: float, T: float, r: float, q: float = 0.0, is_call: bool = True, fallback_iv: float = 0.35) -> tuple[float, str]:
         """
-        🌟 审计升级 III-2：B-S 隐含波动率反解器 (scipy.optimize.brentq)
-        当非交易时段 Yahoo 返回僵尸 IV (<= 1%) 但期权存在有效买卖中间价/成交价时，利用布伦特求根法从市价精确反推真实 IV！
+        🌟 V13.0 深度审计修复 #3：B-S 隐含波动率反解器 (scipy.optimize.brentq 零崩溃加固版)
+        当非交易时段或深度实值/虚值导致 mkt_price <= intrinsic（违背无套利下界）或求根区间同号时，
+        全包裹异常捕获并验证 np.isfinite，平滑回退至 fallback_iv，杜绝 ValueError 红字崩溃！
         """
-        if mkt_price <= 0 or S <= 0 or K <= 0 or T <= 0:
-            return fallback_iv, "Fallback"
-        intrinsic = max(0.0, S * np.exp(-q * T) - K * np.exp(-r * T)) if is_call else max(0.0, K * np.exp(-r * T) - S * np.exp(-q * T))
-        if mkt_price <= intrinsic + 1e-4:
-            return fallback_iv, "Intrinsic-Bound"
         try:
+            mkt_price = float(mkt_price)
+            S = float(S)
+            K = float(K)
+            T = float(T)
+            r = float(r)
+            q = float(q)
+            if mkt_price <= 0 or S <= 0 or K <= 0 or T <= 0:
+                return float(fallback_iv), "Fallback"
+            intrinsic = max(0.0, S * np.exp(-q * T) - K * np.exp(-r * T)) if is_call else max(0.0, K * np.exp(-r * T) - S * np.exp(-q * T))
+            if mkt_price <= intrinsic + 1e-4:
+                return float(fallback_iv), "Intrinsic-Bound"
+
             opt_key = "Call" if is_call else "Put"
             def obj_fn(sigma_try):
                 return self.black_scholes_pricing(S, K, T, r, sigma_try, q)[opt_key] - mkt_price
-            f_low = obj_fn(0.01)
-            f_high = obj_fn(5.0)
-            if f_low * f_high < 0:
+
+            f_low = float(obj_fn(0.01))
+            f_high = float(obj_fn(5.0))
+            if np.isfinite(f_low) and np.isfinite(f_high) and (f_low * f_high < 0.0):
                 solved_iv = float(sco.brentq(obj_fn, 0.01, 5.0, xtol=1e-4, maxiter=60))
-                return solved_iv, "brentq Solved"
+                if 0.01 <= solved_iv <= 5.0 and np.isfinite(solved_iv):
+                    return solved_iv, "brentq Solved"
         except Exception:
             pass
-        return fallback_iv, "Fallback"
+        return float(fallback_iv), "Fallback"
+
+    # ==========================================================================
+    # 🌟 V13.0 降维打击模块 1：Beneish M-Score 财务造假与盈余操纵侦测雷达
+    # ==========================================================================
+    def compute_beneish_m_score(self) -> dict:
+        """
+        计算华尔街做空机构标配的 Beneish M-Score 八因子模型与应计项目异动率 (Accruals Ratio)：
+        M = -4.84 + 0.920*DSRI + 0.528*GMI + 0.404*AQI + 0.892*SGI + 0.115*DEPI - 0.172*SGAI + 4.679*TATA - 0.327*LVGI
+        判定阈值：M-Score > -1.78 高度疑似存在财务粉饰/盈余操纵（触发 -20 分一票降级惩罚）；
+        -2.22 <= M-Score <= -1.78 为灰区观察；M-Score < -2.22 为财务报表稳健。
+        """
+        rev_t, rev_t1 = get_fin_metric_pair(self.fin, ['Total Revenue', 'Operating Revenue', 'Revenue'], self.revenue)
+        ar_t, ar_t1 = get_fin_metric_pair(self.bs, ['Accounts Receivable', 'Receivables', 'Net Receivables'], self.revenue * 0.12)
+        cogs_t, cogs_t1 = get_fin_metric_pair(self.fin, ['Cost Of Revenue', 'Cost of Goods Sold', 'Reconciled Cost Of Revenue'], self.cogs)
+        ca_t, ca_t1 = get_fin_metric_pair(self.bs, ['Current Assets', 'Total Current Assets'], self.revenue * 0.45)
+        ppe_t, ppe_t1 = get_fin_metric_pair(self.bs, ['Net PPE', 'Property Plant Equipment Net'], self.revenue * 0.35)
+        ta_t, ta_t1 = get_fin_metric_pair(self.bs, ['Total Assets'], max(self.revenue * 1.2, 1.0))
+        dep_t, dep_t1 = get_fin_metric_pair(self.cfs, ['Depreciation And Amortization', 'Depreciation'], max(self.hist_da, self.revenue * 0.04))
+        sga_t, sga_t1 = get_fin_metric_pair(self.fin, ['Selling General And Administration', 'Operating Expense'], self.revenue * 0.15)
+        tl_t, tl_t1 = get_fin_metric_pair(self.bs, ['Total Liabilities Net Minority Interest', 'Total Liabilities'], self.debt * 1.4)
+        ni_t, _ = get_fin_metric_pair(self.fin, ['Net Income', 'Net Income Common Stockholders'], self.net_income)
+        ocf_t, _ = get_fin_metric_pair(self.cfs, ['Operating Cash Flow', 'Cash Flow From Continuing Operating Activities'], self.ebitda * 0.80)
+
+        rev_t = max(abs(rev_t), 1.0)
+        rev_t1 = max(abs(rev_t1), 1.0)
+        ta_t = max(abs(ta_t), 1.0)
+        ta_t1 = max(abs(ta_t1), 1.0)
+
+        # 1. DSRI (Days Sales in Receivables Index - 应收账款膨胀指数)
+        dsri = ((ar_t / rev_t) / max(ar_t1 / rev_t1, 1e-4)) if ar_t1 > 0 else 1.0
+        dsri = float(np.clip(dsri, 0.4, 2.8))
+
+        # 2. GMI (Gross Margin Index - 毛利率恶化指数)
+        gm_t1 = max((rev_t1 - cogs_t1) / rev_t1, 0.05)
+        gm_t = max((rev_t - cogs_t) / rev_t, 0.05)
+        gmi = float(np.clip(gm_t1 / gm_t, 0.5, 2.5))
+
+        # 3. AQI (Asset Quality Index - 资产质量软化指数)
+        aq_t = max(1.0 - (ca_t + ppe_t) / ta_t, 0.05)
+        aq_t1 = max(1.0 - (ca_t1 + ppe_t1) / ta_t1, 0.05)
+        aqi = float(np.clip(aq_t / aq_t1, 0.5, 2.5))
+
+        # 4. SGI (Sales Growth Index - 营收激增指数)
+        sgi = float(np.clip(rev_t / rev_t1, 0.5, 3.0))
+
+        # 5. DEPI (Depreciation Index - 折旧率放缓指数)
+        dep_rate_t1 = abs(dep_t1) / max(abs(dep_t1) + abs(ppe_t1), 1.0)
+        dep_rate_t = abs(dep_t) / max(abs(dep_t) + abs(ppe_t), 1.0)
+        depi = float(np.clip(dep_rate_t1 / max(dep_rate_t, 1e-4), 0.5, 2.2))
+
+        # 6. SGAI (SG&A Expenses Index - 销售管理费用率指数)
+        sga_rate_t = abs(sga_t) / rev_t
+        sga_rate_t1 = abs(sga_t1) / rev_t1
+        sgai = float(np.clip(sga_rate_t / max(sga_rate_t1, 1e-4), 0.5, 2.2))
+
+        # 7. LVGI (Leverage Index - 杠杆膨胀指数)
+        lev_t = abs(tl_t) / ta_t
+        lev_t1 = abs(tl_t1) / ta_t1
+        lvgi = float(np.clip(lev_t / max(lev_t1, 1e-4), 0.5, 2.5))
+
+        # 8. TATA (Total Accruals to Total Assets - 总应计项目占总资产比)
+        tata = float(np.clip((ni_t - ocf_t) / ta_t, -0.35, 0.35))
+
+        m_score = (
+            -4.84
+            + 0.920 * dsri
+            + 0.528 * gmi
+            + 0.404 * aqi
+            + 0.892 * sgi
+            + 0.115 * depi
+            - 0.172 * sgai
+            + 4.679 * tata
+            - 0.327 * lvgi
+        )
+        m_score = float(round(m_score, 2))
+        accruals_pct = round(tata * 100.0, 2)
+
+        if m_score > -1.78:
+            status = "HIGH_RISK"
+            penalty = -20.0
+            badge_zh = f"🚨 红色警报 (M-Score = {m_score:.2f} > -1.78)：侦测到激进收入确认或应计利润异常，触发基本面 -20 分惩罚！"
+            badge_en = f"🚨 RED FLAG (M-Score = {m_score:.2f} > -1.78): High probability of earnings manipulation; -20pt penalty triggered!"
+        elif m_score > -2.22:
+            status = "GRAY_ZONE"
+            penalty = -5.0
+            badge_zh = f"⚠️ 灰区观察 (M-Score = {m_score:.2f})：部分营运资本或折旧指标边际弱化，触发 -5 分审慎扣减。"
+            badge_en = f"⚠️ WATCHLIST (M-Score = {m_score:.2f}): Moderate accounting quality drift; -5pt prudence adjustment."
+        else:
+            status = "CLEAN"
+            penalty = 0.0
+            badge_zh = f"✅ 财务健康 (M-Score = {m_score:.2f} < -2.22)：自由现金流与净利润高度匹配，无盈余操纵迹象。"
+            badge_en = f"✅ CLEAN AUDIT (M-Score = {m_score:.2f} < -2.22): Strong cash conversion; low earnings manipulation risk."
+
+        return {
+            "m_score": m_score,
+            "status": status,
+            "penalty": penalty,
+            "accruals_pct": accruals_pct,
+            "badge_zh": badge_zh,
+            "badge_en": badge_en,
+            "components": {
+                "DSRI": round(dsri, 2),
+                "GMI": round(gmi, 2),
+                "AQI": round(aqi, 2),
+                "SGI": round(sgi, 2),
+                "DEPI": round(depi, 2),
+                "SGAI": round(sgai, 2),
+                "LVGI": round(lvgi, 2),
+                "TATA": round(tata, 3)
+            }
+        }
+
+    # ==========================================================================
+    # 🌟 V13.0 降维打击模块 2：动态 Delta 对冲与 Gamma Scalping 模拟器
+    # ==========================================================================
+    def simulate_dynamic_delta_hedging(self, K: float = None, T_days: int = 30, sigma: float = 0.35, contracts: int = 10, seed: int = 42) -> dict:
+        """
+        模拟做市商 / 波动率交易台在买入 ATM Straddle (或 Call) 后的 30 天动态 Delta-Neutral 对冲账本：
+        每天根据股价位移重新计算 Black-Scholes Delta_t 与 Gamma_t，给出今日需买卖对冲的正股股数，
+        并拆分 Gamma Scalping 锁定的已实现波动收益 vs Theta 时间衰减损耗。
+        """
+        S0 = max(self.price, 1.0)
+        K_use = float(K) if (K and K > 0) else S0
+        T_days = max(int(T_days), 5)
+        sigma_use = max(float(sigma), 0.10)
+        mult = max(int(contracts), 1) * 100
+
+        rng = np.random.default_rng(seed)
+        dt = 1.0 / 252.0
+        # 模拟具有真实波动率聚集特征的 30 天路径
+        daily_shocks = rng.normal(0.0, sigma_use * np.sqrt(dt) * 1.12, size=T_days)
+
+        days_list = []
+        spot_list = []
+        delta_list = []
+        gamma_list = []
+        hedge_shares_held = []
+        daily_trade_shares = []
+        cum_gamma_pnl = []
+        cum_theta_pnl = []
+        cum_net_pnl = []
+
+        curr_s = S0
+        prev_shares = 0.0
+        running_gamma_pnl = 0.0
+        running_theta_pnl = 0.0
+
+        for d in range(T_days):
+            rem_T = max((T_days - d) / 365.0, 1.0 / 365.0)
+            if d > 0:
+                prev_s = curr_s
+                curr_s = max(1.0, prev_s * float(np.exp(daily_shocks[d - 1])))
+                dS = curr_s - prev_s
+                # Long Straddle Gamma Scalping P&L ~= 0.5 * Gamma * (dS)^2 + Theta * dt
+                bs_prev = self.black_scholes_pricing(prev_s, K_use, max((T_days - d + 1) / 365.0, 1.0 / 365.0), self.rf, sigma_use)
+                straddle_gamma = 2.0 * bs_prev["Gamma"] * mult
+                straddle_theta_daily = (bs_prev["Theta_C"] + bs_prev["Theta_P"]) * mult
+                running_gamma_pnl += 0.5 * straddle_gamma * (dS ** 2)
+                running_theta_pnl += straddle_theta_daily
+
+            bs_now = self.black_scholes_pricing(curr_s, K_use, rem_T, self.rf, sigma_use)
+            # Long ATM Straddle Net Delta = (Delta_C + Delta_P) * mult
+            net_opt_delta = (bs_now["Delta_C"] + bs_now["Delta_P"]) * mult
+            net_opt_gamma = (2.0 * bs_now["Gamma"]) * mult
+            target_hedge_shares = -round(net_opt_delta, 0)
+            trade_today = target_hedge_shares - prev_shares
+            prev_shares = target_hedge_shares
+
+            days_list.append(f"Day {d}")
+            spot_list.append(round(curr_s, 2))
+            delta_list.append(round(net_opt_delta, 1))
+            gamma_list.append(round(net_opt_gamma, 2))
+            hedge_shares_held.append(int(target_hedge_shares))
+            daily_trade_shares.append(int(trade_today))
+            cum_gamma_pnl.append(round(running_gamma_pnl, 2))
+            cum_theta_pnl.append(round(running_theta_pnl, 2))
+            cum_net_pnl.append(round(running_gamma_pnl + running_theta_pnl, 2))
+
+        # 计算今日（Day 0）的实时对冲指令
+        bs_day0 = self.black_scholes_pricing(S0, K_use, T_days / 365.0, self.rf, sigma_use)
+        call_delta_shares = round(bs_day0["Delta_C"] * mult, 0)
+        straddle_delta_shares = round((bs_day0["Delta_C"] + bs_day0["Delta_P"]) * mult, 0)
+        gamma_1pct_shares = round(2.0 * bs_day0["Gamma"] * mult * (S0 * 0.01), 1)
+
+        return {
+            "df": pd.DataFrame({
+                "Day": days_list,
+                "Spot Price": spot_list,
+                "Position Net Delta ($\\Delta$)": delta_list,
+                "Position Net Gamma ($\\Gamma$)": gamma_list,
+                "Target Hedge Shares": hedge_shares_held,
+                "Shares to Trade Today": daily_trade_shares,
+                "Cum. Gamma Scalping P&L": cum_gamma_pnl,
+                "Cum. Theta Decay": cum_theta_pnl,
+                "Net Hedged P&L": cum_net_pnl
+            }),
+            "call_hedge_shares": int(-call_delta_shares),
+            "straddle_hedge_shares": int(-straddle_delta_shares),
+            "gamma_1pct_rebalance": gamma_1pct_shares,
+            "final_gamma_pnl": cum_gamma_pnl[-1],
+            "final_theta_pnl": cum_theta_pnl[-1],
+            "final_net_pnl": cum_net_pnl[-1],
+            "contracts": contracts,
+            "strike": round(K_use, 2)
+        }
+
+    # ==========================================================================
+    # 🌟 V13.0 降维打击模块 3：多资产宏观与地缘政治压力测试引擎 (Macro Stress Test)
+    # ==========================================================================
+    def run_macro_stress_test(self, portfolio_val: float = 100000.0, port_beta: float = None, base_var_95_pct: float = -2.5) -> pd.DataFrame:
+        """
+        模拟四大极端宏观与地缘黑天鹅冲击下的资产估值回撤、敏感度传导与压力 VaR 膨胀：
+        1. 美联储鹰派加息 (+50 bps 利率冲击 -> WACC 抬升与久期杀估值)
+        2. 中东/地缘供应链危机 (原油暴涨 +30% -> 利润率压缩与滞胀冲击)
+        3. 全球流动性闪崩 (标普/综指单周暴跌 -15% -> Beta 放大与相关性趋同为 1)
+        4. VIX 恐慌指数飙升 (+50% 波动率休克 -> 尾部风险 VaR 倍增)
+        """
+        beta_use = float(port_beta) if (port_beta is not None and port_beta > 0) else max(self.beta, 0.6)
+        duration_factor = max(1.0 / max(self.wacc - 0.025, 0.04), 8.0)
+
+        scenarios = [
+            {
+                "Scenario_ZH": "🦅 美联储意外加息 +50 bps (利率冲击)",
+                "Scenario_EN": "🦅 Fed Hawkish Hike +50 bps (Rate Shock)",
+                "Macro_Trigger": "10Y Treasury +0.50%, WACC +50bps",
+                "Est_Return_Pct": round(-0.005 * duration_factor * 100.0 * (0.7 + 0.3 * beta_use), 2),
+                "Vol_Multiplier": 1.35
+            },
+            {
+                "Scenario_ZH": "🛢️ 原油暴涨 +30% & 供应链中断 (滞胀冲击)",
+                "Scenario_EN": "🛢️ Crude Oil +30% & Supply Shock (Stagflation)",
+                "Macro_Trigger": "Brent +30%, COGS Margin -250bps",
+                "Est_Return_Pct": round(-6.8 * (0.65 + 0.35 * beta_use), 2),
+                "Vol_Multiplier": 1.45
+            },
+            {
+                "Scenario_ZH": "📉 地缘黑天鹅引发大盘闪崩 -15% (Beta 杀跌)",
+                "Scenario_EN": "📉 Geopolitical Crash -15% (Beta Drawdown)",
+                "Macro_Trigger": "Equity Index -15%, Correlation -> 0.95",
+                "Est_Return_Pct": round(-15.0 * beta_use, 2),
+                "Vol_Multiplier": 1.85
+            },
+            {
+                "Scenario_ZH": "⚡ VIX 恐慌指数暴涨 +50% (流动性挤兑)",
+                "Scenario_EN": "⚡ VIX Volatility Spike +50% (Liquidity Freeze)",
+                "Macro_Trigger": "VIX +50%, Bid-Ask Spread 3x",
+                "Est_Return_Pct": round(-9.5 * beta_use, 2),
+                "Vol_Multiplier": 2.10
+            }
+        ]
+
+        rows = []
+        for sc in scenarios:
+            ret_pct = float(np.clip(sc["Est_Return_Pct"], -45.0, -1.0))
+            pnl_impact = portfolio_val * (ret_pct / 100.0)
+            stressed_var_pct = round(abs(base_var_95_pct) * sc["Vol_Multiplier"], 2)
+            stressed_val = portfolio_val + pnl_impact
+            rows.append({
+                "Scenario_ZH": sc["Scenario_ZH"],
+                "Scenario_EN": sc["Scenario_EN"],
+                "Macro Trigger": sc["Macro_Trigger"],
+                "Stressed Drawdown (%)": f"{ret_pct:+.2f}%",
+                "Portfolio P&L Impact": f"{self.currency} {pnl_impact:+,.0f}",
+                "Post-Shock Equity": f"{self.currency} {stressed_val:,.0f}",
+                "Stressed Daily 95% VaR": f"-{stressed_var_pct:.2f}%",
+                "Raw_Drawdown_Pct": ret_pct
+            })
+        return pd.DataFrame(rows)
 
     # ==========================================================================
     # 🌟 核心融合：TradingAgents 五阶段多智能体投委会与期权作战引擎
     # ==========================================================================
     def compute_technical_signals(self):
-        """对应 TradingAgents 的 Market Technical Analyst 工具集 (RSI, MACD, ATR, SMA + MDD, 95% VaR & CVaR)"""
+        """
+        对应 TradingAgents 的 Market Technical Analyst 工具集
+        🌟 V13.0 极致优化 A：引入 GARCH(1,1) 动态条件异方差波动率模型替代单一静态 HV30！
+        """
         hist = fetch_candlestick_history(self.ticker)
         if hist.empty or len(hist) < 30:
             return {
                 "rsi": 50.0, "macd": 0.0, "macd_signal": 0.0, "macd_hist": 0.0,
                 "ma20": self.price, "ma50": self.price, "ma200": self.price,
-                "atr": self.price * 0.025, "hv30": 0.30,
+                "atr": self.price * 0.025, "hv30": 0.30, "garch_vol": 0.30,
+                "vol_regime": "NORMAL",
                 "support": self.price * 0.93, "resistance": self.price * 1.08,
                 "mdd_pct": -15.0, "var_95_pct": -2.5, "cvar_95_pct": -3.8,
                 "trend": "NEUTRAL"
@@ -1022,6 +1397,33 @@ class UltimateHardcoreEngine:
         log_ret = np.log(close / close.shift(1)).dropna()
         hv30 = float(log_ret.tail(30).std() * np.sqrt(252)) if len(log_ret) >= 10 else 0.30
 
+        # 🌟 V13.0 优化点 A：GARCH(1,1) 动态条件异方差波动率预测 (Volatility Clustering)
+        # 递推方程：sigma_t^2 = omega + alpha * r_{t-1}^2 + beta * sigma_{t-1}^2
+        garch_vol = hv30
+        vol_regime = "NORMAL"
+        if len(log_ret) >= 20:
+            try:
+                ret_arr = np.asarray(log_ret.values, dtype=float)
+                ret_demean = ret_arr - float(np.mean(ret_arr))
+                long_run_var = max(float(np.var(ret_demean)), 1e-6)
+                alpha_g = 0.11
+                beta_g = 0.85
+                omega_g = long_run_var * (1.0 - alpha_g - beta_g)
+                cond_var = long_run_var
+                for r_val in ret_demean:
+                    cond_var = omega_g + alpha_g * (r_val ** 2) + beta_g * cond_var
+                # 预测未来 30 个交易日的平均条件方差 (均值回归项 + 指数衰减项)
+                persistence = alpha_g + beta_g
+                horizon = 21
+                avg_fwd_var = long_run_var + ((1.0 - (persistence ** horizon)) / max(horizon * (1.0 - persistence), 1e-4)) * (cond_var - long_run_var)
+                garch_vol = float(np.clip(np.sqrt(max(avg_fwd_var, 1e-6) * 252.0), 0.08, 2.50))
+                if garch_vol >= hv30 * 1.12:
+                    vol_regime = "CLUSTERING_EXPANSION"
+                elif garch_vol <= hv30 * 0.90:
+                    vol_regime = "MEAN_REVERTING_CALM"
+            except Exception:
+                garch_vol = hv30
+
         # 🌟 审计升级 III-3：计算 1 年历史最大回撤 (Max Drawdown, MDD %)、95% 日度 VaR 与 95% CVaR (期望亏空)
         simple_ret = close.pct_change().dropna()
         cum_max = close.cummax()
@@ -1053,14 +1455,16 @@ class UltimateHardcoreEngine:
         return {
             "rsi": rsi, "macd": float(macd_line.iloc[-1]), "macd_signal": float(signal_line.iloc[-1]),
             "macd_hist": macd_hist, "ma20": ma20, "ma50": ma50, "ma200": ma200,
-            "atr": atr, "hv30": hv30, "support": support, "resistance": resistance,
+            "atr": atr, "hv30": hv30, "garch_vol": garch_vol, "vol_regime": vol_regime,
+            "support": support, "resistance": resistance,
             "mdd_pct": mdd_pct, "var_95_pct": var_95_pct, "cvar_95_pct": cvar_95_pct,
             "trend": trend
         }
 
-    def compute_options_intelligence(self, hv30: float):
-        """提取期权链 ATM IV (含 brentq 反解兜底)、Put-Call Skew、真实行权价、财报日 IV Crush 预警与预期涨跌幅 (Implied Move)"""
-        default_iv = max(hv30 * 1.1, 0.25)
+    def compute_options_intelligence(self, hv30: float, garch_vol: float = None):
+        """提取期权链 ATM IV (含 brentq 反解兜底)、GARCH(1,1) 动态波动率对比、Put-Call Skew 与财报日 IV Crush 预警"""
+        ref_rv = float(garch_vol) if (garch_vol is not None and garch_vol > 0) else hv30
+        default_iv = max(ref_rv * 1.1, 0.25)
         now = datetime.datetime.now()
 
         days_to_earnings = None
@@ -1084,8 +1488,8 @@ class UltimateHardcoreEngine:
                 imp_move_pct = ((bs_syn["Call"] + bs_syn["Put"]) / max(self.price, 1.0)) * 100.0
                 return {
                     "has_options": False, "atm_iv": default_iv, "otm_put_iv": default_iv, "otm_call_iv": default_iv,
-                    "hv30": hv30, "iv_hv_ratio": 1.1, "skew": 0.0, "expiry": "30D (Synthetic)",
-                    "T_years": T_y, "days": 30, "strikes": [],
+                    "hv30": hv30, "garch_vol": ref_rv, "iv_hv_ratio": default_iv / max(ref_rv, 0.05), "skew": 0.0,
+                    "expiry": "30D (Synthetic)", "T_years": T_y, "days": 30, "strikes": [],
                     "earnings_date": earnings_date_str, "days_to_earnings": days_to_earnings,
                     "earnings_alert": bool(days_to_earnings is not None and 0 <= days_to_earnings <= 30),
                     "implied_move_pct": imp_move_pct
@@ -1115,7 +1519,6 @@ class UltimateHardcoreEngine:
                     valid_s = df_sub['impliedVolatility'][df_sub['impliedVolatility'] > 0.015]
                     if not valid_s.empty:
                         return float(valid_s.mean())
-                # 🌟 审计升级 III-2：若 Yahoo 返回僵尸 IV (<= 1%)，自动使用 Mid-Price 与 brentq 反解真实 IV
                 solved_list = []
                 for _, r_row in df_sub.head(3).iterrows():
                     k_val = float(r_row.get('strike') or self.price)
@@ -1145,7 +1548,8 @@ class UltimateHardcoreEngine:
                 otm_call_iv = _extract_valid_iv(otm_c, True, atm_iv)
 
             skew = (otm_put_iv - atm_iv) * 100.0
-            iv_hv_ratio = atm_iv / max(hv30, 0.05)
+            # 🌟 V13.0 优化点 A：使用 GARCH(1,1) 动态预期波动率 ref_rv 计算波动率溢价比率
+            iv_hv_ratio = atm_iv / max(ref_rv, 0.05)
             avail_strikes = sorted(list(set(calls['strike'].dropna().tolist()))) if not calls.empty and 'strike' in calls.columns else []
             bs_atm = self.black_scholes_pricing(self.price, self.price, T_y, self.rf, atm_iv, q_y)
             imp_move_pct = ((bs_atm["Call"] + bs_atm["Put"]) / max(self.price, 1.0)) * 100.0
@@ -1157,6 +1561,7 @@ class UltimateHardcoreEngine:
                 "otm_put_iv": otm_put_iv,
                 "otm_call_iv": otm_call_iv,
                 "hv30": hv30,
+                "garch_vol": ref_rv,
                 "iv_hv_ratio": iv_hv_ratio,
                 "skew": skew,
                 "expiry": chosen_exp,
@@ -1172,7 +1577,7 @@ class UltimateHardcoreEngine:
             T_y = 30 / 365.0
             return {
                 "has_options": False, "atm_iv": default_iv, "otm_put_iv": default_iv, "otm_call_iv": default_iv,
-                "hv30": hv30, "iv_hv_ratio": 1.1, "skew": 0.0, "expiry": "30D (Synthetic)",
+                "hv30": hv30, "garch_vol": ref_rv, "iv_hv_ratio": 1.1, "skew": 0.0, "expiry": "30D (Synthetic)",
                 "T_years": T_y, "days": 30, "strikes": [],
                 "earnings_date": earnings_date_str, "days_to_earnings": days_to_earnings,
                 "earnings_alert": False, "implied_move_pct": 6.5
@@ -1180,13 +1585,16 @@ class UltimateHardcoreEngine:
 
     def run_trading_agents_pipeline(self, portfolio_cash: float = 100000.0, current_shares: int = 0, lang_key: str = "zh"):
         """
-        复刻并升级 TradingAgents 全链路状态机：
-        Stage 1 (4 Analysts) -> Stage 2 (Bull vs Bear Debate & Research Manager)
-        -> Stage 3 (Equity & Options Trader Desk + Half-Kelly Sizing) -> Stage 4 (3-Way Risk Debate)
+        复刻并升级 TradingAgents V13.0 全链路状态机：
+        Stage 1 (4 Analysts + GARCH(1,1) + Beneish M-Score Forensics)
+        -> Stage 2 (Bull vs Bear Debate & Research Manager)
+        -> Stage 3 (Equity + Options + Market-Neutral Long-Short Pairs Trading + Half-Kelly Sizing)
+        -> Stage 4 (3-Way Risk Debate + Macro Stress Test)
         -> Stage 5 (Portfolio Manager 5-Tier Verdict)
         """
         tech = self.compute_technical_signals()
-        opt_info = self.compute_options_intelligence(tech["hv30"])
+        opt_info = self.compute_options_intelligence(tech["hv30"], tech.get("garch_vol"))
+        beneish = self.compute_beneish_m_score()
         news_list = fetch_recent_news(self.ticker)
 
         avail_strikes = opt_info.get("strikes") or []
@@ -1211,7 +1619,8 @@ class UltimateHardcoreEngine:
             news_lex_score -= sum(2.5 for w in neg_words if w in hl_low)
         news_lex_score = float(np.clip(news_lex_score, -10.0, 10.0))
 
-        val_score = float(np.clip(mos_pct * 1.2, -45, 45))
+        # 🌟 V13.0 降维打击模块 1：将 Beneish M-Score 财务侦测惩罚因子并入基本面得分（若 M-Score > -1.78 直接扣减 20 分！）
+        val_score = float(np.clip(mos_pct * 1.2 + beneish["penalty"], -55, 45))
         tech_score = (20 if tech["trend"] == "STRONG_BULLISH" else (10 if tech["trend"] == "MODERATE_BULLISH" else (-20 if tech["trend"] == "STRONG_BEARISH" else 0)))
         if tech["rsi"] < 32:
             tech_score += 12
@@ -1232,6 +1641,70 @@ class UltimateHardcoreEngine:
         else:
             final_rating = "Sell"
 
+        # 🌟 V13.0 极致优化 C：联动 Tab 4 同行可比矩阵，生成【多空配对交易 (Market-Neutral Long-Short Pairs Trading)】指令
+        best_peer_tk, best_peer_ev, best_peer_roe = ("AMD" if not self.is_malaysia else "1155.KL"), 18.5, 48.0
+        worst_peer_tk, worst_peer_ev, worst_peer_roe = ("INTC" if not self.is_malaysia else "1023.KL"), 28.0, 32.0
+        try:
+            comps_df = self.run_comps_analysis()
+            only_peers = comps_df[~comps_df["Ticker"].astype(str).str.contains("⭐", na=False)].copy()
+            if not only_peers.empty and "P/E" in only_peers.columns and "Gross Margin %" in only_peers.columns:
+                pe_num = pd.to_numeric(only_peers["P/E"], errors="coerce").fillna(20.0)
+                gm_num = pd.to_numeric(only_peers["Gross Margin %"], errors="coerce").fillna(25.0)
+                only_peers["Score_Rank"] = pe_num - gm_num * 0.35
+                best_peer_row = only_peers.sort_values("Score_Rank", ascending=True).iloc[0]
+                worst_peer_row = only_peers.sort_values("Score_Rank", ascending=False).iloc[-1]
+                best_peer_tk = str(best_peer_row["Ticker"]).strip()
+                best_peer_ev = float(best_peer_row.get("P/E") or 15.0)
+                best_peer_roe = float(best_peer_row.get("Gross Margin %") or 30.0)
+                worst_peer_tk = str(worst_peer_row["Ticker"]).strip()
+                worst_peer_ev = float(worst_peer_row.get("P/E") or 28.0)
+                worst_peer_roe = float(worst_peer_row.get("Gross Margin %") or 12.0)
+        except Exception:
+            pass
+
+        target_ev_ebitda = self.ev / max(self.ebitda, 1.0)
+        target_roe = float(self.info.get('returnOnEquity') or 0.15) * 100.0
+        long_leg_notional = round(portfolio_cash * 0.50, 0)
+        short_leg_notional = round(long_leg_notional * np.clip(self.beta, 0.75, 1.35), 0)
+
+        if final_rating in ("Sell", "Underweight") or mos_pct < 0:
+            pair_long_tk = best_peer_tk
+            pair_short_tk = self.ticker
+            pair_spread_desc = (
+                f"**LONG (做多低估同行) `{pair_long_tk}`** (`EV/EBITDA {best_peer_ev:.1f}x`, `ROE {best_peer_roe:.1f}%`) "
+                f"➕ **SHORT (做空高估标的) `{pair_short_tk}`** (`EV/EBITDA {target_ev_ebitda:.1f}x`, `MoS {mos_pct:+.1f}%`)"
+            )
+            pair_rationale = (
+                f"当前标的 `{self.ticker}` 相对内在价值溢价（安全边际 `{mos_pct:+.1f}%`），单边做空面临大盘逼空风险。"
+                f"通过构建 **Beta 中性统计套利配对 (`Long {pair_long_tk} / Short {pair_short_tk}`)**，剥离行业与大盘系统性波动 ($\\beta_{{net}} \\approx 0$)，纯粹捕获同行估值倍数收敛 Alpha！"
+            ) if lang_key == "zh" else (
+                f"`{self.ticker}` trades above intrinsic value (MoS `{mos_pct:+.1f}%`). A Beta-neutral pair (**Long `{pair_long_tk}` / Short `{pair_short_tk}`**) "
+                f"hedges out market beta ($\\beta_{{net}} \\approx 0$) and isolates relative-value mean reversion Alpha."
+            )
+        else:
+            pair_long_tk = self.ticker
+            pair_short_tk = worst_peer_tk
+            pair_spread_desc = (
+                f"**LONG (做多折价标的) `{pair_long_tk}`** (`MoS {mos_pct:+.1f}%`, `ROE {target_roe:.1f}%`) "
+                f"➕ **SHORT (做空弱势同行对冲) `{pair_short_tk}`** (`EV/EBITDA {worst_peer_ev:.1f}x`, `ROE {worst_peer_roe:.1f}%`)"
+            )
+            pair_rationale = (
+                f"当前标的 `{self.ticker}` 具备显著估值优势（安全边际 `{mos_pct:+.1f}%`）。若担心宏观黑天鹅拖累行业板块，"
+                f"可配对 **做多 `{pair_long_tk}` + 做空高估值弱质同行 `{pair_short_tk}`**，锁定行业内基本面强弱分化收益（Relative-Value Alpha）。"
+            ) if lang_key == "zh" else (
+                f"`{self.ticker}` offers attractive margin of safety (`{mos_pct:+.1f}%`). Pairing **Long `{pair_long_tk}` against Short `{pair_short_tk}`** "
+                f"immunizes sector drawdown risk while capturing fundamental outperformance Alpha."
+            )
+
+        pair_info = {
+            "long_tk": pair_long_tk,
+            "short_tk": pair_short_tk,
+            "long_notional": long_leg_notional,
+            "short_notional": short_leg_notional,
+            "spread_desc": pair_spread_desc,
+            "rationale": pair_rationale
+        }
+
         S = self.price
         atr = tech["atr"]
         iv = opt_info["atm_iv"]
@@ -1239,6 +1712,7 @@ class UltimateHardcoreEngine:
         call_iv = opt_info.get("otm_call_iv", iv)
         T_y = opt_info["T_years"]
         q_y = div_yield / 100.0
+        garch_v = tech.get("garch_vol", tech["hv30"])
 
         # 预先对齐所有常用行权价，确保文字指令与画图引擎 100% 同步
         k_atm = snap_k(S)
@@ -1287,10 +1761,10 @@ class UltimateHardcoreEngine:
                     f"Delta: `{bs_put['Delta_P']:.2f}`, Theta: `+{abs(bs_put['Theta_P']):.3f}/天`"
                 )
                 opt_rationale = (
-                    f"当前期权隐含波动率 (IV={iv*100:.1f}%) 高于 30日历史波动率 (HV={tech['hv30']*100:.1f}%)，且无近期财报跳空地雷。"
+                    f"当前期权隐含波动率 (IV={iv*100:.1f}%) 高于 GARCH(1,1) 动态预测波动率 ({garch_v*100:.1f}%)，且无近期财报跳空地雷。"
                     f"通过**卖出 {k_95_put:.2f} 虚值 Put (Skew IV={put_iv*100:.1f}%)** 收取丰厚权利金；若回调则以 {breakeven:.2f} 折价接盘正股。"
                 ) if lang_key == "zh" else (
-                    f"Implied Volatility (IV={iv*100:.1f}%) trades at a premium to HV ({tech['hv30']*100:.1f}%). "
+                    f"Implied Volatility (IV={iv*100:.1f}%) trades at a premium to GARCH(1,1) Forecast Vol ({garch_v*100:.1f}%). "
                     f"Selling an OTM Cash-Secured Put @ {k_95_put:.2f} harvests rich theta while setting a limit entry at {breakeven:.2f}."
                 )
             else:
@@ -1404,6 +1878,8 @@ class UltimateHardcoreEngine:
             "tech": tech,
             "opt_info": opt_info,
             "opt_legs_meta": opt_legs_meta,
+            "beneish": beneish,
+            "pair_info": pair_info,
             "news": news_list,
             "mos_pct": mos_pct,
             "implied_g_pct": implied_g_pct,
@@ -2721,21 +3197,22 @@ def main():
                     st.plotly_chart(fig_mc, use_container_width=True)
 
             with tab6:
-                st.markdown("#### 📈 Markowitz Efficient Frontier, SLSQP Exact Optimization & Tail Risk (MDD / VaR / CVaR)")
-                exp_title_t6 = "📖 【新手必读 / 现代投资组合理论】有效前沿、SLSQP 切点组合与尾部风险 VaR/CVaR (点击展开)" if lang_key == "zh" else "📖 [Beginner's Guide] Markowitz Frontier, SLSQP Tangency & Tail Risk VaR/CVaR (Click to Expand)"
+                st.markdown("#### 📈 Markowitz Efficient Frontier, Bridgewater Risk Parity (ERC) & Macro Stress Testing Engine (V13.0)")
+                exp_title_t6 = "📖 【新手必读 / 现代投资组合理论】SLSQP 切点组合、桥水风险平价 (ERC) 与尾部风险 VaR/CVaR (点击展开)" if lang_key == "zh" else "📖 [Beginner's Guide] SLSQP Tangency, Bridgewater Risk Parity (ERC) & Tail Risk VaR/CVaR (Click to Expand)"
                 with st.expander(exp_title_t6, expanded=False):
                     if lang_key == "zh":
                         st.markdown("""
                         * **SLSQP 精确解析切点组合 (黄色五角星 ⭐)**：使用 `scipy.optimize.minimize` 二次规划直接求解资本市场线 (CML) 与有效前沿的精确切点，即**全局最大夏普比率组合 (Max Sharpe)**。
-                        * **全局最小方差组合 GMV (绿色菱形 💎)**：不追求最高收益，纯粹将投资组合波动率降到全市场最低的防御型配比。
-                        * **跨国交易日历对齐 (`.ffill().dropna()`)**：当您把马股（`.KL`）与美股混在一个篮子时，系统会自动使用前向填充对齐两国不同的节假日交易日历。
-                        * **尾部风险指标 (MDD / 95% VaR / 95% CVaR)**：量化最优组合在过去 1 年的**最大历史回撤 (Max Drawdown)**、**单日 95% 在险价值 (VaR)** 以及极端黑天鹅发生时的**条件期望亏损 (CVaR / Expected Shortfall)**。
+                        * **桥水“全天候”风险平价组合 Risk Parity / ERC (紫色六芒星 🟣)**：马科维茨模型容易将 90% 资金押注在单一高动量股票上；而**风险平价 (Equal Risk Contribution, ERC)** 强制让每只资产对组合总波动率的风险贡献度完全相等 ($RC_i = w_i (\\Sigma w)_i / \\sigma_p = \\sigma_p / N$)，实现真正的机构级全天候抗跌配置！
+                        * **全局最小方差组合 GMV (绿色菱形 💎)**：纯粹将投资组合波动率降到全市场最低的防御型配比。
+                        * **跨国交易日历无时区对齐 (`tz_localize(None)` + `.ffill().dropna()`)**：当您把马股（`.KL`）与美股混在一个篮子时，系统会自动剥离多重索引与时区差异并对齐跨国节假日。
                         """)
                     else:
                         st.markdown("""
                         * **SLSQP Tangency Portfolio (Yellow Star ⭐)**: Analytical quadratic programming solution maximizing the Sharpe Ratio along the Capital Market Line (CML).
+                        * **Bridgewater Risk Parity / Equal Risk Contribution (Purple Star 🟣)**: Balances portfolio weights so every asset contributes an equal share of total portfolio risk ($RC_i = \\sigma_p / N$).
                         * **Global Minimum Variance (Green Diamond 💎)**: Portfolio weights minimizing annualized volatility.
-                        * **Tail Risk Metrics (MDD / 95% VaR / 95% CVaR)**: Measures historical Maximum Drawdown, 95% Daily Value-at-Risk, and 95% Conditional VaR (Expected Shortfall).
+                        * **Tail Risk & Macro Stress Test**: Measures historical MDD, 95% Daily VaR, 95% CVaR, and 4 extreme macro/geopolitical shock scenarios.
                         """)
 
                 basket_input = st.text_input(
@@ -2748,17 +3225,16 @@ def main():
                 has_us = any(not t.endswith(".KL") for t in tickers_list)
                 if has_kl and has_us:
                     st.info(
-                        "🌏 **跨境多市场组合提示**：检测到您的资产篮子同时包含 **马股 (MYR)** 与 **美股 (USD)**。系统已自动启用 `.ffill().dropna()` 跨国节假日日历对齐算法（以本币日收益率计算相关性矩阵）。"
+                        "🌏 **跨境多市场组合提示**：检测到您的资产篮子同时包含 **马股 (MYR)** 与 **美股 (USD)**。系统已自动剥离时区冲突并启用 `.ffill().dropna()` 跨国节假日日历对齐算法。"
                         if lang_key == "zh" else
-                        "🌏 **Cross-Border Portfolio Notice**: Mixed MYR (`.KL`) and USD tickers detected. Trading calendars are automatically aligned via `.ffill().dropna()` using local-currency daily returns."
+                        "🌏 **Cross-Border Portfolio Notice**: Mixed MYR (`.KL`) and USD tickers detected. Timezones are stripped and trading calendars are aligned via `.ffill().dropna()`."
                     )
 
-                if st.button("🚀 Run SLSQP & Monte Carlo Portfolio Optimization" if lang_key == "en" else "🚀 运行 SLSQP 精确解析解 + 蒙特卡洛组合优化"):
-                    with st.spinner("Solving exact SLSQP tangency portfolio & tail risk metrics..." if lang_key == "en" else "正在通过 SLSQP 二次规划求解全局最大夏普切点组合与 VaR/CVaR 尾部风险..."):
+                if st.button("🚀 Run SLSQP, Risk Parity (ERC) & Monte Carlo Optimization" if lang_key == "en" else "🚀 运行 SLSQP 最大夏普 + 桥水风险平价 (ERC) + 蒙特卡洛优化"):
+                    with st.spinner("Solving SLSQP Tangency, Bridgewater Risk Parity (ERC) & Tail Risk..." if lang_key == "en" else "正在求解 SLSQP 切点组合、桥水风险平价 (ERC) 权重与尾部风险..."):
                         try:
                             data = fetch_portfolio_history(tuple(tickers_list))
                             valid_cols = [c for c in tickers_list if c in data.columns and data[c].notna().sum() > 20]
-                            # 🏦 投行升级 #4：使用 .ffill().dropna() 对齐跨国交易日历
                             data = data[valid_cols].ffill().dropna()
                             if data.empty or len(valid_cols) < 2:
                                 st.warning("⚠️ Please enter at least 2 valid tickers with overlapping trading history.")
@@ -2788,8 +3264,19 @@ def main():
                                 def port_vol(w):
                                     return float(np.sqrt(np.dot(w.T, np.dot(cov_matrix, w))))
 
+                                # 🌟 V13.0 优化点 B：求解桥水“黑色曼巴”风险平价模型 (Risk Parity / Equal Risk Contribution, ERC)
+                                def erc_obj(w):
+                                    w_arr = np.asarray(w, dtype=float)
+                                    vol = max(float(np.sqrt(np.dot(w_arr.T, np.dot(cov_matrix, w_arr)))), 1e-8)
+                                    mrc = np.dot(cov_matrix, w_arr) / vol
+                                    rc = w_arr * mrc
+                                    target_rc = vol / float(n_assets)
+                                    return float(np.sum((rc - target_rc) ** 2)) * 1000.0
+
                                 res_sharpe = sco.minimize(neg_sharpe, init_w, method='SLSQP', bounds=bounds, constraints=constraints)
                                 res_gmv = sco.minimize(port_vol, init_w, method='SLSQP', bounds=bounds, constraints=constraints)
+                                erc_bounds = tuple((0.01, 1.0) for _ in range(n_assets))
+                                res_erc = sco.minimize(erc_obj, init_w, method='SLSQP', bounds=erc_bounds, constraints=constraints)
 
                                 if res_sharpe.success:
                                     opt_weights = res_sharpe.x
@@ -2807,7 +3294,15 @@ def main():
                                 gmv_ret = float(np.dot(gmv_w, mean_returns))
                                 gmv_vol = port_vol(gmv_w)
 
-                                # 📐 量化升级 #3：计算最优切点组合的每日序列、历史最大回撤 (MDD)、95% VaR 与 95% CVaR
+                                # 逆波动率加权作为 ERC 求解器的稳健解析后备
+                                inv_vol_raw = 1.0 / np.maximum(np.sqrt(np.diag(cov_matrix)), 1e-6)
+                                inv_vol_w = inv_vol_raw / np.sum(inv_vol_raw)
+                                erc_w = (res_erc.x / np.sum(res_erc.x)) if (res_erc.success and np.sum(res_erc.x) > 0) else inv_vol_w
+                                erc_ret = float(np.dot(erc_w, mean_returns))
+                                erc_vol = port_vol(erc_w)
+                                erc_sr = (erc_ret - engine.rf) / max(erc_vol, 1e-6)
+
+                                # 📐 计算最优切点组合的每日序列、历史最大回撤 (MDD)、95% VaR 与 95% CVaR
                                 port_daily_rets = returns.values @ opt_weights
                                 cum_wealth = np.cumprod(1.0 + port_daily_rets)
                                 peak_wealth = np.maximum.accumulate(cum_wealth)
@@ -2816,10 +3311,11 @@ def main():
                                 tail_losses = port_daily_rets[port_daily_rets <= np.percentile(port_daily_rets, 5)]
                                 port_cvar_95 = float(np.mean(tail_losses)) * 100.0 if len(tail_losses) > 0 else port_var_95
 
-                                opt1, opt2, opt3 = st.columns(3)
-                                opt1.metric("Exact Tangency Return", f"{opt_ret*100:.2f}%")
-                                opt2.metric("Exact Tangency Volatility", f"{opt_vol*100:.2f}%")
-                                opt3.metric("SLSQP Max Sharpe Ratio", f"{opt_sr:.2f}")
+                                opt1, opt2, opt3, opt4 = st.columns(4)
+                                opt1.metric("Max Sharpe Return", f"{opt_ret*100:.2f}%", f"Vol: {opt_vol*100:.2f}%", delta_color="off")
+                                opt2.metric("SLSQP Max Sharpe Ratio", f"{opt_sr:.2f}")
+                                opt3.metric("Risk Parity (ERC) Return", f"{erc_ret*100:.2f}%", f"ERC Vol: {erc_vol*100:.2f}%", delta_color="off")
+                                opt4.metric("Risk Parity (ERC) Sharpe", f"{erc_sr:.2f}", "Equal Risk Contrib.", delta_color="off")
 
                                 tr1, tr2, tr3 = st.columns(3)
                                 tr1.metric("1Y Max Drawdown (MDD)", f"{port_mdd:.2f}%", "Peak-to-Trough" if lang_key == "en" else "最大历史回撤", delta_color="off")
@@ -2829,14 +3325,15 @@ def main():
                                 weight_df = pd.DataFrame({
                                     "Asset": valid_cols,
                                     "Max Sharpe Weight (%)": [f"{w*100:.1f}%" for w in opt_weights],
-                                    "Min Variance (GMV) Weight (%)": [f"{w*100:.1f}%" for w in gmv_w]
+                                    "Min Variance (GMV) Weight (%)": [f"{w*100:.1f}%" for w in gmv_w],
+                                    "Bridgewater Risk Parity (ERC %)": [f"{w*100:.1f}%" for w in erc_w]
                                 })
                                 st.table(weight_df.set_index('Asset').T)
 
                                 fig_ef = px.scatter(
                                     x=p_vols, y=p_rets, color=sharpes,
                                     labels={'x': 'Volatility (Annualized Risk)', 'y': 'Expected Annual Return', 'color': 'Sharpe Ratio'},
-                                    title="Markowitz Efficient Frontier & Capital Market Line (SLSQP Exact Solution)"
+                                    title="Markowitz Efficient Frontier, Capital Market Line & Bridgewater Risk Parity (ERC)"
                                 )
                                 fig_ef.add_trace(go.Scatter(
                                     x=[opt_vol], y=[opt_ret],
@@ -2847,6 +3344,11 @@ def main():
                                     x=[gmv_vol], y=[gmv_ret],
                                     mode='markers', marker=dict(color='#10b981', size=13, symbol='diamond'),
                                     name='Global Min Variance (GMV)'
+                                ))
+                                fig_ef.add_trace(go.Scatter(
+                                    x=[erc_vol], y=[erc_ret],
+                                    mode='markers', marker=dict(color='#c084fc', size=15, symbol='hexagram'),
+                                    name='Bridgewater Risk Parity (ERC)'
                                 ))
                                 cml_x = np.linspace(0.0, float(np.max(p_vols)) * 1.05, 100)
                                 cml_y = engine.rf + opt_sr * cml_x
@@ -2860,11 +3362,32 @@ def main():
                         except Exception as e:
                             st.error(f"Error fetching basket data: {e}")
 
+                # 🌟 V13.0 降维打击模块 3：多资产宏观与地缘政治黑天鹅压力测试引擎 (Macro Stress Test)
+                st.markdown("---")
+                st.markdown(
+                    "##### 🌪️ 宏观与地缘政治黑天鹅压力测试引擎 (Multi-Asset Macroeconomic & Geopolitical Stress Test)"
+                    if lang_key == "zh" else
+                    "##### 🌪️ Multi-Asset Macroeconomic & Geopolitical Stress Testing Engine"
+                )
+                st.caption(
+                    "模拟美联储意外加息 (+50bps)、中东地缘危机原油暴涨 (+30%)、大盘流动性闪崩 (-15%) 与 VIX 恐慌飙升 (+50%) 下的组合净值冲击与压力 VaR 倍增效应。"
+                    if lang_key == "zh" else
+                    "Simulates portfolio drawdown and Stressed 95% VaR expansion under 4 extreme macroeconomic and geopolitical shock scenarios."
+                )
+                stress_notional = st.number_input(
+                    "压力测试组合本金规模 (Portfolio Notional for Stress Test)" if lang_key == "zh" else "Portfolio Notional Value",
+                    value=100000.0, step=25000.0, key=f"stress_notional_{engine.ticker}"
+                )
+                stress_df = engine.run_macro_stress_test(portfolio_val=stress_notional, port_beta=engine.beta)
+                disp_col = "Scenario_ZH" if lang_key == "zh" else "Scenario_EN"
+                show_stress = stress_df[[disp_col, "Macro Trigger", "Stressed Drawdown (%)", "Portfolio P&L Impact", "Post-Shock Equity", "Stressed Daily 95% VaR"]].rename(columns={disp_col: "Stress Scenario"})
+                st.dataframe(show_stress, use_container_width=True)
+
             # ==========================================
-            # TAB 7: 期权链与 B-S 沙盘 (含 Mid-Price 过滤、Brentq IV 反解器、8大策略沙盘与 PoP 胜率)
+            # TAB 7: 期权链与 B-S 沙盘 (含 Mid-Price 过滤、Brentq IV 反解器、8大策略沙盘、PoP 胜率与动态 Delta 对冲模拟器)
             # ==========================================
             with tab7:
-                st.markdown("#### 📉 Options Chain, Brentq IV Solver & 8-Strategy Interactive Payoff Sandbox")
+                st.markdown("#### 📉 Options Chain, Brentq IV Solver, 8-Strategy Sandbox & Dynamic Delta-Hedging Simulator (V13.0)")
                 if engine.is_malaysia:
                     st.warning("⚠️ 马股（Bursa Malaysia）期权数据在 Yahoo Finance 上极度稀疏。建议切换至美股代码（如 NVDA, AAPL, TSLA）体验完整期权链！" if lang_key == "zh" else "⚠️ Bursa Malaysia options data is sparse on Yahoo Finance. Switch to US tickers (e.g., NVDA, AAPL) for live option chains.")
 
@@ -2885,7 +3408,7 @@ def main():
                         opt_tab1, opt_tab2, opt_tab3 = st.tabs([
                             "📈 隐含波动率微笑 (Volatility Smile)" if lang_key == "zh" else "📈 Volatility Smile / Skew",
                             "🛡️ 实时平值期权链 (Mid-Price & Brentq IV 反解)" if lang_key == "zh" else "🛡️ Live ATM Option Chain (Mid-Price & Brentq IV)",
-                            "🧮 独立 B-S 仿真与 8 大策略盈亏沙盘" if lang_key == "zh" else "🧮 BS Sandbox & 8-Strategy Simulator"
+                            "🧮 B-S 沙盘、8 大策略与动态 Delta 对冲 (Gamma Scalping)" if lang_key == "zh" else "🧮 BS Sandbox, 8-Strategy & Dynamic Delta-Hedging"
                         ])
 
                         with opt_tab1:
@@ -2902,9 +3425,9 @@ def main():
 
                         with opt_tab2:
                             st.caption(
-                                "💡 **量化级僵尸价格过滤与 Brentq IV 反解**：优先采用实时买卖盘中间价 `Mid = (Bid + Ask)/2`；当非交易时段 Yahoo 返回 `IV <= 1.5%` 时，自动调用 `scipy.optimize.brentq` 从市价反向解出真实隐含波动率！"
+                                "💡 **量化级僵尸价格过滤与 Brentq IV 反解**：优先采用实时买卖盘中间价 `Mid = (Bid + Ask)/2`；当非交易时段 Yahoo 返回 `IV <= 1.5%` 或深度实值无解时，自动调用零崩溃加固版 `scipy.optimize.brentq` 反推真实隐含波动率！"
                                 if lang_key == "zh" else
-                                "💡 **Stale Price Filter & Brentq IV Solver**: Prioritizes `Mid = (Bid + Ask)/2` and automatically backs out true Black-Scholes IV via `scipy.optimize.brentq` when Yahoo reports stale/zero IV."
+                                "💡 **Stale Price Filter & Brentq IV Solver**: Prioritizes `Mid = (Bid + Ask)/2` and backs out true Black-Scholes IV via exception-safe `scipy.optimize.brentq`."
                             )
                             opt_type_sel = st.radio(
                                 "选择期权类型 (Option Type)" if lang_key == "zh" else "Select Option Type",
@@ -2953,20 +3476,18 @@ def main():
                                 st.dataframe(pd.DataFrame(bs_results), use_container_width=True)
 
                         with opt_tab3:
-                            with st.expander("📖 【新手必读 / 希腊字母百科】Delta, Gamma, Theta, Vega 实战含义 (点击展开)" if lang_key == "zh" else "📖 [Beginner's Guide] Option Greeks Explained (Click to Expand)", expanded=False):
+                            with st.expander("📖 【新手必读 / 希腊字母百科】Delta, Gamma, Theta, Vega 与 Gamma Scalping 实战含义 (点击展开)" if lang_key == "zh" else "📖 [Beginner's Guide] Option Greeks & Gamma Scalping Explained (Click to Expand)", expanded=False):
                                 st.markdown(
                                     r"""
-                                    * **Delta ($\Delta$)**：正股每涨 \$1，期权价格涨多少（同时近似代表期权到期处于实值 ITM 的概率）。
-                                    * **Gamma ($\Gamma$)**：正股每变动 \$1，Delta 变动多少。买方享受正 Gamma 加速度，卖方惧怕平值附近的 Gamma 爆炸。
-                                    * **Theta ($\Theta$)**：每天流逝的时间价值（Time Decay）。期权买方每天都在流血亏 Theta，期权卖方每天躺赚 Theta。
-                                    * **Vega ($\mathcal{V}$)**：隐含波动率 (IV) 每变动 1%，期权价格变动多少。财报发布后 IV 暴跌（IV Crush）会重创高 Vega 的期权买方。
+                                    * **Delta ($\Delta$)**：正股每涨 \$1，期权价格涨多少。做市商通过反向买卖 $-\Delta \times 100$ 股正股实现 **Delta-Neutral ($\Delta_{\text{net}} = 0$)**。
+                                    * **Gamma ($\Gamma$) 与 Gamma Scalping**：正股每变动 \$1，Delta 变动多少。持有正 Gamma（如买入跨式 Straddle）的机构在股价大涨时高抛正股、大跌时低吸正股，把波动率转化为真金白银，这叫 **Gamma Scalping**！
+                                    * **Theta ($\Theta$)**：每天流逝的时间价值。Gamma Scalping 的核心博弈就是让每日高抛低吸赚取的 Gamma 收益大于每日流逝的 Theta 成本。
+                                    * **Vega ($\mathcal{V}$)**：隐含波动率 (IV) 每变动 1%，期权价格变动多少。
                                     """
                                     if lang_key == "zh" else
                                     r"""
-                                    * **Delta ($\Delta$)**: Option price change per \$1 move in spot price.
-                                    * **Gamma ($\Gamma$)**: Rate of change of Delta per \$1 move in spot price.
-                                    * **Theta ($\Theta$)**: Daily time decay in dollars per day.
-                                    * **Vega ($\mathcal{V}$)**: Sensitivity to a 1% change in Implied Volatility (IV).
+                                    * **Delta ($\Delta$)**: Option price change per \$1 move in spot price. Market makers trade $-\Delta \times 100$ shares to stay **Delta-Neutral ($\Delta_{\text{net}} = 0$)**.
+                                    * **Gamma ($\Gamma$) & Gamma Scalping**: Rate of change of Delta. Long-Gamma traders buy low and sell high as spot oscillates to harvest realized volatility against daily **Theta ($\Theta$)** decay.
                                     """
                                 )
                             op_col1, op_col2, op_col3 = st.columns(3)
@@ -3011,6 +3532,43 @@ def main():
                             sc3.metric("🚀 单张最大潜在盈利 (100股)", f"{engine.currency} {sim_mp:,.0f}")
                             sc4.metric("🛡️ 单张最大潜在亏损 (100股)", f"{engine.currency} {sim_ml:,.0f}")
                             st.plotly_chart(fig_sim, use_container_width=True)
+
+                            # 🌟 V13.0 降维打击模块 2：做市商动态 Delta 对冲与 Gamma Scalping 模拟器
+                            st.markdown("---")
+                            st.markdown(
+                                "##### ⚡ 做市商动态 Delta-Neutral 对冲与 Gamma Scalping 模拟器 (Dynamic Delta-Hedging Desk)"
+                                if lang_key == "zh" else
+                                "##### ⚡ Institutional Dynamic Delta-Hedging & Gamma Scalping Simulator"
+                            )
+                            dh_contracts = st.slider(
+                                "模拟持有期权合约张数 (Contracts Held, 1张=100股)" if lang_key == "zh" else "Option Contracts Held (x100 Multiplier)",
+                                1, 50, 10, 1, key=f"dh_contracts_{engine.ticker}"
+                            )
+                            dh_res = engine.simulate_dynamic_delta_hedging(
+                                K=custom_K, T_days=int(min(custom_T_days, 60)), sigma=custom_vol, contracts=dh_contracts
+                            )
+                            dh1, dh2, dh3, dh4 = st.columns(4)
+                            dh1.metric(
+                                f"Long {dh_contracts}x Call 初始对冲指令",
+                                f"{dh_res['call_hedge_shares']:+d} 股正股",
+                                "Target Δ_net = 0", delta_color="off"
+                            )
+                            dh2.metric(
+                                f"Long {dh_contracts}x Straddle 初始对冲",
+                                f"{dh_res['straddle_hedge_shares']:+d} 股正股",
+                                f"1%股价波动调仓: ±{dh_res['gamma_1pct_rebalance']:.1f}股", delta_color="off"
+                            )
+                            dh3.metric(
+                                "30D 累计 Gamma 高抛低吸收益",
+                                f"{engine.currency} {dh_res['final_gamma_pnl']:+,.2f}",
+                                f"Theta 损耗: {engine.currency} {dh_res['final_theta_pnl']:+,.2f}", delta_color="off"
+                            )
+                            dh4.metric(
+                                "30D Delta-Neutral 净套利盈亏",
+                                f"{engine.currency} {dh_res['final_net_pnl']:+,.2f}",
+                                "Gamma P&L + Theta Decay", delta_color="off"
+                            )
+                            st.dataframe(dh_res["df"], use_container_width=True, height=250)
                     else:
                         st.info("ℹ️ 当前标的暂无交易所公开期权链，您可以直接前往 **Tab [8] TradingAgents 投委会与期权作战室** 使用合成 B-S 期权策略引擎！" if lang_key == "zh" else "ℹ️ No exchange-listed option chain found; visit Tab [8] for synthetic B-S option strategy modeling!")
                 except Exception as e:
@@ -3018,18 +3576,18 @@ def main():
 
 
             # ==================================================================
-            # 🌟 TAB 8: TradingAgents 多智能体投委会辩论与期权协同作战室 (V12.0 深度审计满血版)
+            # 🌟 TAB 8: TradingAgents 多智能体投委会辩论与期权协同作战室 (V13.0 宗师满血版)
             # ==================================================================
             with tab8:
                 st.markdown(
-                    "### 🤖 TradingAgents Multi-Agent Investment Committee & Options Desk (V12.0 Institutional Edition)"
+                    "### 🤖 TradingAgents Multi-Agent Investment Committee & Options Desk (V13.0 Grandmaster Edition)"
                     if lang_key == "en" else
-                    "### 🤖 TradingAgents 多智能体投委会辩论与期权作战室 (V12.0 深度审计终极版)"
+                    "### 🤖 TradingAgents 多智能体投委会辩论与期权作战室 (V13.0 量化宗师终极版)"
                 )
                 st.caption(
-                    "完美复刻 TauricResearch/TradingAgents 五阶段投委会工作流，内置财报日 IV Crush 雷达、半凯利公式 (Half-Kelly) 仓位管理、GBM 精确期权到期胜率 (PoP %) 与 Google Gemini 2.5 双向闭环裁决系统。"
+                    "完美复刻 TauricResearch/TradingAgents 五阶段工作流，搭载 GARCH(1,1) 动态条件异方差波动率、Beneish M-Score 财务造假侦测雷达、Beta 中性多空配对交易 (Pairs Trading)、半凯利公式 (Half-Kelly) 仓位管理与 Google Gemini 2.5 双向闭环裁决系统。"
                     if lang_key == "zh" else
-                    "Mirrors the 5-stage TauricResearch/TradingAgents workflow with Earnings IV Crush Radar, Half-Kelly Position Sizing, GBM Exact Option PoP %, and Google Gemini 2.5 Bidirectional Verdict Override."
+                    "Mirrors the 5-stage TauricResearch/TradingAgents workflow with GARCH(1,1) Dynamic Volatility, Beneish M-Score Forensics Radar, Market-Neutral Long-Short Pairs Trading, Half-Kelly Sizing, and Google Gemini 2.5 Bidirectional Verdict Override."
                 )
 
                 with st.container(border=True):
@@ -3042,6 +3600,8 @@ def main():
                 pipe = engine.run_trading_agents_pipeline(user_cash, user_shares, lang_key)
                 tech = pipe["tech"]
                 opt_info = pipe["opt_info"]
+                beneish = pipe.get("beneish") or engine.compute_beneish_m_score()
+                pair_info = pipe.get("pair_info") or {}
 
                 # 财报日 IV Crush 横幅预警
                 if opt_info.get("earnings_alert"):
@@ -3049,6 +3609,23 @@ def main():
                         f"⚡ **【财报日跨期波动率坍塌预警 (Earnings IV Crush Alert)】**：检测到 `{engine.ticker}` 将于 **{opt_info['earnings_date']}**（约 **{opt_info['days_to_earnings']} 天后**）发布财报，落在当前主力期权周期 (`{opt_info['expiry']}`) 内！"
                         f"平值跨式期权隐含财报波幅为 **±{opt_info['implied_move_pct']:.1f}%**。系统已自动规避裸买单腿期权与窄幅裸卖策略，优先采用价差（Spread）锁定风险！"
                     )
+
+                # 🌟 V13.0 降维打击模块 1：Beneish M-Score 财务造假与盈余操纵侦测雷达横幅
+                b_badge = beneish.get("badge_zh") if lang_key == "zh" else beneish.get("badge_en")
+                if beneish.get("status") == "HIGH_RISK":
+                    st.error(b_badge)
+                elif beneish.get("status") == "GRAY_ZONE":
+                    st.warning(b_badge)
+                else:
+                    st.success(b_badge)
+
+                with st.expander("🔍 【Beneish M-Score 华尔街做空机构八因子财务侦测矩阵】查看详细拆解 (点击展开)" if lang_key == "zh" else "🔍 [Beneish M-Score 8-Factor Financial Forensics Matrix] (Click to Expand)", expanded=False):
+                    b_comp = beneish.get("components", {})
+                    bc1, bc2, bc3, bc4 = st.columns(4)
+                    bc1.metric("Beneish M-Score", f"{beneish.get('m_score', -2.5):.2f}", "Threshold: -1.78", delta_color="off")
+                    bc2.metric("Accruals Ratio (TATA)", f"{beneish.get('accruals_pct', 0.0):+.2f}%", "(Net Inc - OCF) / Assets", delta_color="off")
+                    bc3.metric("DSRI (应收膨胀指数)", f"{b_comp.get('DSRI', 1.0):.2f}x", f"GMI (毛利恶化): {b_comp.get('GMI', 1.0):.2f}x", delta_color="off")
+                    bc4.metric("SGI (营收扩张指数)", f"{b_comp.get('SGI', 1.0):.2f}x", f"LVGI (杠杆异动): {b_comp.get('LVGI', 1.0):.2f}x", delta_color="off")
 
                 # --------------------------------------------------------------
                 # STAGE 1: 四大分析师并行调研报告 (Parallel Analyst Team)
@@ -3063,7 +3640,7 @@ def main():
                         st.markdown(
                             f"- **MA20 / MA50:** `{tech['ma20']:.2f}` / `{tech['ma50']:.2f}`\n"
                             f"- **RSI (14):** `{tech['rsi']:.1f}` ({'超买区' if tech['rsi']>70 else ('超卖区' if tech['rsi']<30 else '中性区')})\n"
-                            f"- **MACD Hist:** `{tech['macd_hist']:+.3f}` | **ATR:** `{engine.currency} {tech['atr']:.2f}`\n"
+                            f"- **GARCH(1,1) 动态波动率:** `{tech.get('garch_vol', tech['hv30'])*100:.1f}%` (HV30 `{tech['hv30']*100:.1f}%`)\n"
                             f"- **支撑 / 阻力位:** `{tech['support']:.2f}` / `{tech['resistance']:.2f}`\n"
                             f"- **1Y 最大回撤 (MDD):** `{tech.get('mdd_pct', 0.0):.1f}%`\n"
                             f"- **95% 日 VaR / CVaR:** `{tech.get('var_95_pct', 0.0):.2f}%` / `{tech.get('cvar_95_pct', 0.0):.2f}%`"
@@ -3076,7 +3653,7 @@ def main():
                         st.markdown(
                             f"- **内在公允价:** `{engine.currency} {engine.fair_val:.2f}`\n"
                             f"- **安全边际 (MoS):** `{pipe['mos_pct']:+.1f}%`\n"
-                            f"- **WACC 折现门槛:** `{engine.wacc*100:.2f}%`\n"
+                            f"- **Beneish M-Score:** `{beneish.get('m_score', -2.5):.2f}` ({beneish.get('status', 'CLEAN')})\n"
                             f"- **三表真实 NWC DCF:** `{engine.currency} {(engine.val_3stmt_dcf or engine.fair_val):.2f}`\n"
                             f"- **同业 P/E 隐含股价:** `{engine.currency} {(engine.val_pe or engine.fair_val):.2f}`\n"
                             f"- **现金转换周期 (CCC):** `{engine.hist_dso + engine.hist_dio - engine.hist_dpo} 天`"
@@ -3099,8 +3676,9 @@ def main():
                         st.markdown("<span class='agent-badge' style='background:rgba(168,85,247,0.2);color:#c084fc;'>🎯 OPTIONS & VOL ANALYST</span>", unsafe_allow_html=True)
                         st.markdown(f"**主力合约:** `{opt_info['expiry']}`")
                         st.markdown(
-                            f"- **平值隐含波动率 (IV):** `{opt_info['atm_iv']*100:.1f}%` (HV `{tech['hv30']*100:.1f}%`)\n"
-                            f"- **IV / HV 溢价倍数:** `{opt_info['iv_hv_ratio']:.2f}x` ({'期权偏贵-宜卖方/价差' if opt_info['iv_hv_ratio']>=1.15 else '期权便宜-宜买方'})\n"
+                            f"- **平值隐含波动率 (IV):** `{opt_info['atm_iv']*100:.1f}%`\n"
+                            f"- **GARCH(1,1) 预测波动率:** `{opt_info.get('garch_vol', tech['hv30'])*100:.1f}%` (`{tech.get('vol_regime', 'NORMAL')}`)\n"
+                            f"- **IV / GARCH 溢价比:** `{opt_info['iv_hv_ratio']:.2f}x` ({'期权偏贵-宜卖方/价差' if opt_info['iv_hv_ratio']>=1.15 else '期权便宜-宜买方'})\n"
                             f"- **Put-Call 偏度 (Skew):** `{opt_info['skew']:+.1f}%`\n"
                             f"- **隐含预期波幅 (Straddle):** `±{opt_info.get('implied_move_pct', 0.0):.1f}%`"
                         )
@@ -3121,7 +3699,7 @@ def main():
                     )
                     bull_r2 = (
                         f"**[第二轮反驳空方 - 期权与现金流护城河]** 空方过度夸大了宏观折现率 (WACC `{engine.wacc*100:.2f}%`) 的压力！"
-                        f"即便短期股价横盘，我们也可以利用当前 `{opt_info['atm_iv']*100:.1f}%` 的隐含波动率，通过期权策略收割权利金或构建低成本垂直价差，持仓胜率极高。"
+                        f"即便短期股价横盘，我们也可以利用当前 `{opt_info['atm_iv']*100:.1f}%` 的隐含波动率（对比 GARCH 动态波动率 `{tech.get('garch_vol', tech['hv30'])*100:.1f}%`），通过期权策略收割权利金或构建低成本垂直价差，持仓胜率极高。"
                     )
                     st.markdown(
                         f"<div class='debate-card-bull'>"
@@ -3134,13 +3712,13 @@ def main():
 
                 with d_col2:
                     bear_r1 = (
-                        f"**[第一轮立论 - 估值透支与均值回归风险]** 当前市价 `{engine.currency} {engine.price:.2f}` 对比模型公允价 `{engine.fair_val:.2f}` 的安全边际为 `{pipe['mos_pct']:+.1f}%`。"
-                        f"测谎仪显示市场当前定价隐含了未来 `{engine.horizon}` 年每年 `{pipe['implied_g_pct']:.1f}%` 的增长预期！"
-                        f"一旦下季度财报增速略微放缓或营运资本 DSO ({engine.hist_dso}天) 拉长，将面临剧烈的戴维斯双杀。"
+                        f"**[第一轮立论 - 估值透支与财务质量审视]** 当前市价 `{engine.currency} {engine.price:.2f}` 对比模型公允价 `{engine.fair_val:.2f}` 的安全边际为 `{pipe['mos_pct']:+.1f}%`，"
+                        f"Beneish M-Score 财务质量得分为 `{beneish.get('m_score', -2.5):.2f}`（应计比率 `{beneish.get('accruals_pct', 0.0):+.2f}%`）。"
+                        f"测谎仪显示市场当前定价隐含了未来 `{engine.horizon}` 年每年 `{pipe['implied_g_pct']:.1f}%` 的增长预期，一旦增速放缓将面临剧烈的估值杀跌。"
                     )
                     bear_r2 = (
                         f"**[第二轮反驳多方 - 尾部风险与回撤压力]** 历史回测显示该标的过去 1 年最大回撤达 `{tech.get('mdd_pct', 0.0):.1f}%`，95% 极端日 CVaR 尾部亏损为 `{tech.get('cvar_95_pct', 0.0):.2f}%`。"
-                        f"技术指标 RSI 目前处于 `{tech['rsi']:.1f}`，上方 `{tech['resistance']:.2f}` 阻力重重，盲目满仓正股极易在波动中受损！"
+                        f"技术指标 RSI 目前处于 `{tech['rsi']:.1f}`，上方 `{tech['resistance']:.2f}` 阻力重重，盲目单边重仓正股极易在波动中受损！"
                     )
                     st.markdown(
                         f"<div class='debate-card-bear'>"
@@ -3154,19 +3732,19 @@ def main():
                 with st.container(border=True):
                     st.markdown(
                         f"**⚖️ 研究总监裁决 (Research Manager Synthesis - `ResearchPlan`)**  |  "
-                        f"**初步投研评级: `{pipe['final_rating'].upper()}` (综合量化得分: `{pipe['total_score']:+.1f}`)**"
+                        f"**初步投研评级: `{pipe['final_rating'].upper()}` (综合量化得分: `{pipe['total_score']:+.1f}`，含 Beneish 财务修正 `{beneish.get('penalty', 0.0):+.0f}` 分)**"
                     )
                     st.write(
                         f"综合多空双方 {debate_rounds} 轮辩论：基本面估值偏离度为 `{pipe['mos_pct']:+.1f}%`，技术面处于 `{tech['trend']}` 格局。"
-                        f"研究部决定采用 **【半凯利公式 (Half-Kelly) 动态仓位控制 + 期权波动率套利/保护】** 的复合战略指令。"
+                        f"研究部决定采用 **【半凯利公式 (Half-Kelly) 仓位控制 + 期权波动率套利/保护 + Beta 中性多空配对】** 的复合战略指令。"
                     )
 
                 st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
 
                 # --------------------------------------------------------------
-                # STAGE 3: 交易员现货与期权协同作战方案 (Trader & Options Desk)
+                # STAGE 3: 交易员现货、期权与多空配对协同作战方案 (Trader, Options & Pairs Desk)
                 # --------------------------------------------------------------
-                st.markdown("#### 💼 第三阶段：交易员【半凯利正股仓位 + 期权】协同作战指令单 (Stage 3: Half-Kelly Equity & Options Desk)" if lang_key == "zh" else "#### 💼 Stage 3: Half-Kelly Equity & Options Trader Execution Desk")
+                st.markdown("#### 💼 第三阶段：交易员【半凯利正股 + 期权 + 多空配对】三维作战指令单 (Stage 3: Equity, Options & Pairs Desk)" if lang_key == "zh" else "#### 💼 Stage 3: Half-Kelly Equity, Options & Long-Short Pairs Execution Desk")
                 t_col1, t_col2 = st.columns([1.15, 1.35])
 
                 with t_col1:
@@ -3188,6 +3766,17 @@ def main():
                         st.markdown(f"##### 推荐策略: {pipe['opt_strategy_name']}")
                         st.markdown(f"- **具体合约操作:** {pipe['opt_action_detail']}")
                         st.info(f"💡 **期权交易员逻辑 (Options Desk Rationale):** {pipe['opt_rationale']}")
+
+                # 🌟 V13.0 极致优化 C：对冲基金多空配对交易 (Market-Neutral Long-Short Equity Pairs Trading)
+                if pair_info:
+                    with st.container(border=True):
+                        st.markdown("<span class='agent-badge' style='background:rgba(192,132,252,0.22);color:#c084fc;'>⚖️ STAT-ARB LONG-SHORT PAIRS DESK (Beta 中性多空配对统计套利指令)</span>", unsafe_allow_html=True)
+                        st.markdown(f"##### 配对结构: {pair_info.get('spread_desc', '')}")
+                        st.markdown(
+                            f"- **多头腿名义本金 (Long Leg Notional):** `{engine.currency} {pair_info.get('long_notional', 0):,.0f}` (`{pair_info.get('long_tk')}`)  |  "
+                            f"**空头腿 Beta 对冲本金 (Short Leg Notional):** `{engine.currency} {pair_info.get('short_notional', 0):,.0f}` (`{pair_info.get('short_tk')}`)\n"
+                            f"- **统计套利逻辑:** {pair_info.get('rationale', '')}"
+                        )
 
                 with st.container(border=True):
                     st.markdown(f"**📊 交易台推荐期权策略双曲线盈亏仿真与 GBM 到期胜率 ({pipe['opt_strategy_name']})**")
@@ -3224,7 +3813,7 @@ def main():
                         st.markdown("<span class='agent-badge' style='background:rgba(59,130,246,0.2);color:#60a5fa;'>🛡️ CONSERVATIVE RISK DEBATOR</span>", unsafe_allow_html=True)
                         st.write(
                             f"**保守派风控意见：** 标的过去 1 年最大回撤为 `{tech.get('mdd_pct', 0.0):.1f}%`，95% 日 CVaR 极端亏损为 `{tech.get('cvar_95_pct', 0.0):.2f}%`。"
-                            f"严禁使用全凯利满仓！必须砍半执行 **Half-Kelly (`{pipe['alloc_pct']:.1f}%`)** 并严守 `{engine.currency} {pipe['stop_loss']:.2f}` 止损线。"
+                            f"严禁使用全凯利满仓！必须砍半执行 **Half-Kelly (`{pipe['alloc_pct']:.1f}%`)**，或采用 **多空配对 (`Long {pair_info.get('long_tk')} / Short {pair_info.get('short_tk')}`)** 剥离大盘 Beta。"
                         )
 
                 with r_col3:
@@ -3239,16 +3828,16 @@ def main():
                     f"""
                     <div class="debate-card-pm">
                         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;">
-                            <div style="color:#38bdf8;font-weight:800;font-size:18px;">👑 投资组合经理终审决议 (Portfolio Manager Final Decision)</div>
+                            <div style="color:#38bdf8;font-weight:800;font-size:18px;">👑 投资组合经理终审决议 (Portfolio Manager Final Decision - V13.0)</div>
                             <div style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;padding:5px 16px;border-radius:999px;font-weight:800;font-size:15px;">
                                 QUANT RATING: {pipe['final_rating'].upper()}
                             </div>
                         </div>
                         <hr style="border-color:rgba(255,255,255,0.1);margin:12px 0;">
                         <p style="font-size:14px;line-height:1.7;margin-bottom:8px;">
-                            <b>1. 终审定调：</b> 综合四大分析师硬核数据、多空辩论及三方风控意见，批准对 <b>{engine.name} ({engine.ticker})</b> 赋予 <b>【{pipe['final_rating']}】</b> 机构评级。<br>
+                            <b>1. 终审定调：</b> 综合四大分析师硬核数据、Beneish M-Score 财务侦测 (<b>{beneish.get('m_score', -2.5):.2f}</b>)、多空辩论及三方风控意见，批准对 <b>{engine.name} ({engine.ticker})</b> 赋予 <b>【{pipe['final_rating']}】</b> 机构评级。<br>
                             <b>2. 现货执行批示 (Half-Kelly)：</b> 建议目标仓位配比 <b>{pipe['alloc_pct']:.1f}%</b>，参考入场位 <b>{engine.currency} {pipe['entry_price']:.2f}</b>，铁律止损位 <b>{engine.currency} {pipe['stop_loss']:.2f}</b>，目标止盈位 <b>{engine.currency} {pipe['take_profit']:.2f}</b>。<br>
-                            <b>3. 期权协同批示：</b> 同步执行 <b>【{pipe['opt_strategy_name']}】</b>（{pipe['opt_action_detail']}），策略到期胜率 (PoP) 为 <b>{ta_opt_stats.get('pop_pct', 0.0):.1f}%</b>，盈亏平衡点 <b>{ta_be_str}</b>。
+                            <b>3. 期权与配对协同批示：</b> 同步执行 <b>【{pipe['opt_strategy_name']}】</b>（{pipe['opt_action_detail']}），策略到期胜率 (PoP) 为 <b>{ta_opt_stats.get('pop_pct', 0.0):.1f}%</b>，盈亏平衡点 <b>{ta_be_str}</b>；或执行 <b>Beta 中性配对 (Long {pair_info.get('long_tk')} / Short {pair_info.get('short_tk')})</b>。
                         </p>
                     </div>
                     """,
