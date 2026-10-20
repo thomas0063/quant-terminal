@@ -3972,11 +3972,36 @@ def run_5y_full_model_backtest(
 
         curr_spot_cash = eq_start_spot + pnl_spot_base + (spot_cash_buf * rf_annual * dt_years) - tx_spot
 
+        # Compute unstopped end-of-window spot P&L so residual (options + ATR stop + interest + div - tx) reconciles 100% at idx_tend
+        raw_end_spot_agg = sum(
+            equity_budget_agg * float(w_agg_rel[i_p]) * (float(close_df[p_sym].iloc[idx_tend]) / max(float(close_df[p_sym].iloc[idx_t]), 1e-4) - 1.0)
+            for i_p, p_sym in enumerate(agg_picks)
+        )
+        residual_agg = (curr_agg_cash - eq_start_agg) - raw_end_spot_agg
+
+        raw_end_spot_con = sum(
+            equity_budget_con * float(w_con_rel[i_p]) * (float(close_df[p_sym].iloc[idx_tend]) / max(float(close_df[p_sym].iloc[idx_t]), 1e-4) - 1.0)
+            for i_p, p_sym in enumerate(con_picks)
+        )
+        residual_con = (curr_con_cash - eq_start_con) - raw_end_spot_con
+
+        residual_spot = (curr_spot_cash - eq_start_spot) - (raw_end_spot_agg * (spot_budget / max(equity_budget_agg, 1.0)))
+
         for d_sub in range(idx_t + 1, idx_tend + 1):
             ratio = (d_sub - idx_t) / float(dt_days)
-            daily_eq_agg.append(eq_start_agg + (curr_agg_cash - eq_start_agg) * ratio)
-            daily_eq_con.append(eq_start_con + (curr_con_cash - eq_start_con) * ratio)
-            daily_eq_spot.append(eq_start_spot + (curr_spot_cash - eq_start_spot) * ratio)
+            mtm_agg_d = sum(
+                equity_budget_agg * float(w_agg_rel[i_p]) * (float(close_df[p_sym].iloc[d_sub]) / max(float(close_df[p_sym].iloc[idx_t]), 1e-4) - 1.0)
+                for i_p, p_sym in enumerate(agg_picks)
+            )
+            mtm_con_d = sum(
+                equity_budget_con * float(w_con_rel[i_p]) * (float(close_df[p_sym].iloc[d_sub]) / max(float(close_df[p_sym].iloc[idx_t]), 1e-4) - 1.0)
+                for i_p, p_sym in enumerate(con_picks)
+            )
+            mtm_spot_d = mtm_agg_d * (spot_budget / max(equity_budget_agg, 1.0))
+
+            daily_eq_agg.append(max(100.0, eq_start_agg + mtm_agg_d + residual_agg * ratio))
+            daily_eq_con.append(max(100.0, eq_start_con + mtm_con_d + residual_con * ratio))
+            daily_eq_spot.append(max(100.0, eq_start_spot + mtm_spot_d + residual_spot * ratio))
             bm_curr_px = float(bm_close.iloc[d_sub])
             daily_eq_bm.append(initial_cash * (bm_curr_px / max(bm_start_px, 1e-4)))
 
