@@ -245,6 +245,21 @@ def fetch_portfolio_history(tickers_tuple: tuple):
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
+def fetch_usd_myr_rate() -> float:
+    """缓存获取实时 USD/MYR 汇率（带稳健网络异常兜底）"""
+    try:
+        t = yf.Ticker("USDMYR=X")
+        h = t.history(period="5d")
+        if not h.empty and 'Close' in h:
+            val = float(h['Close'].dropna().iloc[-1])
+            if 3.0 <= val <= 6.0:
+                return round(val, 4)
+    except Exception:
+        pass
+    return 4.4500
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
 def fetch_option_expirations(ticker: str):
     """缓存期权到期日列表 (返回纯 tuple[str]；马股 Bursa Malaysia .KL 无交易所个股期权，严格返回空元组)"""
     clean_tk = str(ticker).strip().upper()
@@ -2984,9 +2999,9 @@ def solve_portfolio_allocations(cov_matrix: np.ndarray, mean_returns: np.ndarray
     }
 
 
-def run_cash_deployment_screener(tickers: list[str], total_cash: float, risk_appetite: str, currency: str = "USD", rf: float = 0.038) -> dict:
+def run_cash_deployment_screener(tickers: list[str], total_cash: float, risk_appetite: str, currency: str = "USD", rf: float = 0.038, usd_myr_rate: float = 4.45) -> dict:
     """
-    Mode 1: 100% 现金空仓自动化全市场筛选配置引擎 (并发多因子打分 + Beneish 造假过滤 + 资产分配)
+    Mode 1: 100% 现金空仓自动化全市场筛选配置引擎 (并发多因子打分 + Beneish 造假过滤 + 资产分配 + 跨国汇率折算)
     """
     clean_tickers = [str(x).strip().upper() for x in tickers if str(x).strip()][:10]
     if not clean_tickers:
@@ -3011,13 +3026,24 @@ def run_cash_deployment_screener(tickers: list[str], total_cash: float, risk_app
                 mom_3m = 0.0
 
             mos = ((eng.fair_val - eng.price) / eng.price * 100.0) if (eng.price > 0 and eng.fair_val > 0) else 0.0
+
+            native_px = max(float(eng.price), 0.01)
+            is_my = eng.is_malaysia
+            native_curr = "MYR" if is_my else "USD"
+            if currency == "USD":
+                px_base = (native_px / usd_myr_rate) if is_my else native_px
+            else:
+                px_base = (native_px * usd_myr_rate) if not is_my else native_px
+
             return {
                 "ticker": tk_sym,
                 "name": eng.name,
                 "sector": eng.sector,
-                "price": eng.price,
-                "currency": eng.currency,
-                "is_malaysia": eng.is_malaysia,
+                "price": px_base,
+                "native_price": native_px,
+                "native_currency": native_curr,
+                "currency": currency,
+                "is_malaysia": is_my,
                 "beta": max(float(eng.beta), 0.2),
                 "div_yield": float(div_y),
                 "m_score": float(beneish.get("m_score", -2.5)),
@@ -3102,43 +3128,52 @@ def run_cash_deployment_screener(tickers: list[str], total_cash: float, risk_app
     port_vol = float(np.sqrt(np.dot(rel_w.T, np.dot(cov_matrix, rel_w)))) * (1.0 - cash_buffer_pct)
     sharpe = (exp_ret - rf) / max(port_vol, 1e-4)
 
-    # 构建 Top 4 执行明细表 (含马股整手 100 股对齐)
+    # 构建 Top 4 执行明细表 (含马股整手 100 股对齐与汇率换算)
     top4_rows = []
     deployed_total = 0.0
     for idx, p in enumerate(picks):
         w_item = float(scaled_w[idx])
-        item_cap = total_cash * w_item
-        px = max(p["price"], 0.01)
+        item_cap_base = total_cash * w_item
+        px_b = max(p["price"], 0.001)
+        native_px = max(p["native_price"], 0.001)
+
         if p["is_malaysia"]:
-            # 马来西亚股票必须按 1 Lot = 100 股整手向下取整
-            lots = int(np.floor(item_cap / (px * 100.0)))
+            # 马来西亚股票按本地货币和整手 1 Lot = 100 股向下取整
+            item_cap_native = item_cap_base if currency == "MYR" else item_cap_base * usd_myr_rate
+            lots = int(np.floor(item_cap_native / (native_px * 100.0)))
             tgt_shares = lots * 100
             lot_tag = f"{lots} Lots ({tgt_shares:,} 股)"
         else:
-            tgt_shares = int(np.floor(item_cap / px))
+            item_cap_native = item_cap_base if currency == "USD" else item_cap_base / usd_myr_rate
+            tgt_shares = int(np.floor(item_cap_native / native_px))
             lot_tag = f"{tgt_shares:,} 股 (整股)"
 
-        actual_cost = tgt_shares * px
-        deployed_total += actual_cost
+        actual_cost_native = tgt_shares * native_px
+        actual_cost_base = tgt_shares * px_b
+        deployed_total += actual_cost_base
 
         if is_conservative:
-            sl_price = round(px * 0.925, 2)
-            tp_price = round(px * 1.15, 2)
+            sl_price = round(native_px * 0.925, 2)
+            tp_price = round(native_px * 1.15, 2)
             strat_note = f"低波动防守 (β={p['beta']:.2f}, 股息 {p['div_yield']:.1f}%, M-Score {p['m_score']:.2f})"
         else:
-            sl_price = round(max(px - 2.0 * p["atr"], px * 0.88), 2)
-            tp_price = round(px * 1.25, 2)
+            sl_price = round(max(native_px - 2.0 * p["atr"], native_px * 0.88), 2)
+            tp_price = round(native_px * 1.25, 2)
             strat_note = f"高动量进攻 (3M {p['mom_3m']:+.1f}%, 估值空间 {p['mos_pct']:+.1f}%, β={p['beta']:.2f})"
+
+        deployed_str = f"{currency} {actual_cost_base:,.2f}"
+        if p["native_currency"] != currency:
+            deployed_str += f" (≈ {p['native_currency']} {actual_cost_native:,.2f})"
 
         top4_rows.append({
             "Ticker": p["ticker"],
             "Name": p["name"],
-            "Price": f"{currency} {px:.2f}",
+            "Native Price": f"{p['native_currency']} {native_px:.2f}",
             "Target Weight": f"{w_item * 100.0:.1f}%",
-            "Deployed Capital": f"{currency} {actual_cost:,.2f}",
+            "Deployed Capital": deployed_str,
             "Target Shares (Lot-Aware)": lot_tag,
-            "Stop-Loss Price": f"{currency} {sl_price:.2f}",
-            "Take-Profit Price": f"{currency} {tp_price:.2f}",
+            "Stop-Loss Price": f"{p['native_currency']} {sl_price:.2f}",
+            "Take-Profit Price": f"{p['native_currency']} {tp_price:.2f}",
             "Quant Rationale": strat_note
         })
 
@@ -3149,7 +3184,8 @@ def run_cash_deployment_screener(tickers: list[str], total_cash: float, risk_app
             "Ticker": v["ticker"],
             "Name": v["name"],
             "Sector": v["sector"],
-            "Price": f"{currency} {v['price']:.2f}",
+            "Native Price": f"{v['native_currency']} {v['native_price']:.2f}",
+            "Base Price": f"{currency} {v['price']:.2f}",
             "Beta": f"{v['beta']:.2f}",
             "Div Yield": f"{v['div_yield']:.2f}%",
             "Beneish M-Score": f"{v['m_score']:.2f}",
@@ -3160,7 +3196,7 @@ def run_cash_deployment_screener(tickers: list[str], total_cash: float, risk_app
         })
 
     pie_labels = [p["ticker"] for p in picks] + ["💵 Cash Buffer"]
-    pie_values = [r["Deployed Capital"].replace(currency, "").replace(",", "").strip() for r in top4_rows]
+    pie_values = [r["Deployed Capital"].split("(")[0].replace(currency, "").replace(",", "").strip() for r in top4_rows]
     pie_values = [float(x) for x in pie_values] + [max(cash_reserve, 0.0)]
 
     return {
@@ -3177,13 +3213,14 @@ def run_cash_deployment_screener(tickers: list[str], total_cash: float, risk_app
         "pie_values": pie_values,
         "picks": picks,
         "currency": currency,
-        "total_cash": total_cash
+        "total_cash": total_cash,
+        "usd_myr_rate": usd_myr_rate
     }
 
 
-def run_personal_portfolio_optimizer(holdings_list: list[dict], available_cash: float, risk_appetite: str, currency: str = "USD", rf: float = 0.038) -> dict:
+def run_personal_portfolio_optimizer(holdings_list: list[dict], available_cash: float, risk_appetite: str, currency: str = "USD", rf: float = 0.038, usd_myr_rate: float = 4.45) -> dict:
     """
-    Mode 2: 实盘持仓诊断与再平衡引擎 (Black-Litterman 融合预期 + 桥水ERC/切点组合 + 整手调仓指令)
+    Mode 2: 实盘持仓诊断与再平衡引擎 (Black-Litterman 融合预期 + 桥水ERC/切点组合 + 整手调仓指令 + 跨国汇率折算)
     """
     cleaned = []
     for h in holdings_list:
@@ -3211,15 +3248,31 @@ def run_personal_portfolio_optimizer(holdings_list: list[dict], available_cash: 
                 mom_6m = 5.0
 
             mos = ((eng.fair_val - eng.price) / eng.price * 100.0) if (eng.price > 0 and eng.fair_val > 0) else 0.0
+
+            native_px = max(float(eng.price), 0.01)
+            native_cost = float(h["avg_cost"])
+            is_my = eng.is_malaysia
+            native_curr = "MYR" if is_my else "USD"
+
+            if currency == "USD":
+                px_base = (native_px / usd_myr_rate) if is_my else native_px
+                cost_base = (native_cost / usd_myr_rate) if is_my else native_cost
+            else:
+                px_base = (native_px * usd_myr_rate) if not is_my else native_px
+                cost_base = (native_cost * usd_myr_rate) if not is_my else native_cost
+
             return {
                 "ticker": sym,
                 "name": eng.name,
                 "shares": h["shares"],
-                "avg_cost": h["avg_cost"],
-                "price": eng.price,
+                "avg_cost": native_cost,
+                "cost_base": cost_base,
+                "price": px_base,
+                "native_price": native_px,
+                "native_curr": native_curr,
                 "beta": max(float(eng.beta), 0.2),
-                "is_malaysia": eng.is_malaysia,
-                "currency": eng.currency,
+                "is_malaysia": is_my,
+                "currency": currency,
                 "mom_6m": mom_6m,
                 "mos_pct": mos,
                 "fair_val": eng.fair_val,
@@ -3236,7 +3289,7 @@ def run_personal_portfolio_optimizer(holdings_list: list[dict], available_cash: 
         return {"error": "Failed to retrieve live market data for holdings."}
 
     total_mkt_val = sum(p["shares"] * p["price"] for p in valid_pos)
-    total_cost_basis = sum(p["shares"] * p["avg_cost"] for p in valid_pos)
+    total_cost_basis = sum(p["shares"] * p["cost_base"] for p in valid_pos)
     total_equity = total_mkt_val + available_cash
     unrealized_pnl = total_mkt_val - total_cost_basis
     unrealized_pnl_pct = (unrealized_pnl / total_cost_basis * 100.0) if total_cost_basis > 0 else 0.0
@@ -3287,26 +3340,30 @@ def run_personal_portfolio_optimizer(holdings_list: list[dict], available_cash: 
     target_port_vol = float(np.sqrt(np.dot(rel_target_w.T, np.dot(cov_mat, rel_target_w))))
     target_exp_ret = float(np.dot(rel_target_w, mu_blended))
 
-    # 生成持仓再平衡明细表 (含马股 1 Lot = 100 股向下取整)
+    # 生成持仓再平衡明细表 (含马股 1 Lot = 100 股向下取整与汇率换算)
     rebalance_rows = []
     tot_rebalance_capital = 0.0
     for idx, p in enumerate(valid_pos):
         tgt_w = float(target_weights[idx])
-        tgt_val = total_equity * tgt_w
-        px = max(p["price"], 0.01)
+        tgt_val_base = total_equity * tgt_w
+        px_b = max(p["price"], 0.001)
+        native_px = max(p["native_price"], 0.001)
         curr_sh = p["shares"]
 
         if p["is_malaysia"]:
             # 马股整手 100 股
-            tgt_sh = int(np.floor(tgt_val / (px * 100.0))) * 100
+            tgt_val_native = tgt_val_base if currency == "MYR" else (tgt_val_base * usd_myr_rate)
+            tgt_sh = int(np.floor(tgt_val_native / (native_px * 100.0))) * 100
             lot_note = "🇲🇾 1 Lot = 100 股 (Bursa 整手)"
         else:
-            tgt_sh = int(np.floor(tgt_val / px))
+            tgt_val_native = tgt_val_base if currency == "USD" else (tgt_val_base / usd_myr_rate)
+            tgt_sh = int(np.floor(tgt_val_native / native_px))
             lot_note = "🇺🇸 整数股 (Whole Shares)"
 
         delta_sh = tgt_sh - curr_sh
-        cap_change = -delta_sh * px
-        tot_rebalance_capital += cap_change
+        cap_change_base = -delta_sh * px_b
+        cap_change_native = -delta_sh * native_px
+        tot_rebalance_capital += cap_change_base
 
         if delta_sh > 0:
             action_badge = f"🟢 加仓 Buy (+{delta_sh:,} 股)"
@@ -3315,19 +3372,24 @@ def run_personal_portfolio_optimizer(holdings_list: list[dict], available_cash: 
         else:
             action_badge = "⚖️ 保持 Hold"
 
-        curr_pos_val = curr_sh * px
+        curr_pos_val_base = curr_sh * px_b
+        cash_impact_str = f"{currency} {cap_change_base:+,.2f}"
+        if p["native_curr"] != currency:
+            cash_impact_str += f" (≈ {p['native_curr']} {cap_change_native:+,.2f})"
+
         rebalance_rows.append({
             "Ticker": p["ticker"],
+            "Native Price": f"{p['native_curr']} {native_px:.2f}",
             "Current Shares": f"{curr_sh:,}",
-            "Current Value": f"{currency} {curr_pos_val:,.2f}",
+            "Current Value": f"{currency} {curr_pos_val_base:,.2f}",
             "Target Weight": f"{tgt_w * 100.0:.1f}%",
             "Target Shares": f"{tgt_sh:,}",
             "Delta Shares": f"{delta_sh:+d}",
             "Action Instruction": action_badge,
             "Lot Constraint": lot_note,
-            "Estimated Cash Impact": f"{currency} {cap_change:+,.2f}",
-            "raw_curr_val": curr_pos_val,
-            "raw_tgt_val": tgt_sh * px
+            "Estimated Cash Impact": cash_impact_str,
+            "raw_curr_val": curr_pos_val_base,
+            "raw_tgt_val": tgt_sh * px_b
         })
 
     return {
@@ -3353,6 +3415,7 @@ def run_personal_portfolio_optimizer(holdings_list: list[dict], available_cash: 
         },
         "valid_pos": valid_pos,
         "currency": currency,
+        "usd_myr_rate": usd_myr_rate,
         "target_cash_reserve": total_equity * cash_tgt_pct
     }
 
@@ -4896,6 +4959,37 @@ def main():
                     )
                 )
 
+                # 🌐 跨市场计价币种与实时汇率配置中心 (Global Multi-Asset Currency & FX Hub)
+                with st.container(border=True):
+                    fx_c1, fx_c2, fx_c3 = st.columns([1.2, 1.4, 2.4])
+                    with fx_c1:
+                        def_curr_idx = 1 if engine.is_malaysia else 0
+                        base_curr_sel = st.selectbox(
+                            "🌐 组合基准报告币种 (Base Currency)" if lang_key == "zh" else "Base Reporting Currency",
+                            options=["USD ($)", "MYR (RM)"],
+                            index=def_curr_idx,
+                            key=f"tab9_base_curr_{engine.ticker}"
+                        )
+                        base_curr_code = "USD" if "USD" in base_curr_sel else "MYR"
+                    with fx_c2:
+                        live_fx_val = fetch_usd_myr_rate()
+                        fx_rate_in = st.number_input(
+                            "💱 实时 USD/MYR 汇率 (可自定义微调)" if lang_key == "zh" else "USD/MYR FX Rate (Adjustable)",
+                            min_value=1.0, max_value=10.0,
+                            value=float(live_fx_val),
+                            step=0.005, format="%.4f",
+                            key=f"tab9_fx_rate_{engine.ticker}",
+                            help="系统自动通过 Yahoo Finance 抓取 USDMYR 实时汇率。支持根据券商实际换汇成本自由微调。"
+                        )
+                    with fx_c3:
+                        st.caption(
+                            f"💡 **跨国资产自动折算体系**：基准币种 **{base_curr_code}**，折算汇率 **1 USD = {fx_rate_in:.4f} MYR**。"
+                            "美股（USD）与马股（MYR）持仓统一折算净值、夏普与在险价值 (VaR)，并自动保留两地各自的整手交易规则！"
+                            if lang_key == "zh" else
+                            f"💡 **Cross-Border Harmonization**: Base currency **{base_curr_code}**, FX **1 USD = {fx_rate_in:.4f} MYR**. "
+                            "USD and MYR holdings are harmonized for portfolio analytics while preserving local board lot execution rules."
+                        )
+
                 port_scenario = st.radio(
                     "🎯 选择组合管理运作模式 (Select Strategist Execution Mode)" if lang_key == "zh" else "Select Execution Mode",
                     options=[
@@ -4926,7 +5020,7 @@ def main():
                     c_cash, c_risk, c_univ = st.columns([1.2, 1.4, 1.4])
                     with c_cash:
                         cash_input = st.number_input(
-                            f"可配置现金总规模 (Total Cash in {engine.currency})" if lang_key == "zh" else f"Total Cash Pool ({engine.currency})",
+                            f"可配置现金总规模 (Total Cash in {base_curr_code})" if lang_key == "zh" else f"Total Cash Pool ({base_curr_code})",
                             min_value=5000.0, max_value=50000000.0, value=100000.0, step=10000.0,
                             key=f"cash_in_{engine.ticker}"
                         )
@@ -4971,7 +5065,7 @@ def main():
                     if st.button("🚀 开始自动化量化筛选与组合求解 (Execute Cash Robo-Strategist)", key=f"btn_run_cash_{engine.ticker}"):
                         with st.spinner("多线程并发扫描股票池、计算 Beneish M-Score 与求解最优资产权重..." if lang_key == "zh" else "Screening universe, running Beneish radar, and solving optimal allocations..."):
                             screen_res = run_cash_deployment_screener(
-                                custom_list, total_cash=cash_input, risk_appetite=risk_app, currency=engine.currency, rf=engine.rf
+                                custom_list, total_cash=cash_input, risk_appetite=risk_app, currency=base_curr_code, rf=engine.rf, usd_myr_rate=fx_rate_in
                             )
                             st.session_state[f"last_cash_screen_{engine.ticker}"] = screen_res
 
@@ -4984,7 +5078,7 @@ def main():
                         m1.metric("预期年化收益 (Expected Return)", f"{kpis['exp_return']:+.2f}%", f"Rf={engine.rf*100:.2f}% 基准", delta_color="normal")
                         m2.metric("年化预期波动率 (Portfolio Vol)", f"{kpis['volatility']:.2f}%", "Annualized Risk", delta_color="off")
                         m3.metric("预期夏普比率 (Sharpe Ratio)", f"{kpis['sharpe']:.2f}", "Risk-Adjusted Return", delta_color="normal" if kpis['sharpe'] > 1.0 else "off")
-                        m4.metric("防御现金缓冲池 (Cash Buffer)", f"{engine.currency} {kpis['cash_buffer_amt']:,.2f}", f"占比 {kpis['cash_buffer_pct']:.1f}%", delta_color="off")
+                        m4.metric("防御现金缓冲池 (Cash Buffer)", f"{base_curr_code} {kpis['cash_buffer_amt']:,.2f}", f"占比 {kpis['cash_buffer_pct']:.1f}%", delta_color="off")
 
                         st.markdown("---")
                         st.markdown(
@@ -5087,7 +5181,7 @@ def main():
                     c_reb1, c_reb2 = st.columns([1.2, 1.8])
                     with c_reb1:
                         rebal_cash_in = st.number_input(
-                            f"账户可用闲置现金 (Available Cash in {engine.currency})" if lang_key == "zh" else f"Available Cash ({engine.currency})",
+                            f"账户可用闲置现金 (Available Cash in {base_curr_code})" if lang_key == "zh" else f"Available Cash ({base_curr_code})",
                             value=25000.0, step=5000.0, key=f"rebal_cash_{engine.ticker}"
                         )
                     with c_reb2:
@@ -5109,7 +5203,7 @@ def main():
                             holdings_dict_list = edited_holdings_df.to_dict(orient="records")
                             diag_res = run_personal_portfolio_optimizer(
                                 holdings_dict_list, available_cash=rebal_cash_in, risk_appetite=rebal_appetite,
-                                currency=engine.currency, rf=engine.rf
+                                currency=base_curr_code, rf=engine.rf, usd_myr_rate=fx_rate_in
                             )
                             st.session_state[f"last_rebal_res_{engine.ticker}"] = diag_res
 
@@ -5119,10 +5213,10 @@ def main():
                         st.markdown("---")
                         st.markdown("#### 📊 现有组合健康诊断与风险指标 (Portfolio Health Diagnostics)")
                         d1, d2, d3, d4, d5 = st.columns(5)
-                        d1.metric("组合总净值 (Total Equity)", f"{engine.currency} {d['total_equity']:,.2f}", f"现金: {engine.currency} {d['available_cash']:,.2f}", delta_color="off")
-                        d2.metric("浮动未实现盈亏 (Unrealized P&L)", f"{engine.currency} {d['unrealized_pnl']:+,.2f}", f"{d['unrealized_pnl_pct']:+.2f}%", delta_color="normal")
+                        d1.metric("组合总净值 (Total Equity)", f"{base_curr_code} {d['total_equity']:,.2f}", f"现金: {base_curr_code} {d['available_cash']:,.2f}", delta_color="off")
+                        d2.metric("浮动未实现盈亏 (Unrealized P&L)", f"{base_curr_code} {d['unrealized_pnl']:+,.2f}", f"{d['unrealized_pnl_pct']:+.2f}%", delta_color="normal")
                         d3.metric("持仓组合 Beta (Portfolio Beta)", f"{d['portfolio_beta']:.2f}", "vs Benchmark", delta_color="off")
-                        d4.metric("95% 单日在险价值 (1D 95% VaR)", f"{engine.currency} -{d['daily_var_95']:,.2f}", f"-{d['daily_var_pct']:.2f}% 净值", delta_color="inverse")
+                        d4.metric("95% 单日在险价值 (1D 95% VaR)", f"{base_curr_code} -{d['daily_var_95']:,.2f}", f"-{d['daily_var_pct']:.2f}% 净值", delta_color="inverse")
                         d5.metric("再平衡目标夏普 (Target Sharpe)", f"{d['target_sharpe']:.2f}", f"预期年化波动: {d['target_vol']:.1f}%", delta_color="normal")
 
                         st.markdown("---")
@@ -5195,7 +5289,7 @@ def main():
                         has_us_pos = any(not p["is_malaysia"] for p in diag_res.get("valid_pos", []))
 
                         if has_kl_pos:
-                            kl_mkt_val = sum(p["shares"] * p["price"] for p in diag_res["valid_pos"] if p["is_malaysia"])
+                            kl_mkt_val = sum(p["shares"] * p["native_price"] for p in diag_res["valid_pos"] if p["is_malaysia"])
                             # FKLI 对冲计算：FKLI 合约价值 = KLCI 点位 * 50 MYR (假定综指 1620 点)
                             klci_approx = 1620.0
                             fkli_val = klci_approx * 50.0
@@ -5254,9 +5348,10 @@ def main():
                                     rebal_text_table = diag_res["rebalance_df"].to_string(index=False)
                                     memo_prompt = f"""
 [Portfolio Health Diagnostics & Quantitative Inputs]
-- Total Equity: {engine.currency} {d['total_equity']:,.2f} | Available Cash: {engine.currency} {d['available_cash']:,.2f}
-- Unrealized P&L: {engine.currency} {d['unrealized_pnl']:+,.2f} ({d['unrealized_pnl_pct']:+.2f}%)
-- Current Portfolio Beta: {d['portfolio_beta']:.2f} | 1-Day 95% Stressed VaR: {engine.currency} -{d['daily_var_95']:,.2f} (-{d['daily_var_pct']:.2f}% of equity)
+- Base Reporting Currency: {base_curr_code} (USD/MYR Conversion Rate Applied: {fx_rate_in:.4f})
+- Total Equity: {base_curr_code} {d['total_equity']:,.2f} | Available Cash: {base_curr_code} {d['available_cash']:,.2f}
+- Unrealized P&L: {base_curr_code} {d['unrealized_pnl']:+,.2f} ({d['unrealized_pnl_pct']:+.2f}%)
+- Current Portfolio Beta: {d['portfolio_beta']:.2f} | 1-Day 95% Stressed VaR: {base_curr_code} -{d['daily_var_95']:,.2f} (-{d['daily_var_pct']:.2f}% of equity)
 - Current Portfolio Volatility: {d['curr_vol']:.1f}% | Target Rebalanced Volatility: {d['target_vol']:.1f}%
 - Target Expected Return: {d['target_ret']:.1f}% | Target Sharpe Ratio: {d['target_sharpe']:.2f}
 - Rebalancing Risk Posture: {rebal_appetite.upper()}
@@ -5265,15 +5360,16 @@ def main():
 {rebal_text_table}
 
 [Holdings Geographic Breakdown]
-- Has Bursa Malaysia (.KL) Holdings: {has_kl_pos} (REMINDER: Bursa Malaysia trades in 100-share board lots and has NO single-stock options).
-- Has US Market Holdings: {has_us_pos} (Supports 100-share options contracts, collars, covered calls).
+- Has Bursa Malaysia (.KL) Holdings: {has_kl_pos} (Native currency: MYR. Bursa Malaysia trades in 100-share board lots and has NO single-stock options).
+- Has US Market Holdings: {has_us_pos} (Native currency: USD. Supports 100-share options contracts, collars, covered calls).
+- FX Risk Harmonization: Converted cross-border values to base currency {base_curr_code} at rate 1 USD = {fx_rate_in:.4f} MYR.
 
 Please write an institutional-grade Chief Investment Officer (CIO) Portfolio Rebalancing & Hedging Memo.
 Structure:
-1. Executive Summary & Health Check (Assess portfolio concentration, unrealized gains, and 1D VaR risk).
+1. Executive Summary & Health Check (Assess portfolio concentration, unrealized gains, 1D VaR risk, and USD/MYR currency risk exposure).
 2. Position-by-Position Action Roadmap (Clear instructions on which stocks to Trim, Buy, or Hold, explicitly stating Bursa 100-share lot rules and cash management).
 3. Downside Protection & Hedging Strategy (Tail-risk playbook covering Bursa FKLI / Warrants and US Collars / Covered Calls).
-4. Macro Sensitivity & Tail-Risk Warning (How this portfolio would perform under unexpected Fed rate shifts, geopolitical shocks, or tech selloffs).
+4. Macro Sensitivity & FX Tail-Risk Warning (How this portfolio would perform under unexpected Fed rate shifts, USD/MYR volatility, or tech selloffs).
 """
                                     try:
                                         memo_res = invoke_gemini_portfolio_memo(gem_key, gem_model_sel, memo_prompt, lang_key=lang_key)
