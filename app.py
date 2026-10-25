@@ -3000,7 +3000,7 @@ def solve_portfolio_allocations(cov_matrix: np.ndarray, mean_returns: np.ndarray
     }
 
 
-def run_cash_deployment_screener(tickers: list[str], total_cash: float, risk_appetite: str, currency: str = "USD", rf: float = 0.038, usd_myr_rate: float = 4.45) -> dict:
+def run_cash_deployment_screener(tickers: list[str], total_cash: float, risk_appetite: str, currency: str = "USD", rf: float = 0.038, usd_myr_rate: float = 4.45, lang_key: str = "zh") -> dict:
     """
     Mode 1: 100% 现金空仓自动化全市场筛选配置引擎 (并发多因子打分 + Beneish 造假过滤 + 资产分配 + 跨国汇率折算)
     """
@@ -3143,11 +3143,11 @@ def run_cash_deployment_screener(tickers: list[str], total_cash: float, risk_app
             item_cap_native = item_cap_base if currency == "MYR" else item_cap_base * usd_myr_rate
             lots = int(np.floor(item_cap_native / (native_px * 100.0)))
             tgt_shares = lots * 100
-            lot_tag = f"{lots} Lots ({tgt_shares:,} 股)"
+            lot_tag = f"{lots} Lots ({tgt_shares:,} 股)" if lang_key == "zh" else f"{lots} Lots ({tgt_shares:,} shs)"
         else:
             item_cap_native = item_cap_base if currency == "USD" else item_cap_base / usd_myr_rate
             tgt_shares = int(np.floor(item_cap_native / native_px))
-            lot_tag = f"{tgt_shares:,} 股 (整股)"
+            lot_tag = f"{tgt_shares:,} 股 (整股)" if lang_key == "zh" else f"{tgt_shares:,} shs (Whole)"
 
         actual_cost_native = tgt_shares * native_px
         actual_cost_base = tgt_shares * px_b
@@ -3156,11 +3156,11 @@ def run_cash_deployment_screener(tickers: list[str], total_cash: float, risk_app
         if is_conservative:
             sl_price = round(native_px * 0.925, 2)
             tp_price = round(native_px * 1.15, 2)
-            strat_note = f"低波动防守 (β={p['beta']:.2f}, 股息 {p['div_yield']:.1f}%, M-Score {p['m_score']:.2f})"
+            strat_note = f"低波动防守 (β={p['beta']:.2f}, 股息 {p['div_yield']:.1f}%, M-Score {p['m_score']:.2f})" if lang_key == "zh" else f"Low-Vol Defensive (β={p['beta']:.2f}, Div {p['div_yield']:.1f}%, M-Score {p['m_score']:.2f})"
         else:
             sl_price = round(max(native_px - 2.0 * p["atr"], native_px * 0.88), 2)
             tp_price = round(native_px * 1.25, 2)
-            strat_note = f"高动量进攻 (3M {p['mom_3m']:+.1f}%, 估值空间 {p['mos_pct']:+.1f}%, β={p['beta']:.2f})"
+            strat_note = f"高动量进攻 (3M {p['mom_3m']:+.1f}%, 估值空间 {p['mos_pct']:+.1f}%, β={p['beta']:.2f})" if lang_key == "zh" else f"High-Mom Offensive (3M {p['mom_3m']:+.1f}%, Upside {p['mos_pct']:+.1f}%, β={p['beta']:.2f})"
 
         deployed_str = f"{currency} {actual_cost_base:,.2f}"
         if p["native_currency"] != currency:
@@ -3219,7 +3219,7 @@ def run_cash_deployment_screener(tickers: list[str], total_cash: float, risk_app
     }
 
 
-def run_personal_portfolio_optimizer(holdings_list: list[dict], available_cash: float, risk_appetite: str, currency: str = "USD", rf: float = 0.038, usd_myr_rate: float = 4.45) -> dict:
+def run_personal_portfolio_optimizer(holdings_list: list[dict], available_cash: float, risk_appetite: str, currency: str = "USD", rf: float = 0.038, usd_myr_rate: float = 4.45, lang_key: str = "zh") -> dict:
     """
     Mode 2: 实盘持仓诊断与再平衡引擎 (Black-Litterman 融合预期 + 桥水ERC/切点组合 + 整手调仓指令 + 跨国汇率折算)
     """
@@ -3355,11 +3355,11 @@ def run_personal_portfolio_optimizer(holdings_list: list[dict], available_cash: 
             # 马股整手 100 股
             tgt_val_native = tgt_val_base if currency == "MYR" else (tgt_val_base * usd_myr_rate)
             tgt_sh = int(np.floor(tgt_val_native / (native_px * 100.0))) * 100
-            lot_note = "🇲🇾 1 Lot = 100 股 (Bursa 整手)"
+            lot_note = "🇲🇾 1 Lot = 100 股 (Bursa 整手)" if lang_key == "zh" else "🇲🇾 1 Lot = 100 shs (Bursa Board Lot)"
         else:
             tgt_val_native = tgt_val_base if currency == "USD" else (tgt_val_base / usd_myr_rate)
             tgt_sh = int(np.floor(tgt_val_native / native_px))
-            lot_note = "🇺🇸 整数股 (Whole Shares)"
+            lot_note = "🇺🇸 整数股 (Whole Shares)" if lang_key == "zh" else "🇺🇸 Whole Shares"
 
         delta_sh = tgt_sh - curr_sh
         cap_change_base = -delta_sh * px_b
@@ -3367,11 +3367,11 @@ def run_personal_portfolio_optimizer(holdings_list: list[dict], available_cash: 
         tot_rebalance_capital += cap_change_base
 
         if delta_sh > 0:
-            action_badge = f"🟢 加仓 Buy (+{delta_sh:,} 股)"
+            action_badge = f"🟢 加仓 Buy (+{delta_sh:,} 股)" if lang_key == "zh" else f"🟢 Buy (+{delta_sh:,} shs)"
         elif delta_sh < 0:
-            action_badge = f"🟠 减仓 Trim ({delta_sh:,} 股)"
+            action_badge = f"🟠 减仓 Trim ({delta_sh:,} 股)" if lang_key == "zh" else f"🟠 Trim ({delta_sh:,} shs)"
         else:
-            action_badge = "⚖️ 保持 Hold"
+            action_badge = "⚖️ 保持 Hold" if lang_key == "zh" else "⚖️ Hold"
 
         curr_pos_val_base = curr_sh * px_b
         cash_impact_str = f"{currency} {cap_change_base:+,.2f}"
@@ -3430,7 +3430,8 @@ def run_5y_full_model_backtest(
     rf_annual: float = 0.038,
     enable_options_overlay: bool = True,
     enable_atr_stop: bool = True,
-    currency: str = "USD"
+    currency: str = "USD",
+    lang_key: str = "zh"
 ) -> dict:
     """
     🌟 V14.0 宗师级 5 年全模型 Walk-Forward 真实回测引擎
@@ -3796,8 +3797,8 @@ def run_5y_full_model_backtest(
                         period_opt_pnl_agg += net_opt_pnl
                         if len(sample_trades_log) < 12:
                             sample_trades_log.append({
-                                "date": dt_date_str, "track": "⚔️ 进取进攻型", "ticker": p_sym,
-                                "strategy": "Bull Call Spread (牛市看涨价差)", "strikes": f"{currency} {S_t:.1f} / {S_t*1.08:.1f}",
+                                "date": dt_date_str, "track": "⚔️ 进取进攻型" if lang_key == "zh" else "⚔️ Aggressive", "ticker": p_sym,
+                                "strategy": "Bull Call Spread (牛市看涨价差)" if lang_key == "zh" else "Bull Call Spread", "strikes": f"{currency} {S_t:.1f} / {S_t*1.08:.1f}",
                                 "iv": f"{call_iv*100:.1f}%", "premium": f"-{currency} {opt_budget:,.1f}",
                                 "payoff": f"+{currency} {payoff:,.1f}", "net_pnl": f"{currency} {net_opt_pnl:+,.1f}"
                             })
@@ -3812,8 +3813,8 @@ def run_5y_full_model_backtest(
                         period_opt_pnl_agg += net_opt_pnl
                         if len(sample_trades_log) < 12:
                             sample_trades_log.append({
-                                "date": dt_date_str, "track": "⚔️ 进取进攻型", "ticker": p_sym,
-                                "strategy": "Bear Put Spread (熊市看跌价差)", "strikes": f"{currency} {S_t*0.98:.1f} / {S_t*0.90:.1f}",
+                                "date": dt_date_str, "track": "⚔️ 进取进攻型" if lang_key == "zh" else "⚔️ Aggressive", "ticker": p_sym,
+                                "strategy": "Bear Put Spread (熊市看跌价差)" if lang_key == "zh" else "Bear Put Spread", "strikes": f"{currency} {S_t*0.98:.1f} / {S_t*0.90:.1f}",
                                 "iv": f"{put_iv*100:.1f}%", "premium": f"-{currency} {opt_budget:,.1f}",
                                 "payoff": f"+{currency} {payoff:,.1f}", "net_pnl": f"{currency} {net_opt_pnl:+,.1f}"
                             })
@@ -3826,8 +3827,8 @@ def run_5y_full_model_backtest(
                         period_opt_pnl_agg += net_opt_pnl
                         if len(sample_trades_log) < 12:
                             sample_trades_log.append({
-                                "date": dt_date_str, "track": "⚔️ 进取进攻型", "ticker": p_sym,
-                                "strategy": "Covered Call (备兑卖出收租)", "strikes": f"{currency} {S_t*1.06:.1f}",
+                                "date": dt_date_str, "track": "⚔️ 进取进攻型" if lang_key == "zh" else "⚔️ Aggressive", "ticker": p_sym,
+                                "strategy": "Covered Call (备兑卖出收租)" if lang_key == "zh" else "Covered Call Overwrite", "strikes": f"{currency} {S_t*1.06:.1f}",
                                 "iv": f"{call_iv*100:.1f}%", "premium": f"+{currency} {tot_credit:,.1f}",
                                 "payoff": f"{currency} {liability:,.1f}", "net_pnl": f"{currency} {net_opt_pnl:+,.1f}"
                             })
@@ -3841,8 +3842,8 @@ def run_5y_full_model_backtest(
                         period_opt_pnl_agg += net_opt_pnl
                         if len(sample_trades_log) < 12:
                             sample_trades_log.append({
-                                "date": dt_date_str, "track": "⚔️ 进取进攻型", "ticker": p_sym,
-                                "strategy": "Bursa Call Warrant (认购凭单杠杆)", "strikes": f"{currency} {S_t*1.02:.2f}",
+                                "date": dt_date_str, "track": "⚔️ 进取进攻型" if lang_key == "zh" else "⚔️ Aggressive", "ticker": p_sym,
+                                "strategy": "Bursa Call Warrant (认购凭单杠杆)" if lang_key == "zh" else "Bursa Call Warrant", "strikes": f"{currency} {S_t*1.02:.2f}",
                                 "iv": f"{call_iv*100:.1f}%", "premium": f"-{currency} {opt_budget:,.1f}",
                                 "payoff": f"+{currency} {payoff:,.1f}", "net_pnl": f"{currency} {net_opt_pnl:+,.1f}"
                             })
@@ -3851,8 +3852,8 @@ def run_5y_full_model_backtest(
                         period_opt_pnl_agg += fkli_pnl
                         if len(sample_trades_log) < 12:
                             sample_trades_log.append({
-                                "date": dt_date_str, "track": "⚔️ 进取进攻型", "ticker": p_sym,
-                                "strategy": "FKLI Futures Hedge (隆综指期货对冲)", "strikes": "FKLI Index",
+                                "date": dt_date_str, "track": "⚔️ 进取进攻型" if lang_key == "zh" else "⚔️ Aggressive", "ticker": p_sym,
+                                "strategy": "FKLI Futures Hedge (隆综指期货对冲)" if lang_key == "zh" else "FKLI Futures Hedge", "strikes": "FKLI Index",
                                 "iv": "N/A", "premium": f"{currency} 0.0",
                                 "payoff": f"{currency} {fkli_pnl:+,.1f}", "net_pnl": f"{currency} {fkli_pnl:+,.1f}"
                             })
@@ -3904,8 +3905,8 @@ def run_5y_full_model_backtest(
                         period_opt_pnl_con += net_collar_pnl
                         if len(sample_trades_log) < 12:
                             sample_trades_log.append({
-                                "date": dt_date_str, "track": "🛡️ 保守防御型", "ticker": p_sym,
-                                "strategy": "Zero-Cost Collar (零成本防暴跌领口)", "strikes": f"{currency} {S_t*0.93:.1f} / {S_t*1.05:.1f}",
+                                "date": dt_date_str, "track": "🛡️ 保守防御型" if lang_key == "zh" else "🛡️ Conservative", "ticker": p_sym,
+                                "strategy": "Zero-Cost Collar (零成本防暴跌领口)" if lang_key == "zh" else "Zero-Cost Collar", "strikes": f"{currency} {S_t*0.93:.1f} / {S_t*1.05:.1f}",
                                 "iv": f"{atm_iv*100:.1f}%", "premium": f"{currency} {(c_prem-p_cost)*shares:+,.1f}",
                                 "payoff": f"{currency} {collar_payoff:+,.1f}", "net_pnl": f"{currency} {net_collar_pnl:+,.1f}"
                             })
@@ -3925,8 +3926,8 @@ def run_5y_full_model_backtest(
                         period_opt_pnl_con += dual_opt_pnl
                         if len(sample_trades_log) < 12:
                             sample_trades_log.append({
-                                "date": dt_date_str, "track": "🛡️ 保守防御型", "ticker": p_sym,
-                                "strategy": "Dual Income: Covered Call + CSP", "strikes": f"{currency} {S_t*0.94:.1f} / {S_t*1.05:.1f}",
+                                "date": dt_date_str, "track": "🛡️ 保守防御型" if lang_key == "zh" else "🛡️ Conservative", "ticker": p_sym,
+                                "strategy": "Dual Income: Covered Call + CSP" if lang_key == "en" else "双向增厚: Covered Call + CSP", "strikes": f"{currency} {S_t*0.94:.1f} / {S_t*1.05:.1f}",
                                 "iv": f"{atm_iv*100:.1f}%", "premium": f"+{currency} {(shares*c_prem + csp_units*p_prem):,.1f}",
                                 "payoff": f"{currency} {(cc_liability + csp_loss):,.1f}", "net_pnl": f"{currency} {dual_opt_pnl:+,.1f}"
                             })
@@ -3938,8 +3939,8 @@ def run_5y_full_model_backtest(
                         period_opt_pnl_con += grid_pnl
                         if len(sample_trades_log) < 12:
                             sample_trades_log.append({
-                                "date": dt_date_str, "track": "🛡️ 保守防御型", "ticker": p_sym,
-                                "strategy": "Bursa Spot Limit Grid (低吸网格)", "strikes": f"{currency} {S_t*0.95:.2f}",
+                                "date": dt_date_str, "track": "🛡️ 保守防御型" if lang_key == "zh" else "🛡️ Conservative", "ticker": p_sym,
+                                "strategy": "Bursa Spot Limit Grid (低吸网格)" if lang_key == "zh" else "Bursa Spot Limit Grid", "strikes": f"{currency} {S_t*0.95:.2f}",
                                 "iv": "N/A", "premium": f"{currency} 0.0",
                                 "payoff": f"{currency} {grid_pnl:+,.1f}", "net_pnl": f"{currency} {grid_pnl:+,.1f}"
                             })
@@ -4066,13 +4067,22 @@ def run_5y_full_model_backtest(
             ret_c = (daily_eq_con[i1] / daily_eq_con[i0] - 1.0) * 100.0
             ret_s = (daily_eq_spot[i1] / daily_eq_spot[i0] - 1.0) * 100.0
             ret_b = (daily_eq_bm[i1] / daily_eq_bm[i0] - 1.0) * 100.0
-            yby_rows.append({
-                "Year": str(y),
-                "⚔️ 进取全模型 (Aggressive)": f"{ret_a:+.1f}%",
-                "🛡️ 保守全模型 (Conservative)": f"{ret_c:+.1f}%",
-                "📊 纯现货基线 (Spot-Only)": f"{ret_s:+.1f}%",
-                f"📈 市场基准 ({bm_ticker})": f"{ret_b:+.1f}%"
-            })
+            if lang_key == "zh":
+                yby_rows.append({
+                    "Year": str(y),
+                    "⚔️ 进取全模型 (Aggressive)": f"{ret_a:+.1f}%",
+                    "🛡️ 保守全模型 (Conservative)": f"{ret_c:+.1f}%",
+                    "📊 纯现货基线 (Spot-Only)": f"{ret_s:+.1f}%",
+                    f"📈 市场基准 ({bm_ticker})": f"{ret_b:+.1f}%"
+                })
+            else:
+                yby_rows.append({
+                    "Year": str(y),
+                    "⚔️ Aggressive Full-Model": f"{ret_a:+.1f}%",
+                    "🛡️ Conservative Full-Model": f"{ret_c:+.1f}%",
+                    "📊 Spot-Only Baseline": f"{ret_s:+.1f}%",
+                    f"📈 Market Benchmark ({bm_ticker})": f"{ret_b:+.1f}%"
+                })
 
     tearsheet_df = pd.DataFrame([ts_agg, ts_con, ts_spot, ts_bm]).drop(columns=["raw"])
 
@@ -5150,8 +5160,13 @@ def main():
                 # 财报日 IV Crush 横幅预警
                 if opt_info.get("earnings_alert"):
                     st.warning(
-                        f"⚡ **【财报日跨期波动率坍塌预警 (Earnings Volatility Alert)】**：检测到 `{engine.ticker}` 将于 **{opt_info['earnings_date']}**（约 **{opt_info['days_to_earnings']} 天后**）发布财报！"
-                        f"B-S 模型隐含财报波幅为 **±{opt_info['implied_move_pct']:.1f}%**。系统已自动规避追高买单腿高溢价合约，优先采用分批限价网格或锁定风险结构！"
+                        (
+                            f"⚡ **【财报日跨期波动率坍塌预警 (Earnings Volatility Alert)】**：检测到 `{engine.ticker}` 将于 **{opt_info['earnings_date']}**（约 **{opt_info['days_to_earnings']} 天后**）发布财报！"
+                            f"B-S 模型隐含财报波幅为 **±{opt_info['implied_move_pct']:.1f}%**。系统已自动规避追高买单腿高溢价合约，优先采用分批限价网格或锁定风险结构！"
+                        ) if lang_key == "zh" else (
+                            f"⚡ **[Earnings Volatility Alert (IV Crush Risk)]**: `{engine.ticker}` is scheduled to report earnings on **{opt_info['earnings_date']}** (~**{opt_info['days_to_earnings']} days**). "
+                            f"B-S model implied earnings move is **±{opt_info['implied_move_pct']:.1f}%**. Avoid naked long single-leg calls; favor risk-defined spreads or limit grid orders."
+                        )
                     )
 
                 # 🌟 V13.0 降维打击模块 1：Beneish M-Score 财务造假与盈余操纵侦测雷达横幅
@@ -5168,8 +5183,12 @@ def main():
                     bc1, bc2, bc3, bc4 = st.columns(4)
                     bc1.metric("Beneish M-Score", f"{beneish.get('m_score', -2.5):.2f}", "Threshold: -1.78", delta_color="off")
                     bc2.metric("Accruals Ratio (TATA)", f"{beneish.get('accruals_pct', 0.0):+.2f}%", "(Net Inc - OCF) / Assets", delta_color="off")
-                    bc3.metric("DSRI (应收膨胀指数)", f"{b_comp.get('DSRI', 1.0):.2f}x", f"GMI (毛利恶化): {b_comp.get('GMI', 1.0):.2f}x", delta_color="off")
-                    bc4.metric("SGI (营收扩张指数)", f"{b_comp.get('SGI', 1.0):.2f}x", f"LVGI (杠杆异动): {b_comp.get('LVGI', 1.0):.2f}x", delta_color="off")
+                    dsri_title = "DSRI (应收膨胀指数)" if lang_key == "zh" else "DSRI (Days Sales Rec)"
+                    gmi_title = "GMI (毛利恶化):" if lang_key == "zh" else "GMI (Gross Margin):"
+                    bc3.metric(dsri_title, f"{b_comp.get('DSRI', 1.0):.2f}x", f"{gmi_title} {b_comp.get('GMI', 1.0):.2f}x", delta_color="off")
+                    sgi_title = "SGI (营收扩张指数)" if lang_key == "zh" else "SGI (Sales Growth)"
+                    lvgi_title = "LVGI (杠杆异动):" if lang_key == "zh" else "LVGI (Leverage Index):"
+                    bc4.metric(sgi_title, f"{b_comp.get('SGI', 1.0):.2f}x", f"{lvgi_title} {b_comp.get('LVGI', 1.0):.2f}x", delta_color="off")
 
                 # --------------------------------------------------------------
                 # STAGE 1: 四大分析师并行调研报告 (Parallel Analyst Team)
@@ -5180,63 +5199,100 @@ def main():
                 with a_col1:
                     with st.container(border=True):
                         st.markdown("<span class='agent-badge' style='background:rgba(56,189,248,0.2);color:#38bdf8;'>📈 MARKET ANALYST</span>", unsafe_allow_html=True)
-                        st.markdown(f"**趋势判定:** `{tech['trend']}`")
+                        trend_label = "**趋势判定:**" if lang_key == "zh" else "**Trend Assessment:**"
+                        st.markdown(f"{trend_label} `{tech['trend']}`")
+                        rsi_zone = ('超买区' if tech['rsi']>70 else ('超卖区' if tech['rsi']<30 else '中性区')) if lang_key == "zh" else ('Overbought' if tech['rsi']>70 else ('Oversold' if tech['rsi']<30 else 'Neutral'))
+                        vol_label = "**GARCH(1,1) 动态波动率:**" if lang_key == "zh" else "**GARCH(1,1) Dynamic Vol:**"
+                        sr_label = "**支撑 / 阻力位:**" if lang_key == "zh" else "**Support / Resistance:**"
+                        mdd_label = "**1Y 最大回撤 (MDD):**" if lang_key == "zh" else "**1Y Max Drawdown (MDD):**"
+                        var_label = "**95% 日 VaR / CVaR:**" if lang_key == "zh" else "**95% Daily VaR / CVaR:**"
                         st.markdown(
                             f"- **MA20 / MA50:** `{tech['ma20']:.2f}` / `{tech['ma50']:.2f}`\n"
-                            f"- **RSI (14):** `{tech['rsi']:.1f}` ({'超买区' if tech['rsi']>70 else ('超卖区' if tech['rsi']<30 else '中性区')})\n"
-                            f"- **GARCH(1,1) 动态波动率:** `{tech.get('garch_vol', tech['hv30'])*100:.1f}%` (HV30 `{tech['hv30']*100:.1f}%`)\n"
-                            f"- **支撑 / 阻力位:** `{tech['support']:.2f}` / `{tech['resistance']:.2f}`\n"
-                            f"- **1Y 最大回撤 (MDD):** `{tech.get('mdd_pct', 0.0):.1f}%`\n"
-                            f"- **95% 日 VaR / CVaR:** `{tech.get('var_95_pct', 0.0):.2f}%` / `{tech.get('cvar_95_pct', 0.0):.2f}%`"
+                            f"- **RSI (14):** `{tech['rsi']:.1f}` ({rsi_zone})\n"
+                            f"- {vol_label} `{tech.get('garch_vol', tech['hv30'])*100:.1f}%` (HV30 `{tech['hv30']*100:.1f}%`)\n"
+                            f"- {sr_label} `{tech['support']:.2f}` / `{tech['resistance']:.2f}`\n"
+                            f"- {mdd_label} `{tech.get('mdd_pct', 0.0):.1f}%`\n"
+                            f"- {var_label} `{tech.get('var_95_pct', 0.0):.2f}%` / `{tech.get('cvar_95_pct', 0.0):.2f}%`"
                         )
 
                 with a_col2:
                     with st.container(border=True):
                         st.markdown("<span class='agent-badge' style='background:rgba(16,185,129,0.2);color:#10b981;'>📊 FUNDAMENTALS ANALYST</span>", unsafe_allow_html=True)
-                        st.markdown(f"**主推模型:** `{engine.model_name[:18]}`")
+                        model_label = "**主推模型:**" if lang_key == "zh" else "**Primary Model:**"
+                        st.markdown(f"{model_label} `{engine.model_name[:18]}`")
+                        fair_label = "**内在公允价:**" if lang_key == "zh" else "**Intrinsic Fair Value:**"
+                        mos_label = "**安全边际 (MoS):**" if lang_key == "zh" else "**Margin of Safety (MoS):**"
+                        dcf_label = "**三表真实 NWC DCF:**" if lang_key == "zh" else "**3-Stmt NWC DCF:**"
+                        pe_label = "**同业 P/E 隐含股价:**" if lang_key == "zh" else "**Peer P/E Implied Price:**"
+                        ccc_label = "**现金转换周期 (CCC):**" if lang_key == "zh" else "**Cash Conversion Cycle (CCC):**"
+                        ccc_unit = "天" if lang_key == "zh" else "days"
                         st.markdown(
-                            f"- **内在公允价:** `{engine.currency} {engine.fair_val:.2f}`\n"
-                            f"- **安全边际 (MoS):** `{pipe['mos_pct']:+.1f}%`\n"
+                            f"- {fair_label} `{engine.currency} {engine.fair_val:.2f}`\n"
+                            f"- {mos_label} `{pipe['mos_pct']:+.1f}%`\n"
                             f"- **Beneish M-Score:** `{beneish.get('m_score', -2.5):.2f}` ({beneish.get('status', 'CLEAN')})\n"
-                            f"- **三表真实 NWC DCF:** `{engine.currency} {(engine.val_3stmt_dcf or engine.fair_val):.2f}`\n"
-                            f"- **同业 P/E 隐含股价:** `{engine.currency} {(engine.val_pe or engine.fair_val):.2f}`\n"
-                            f"- **现金转换周期 (CCC):** `{engine.hist_dso + engine.hist_dio - engine.hist_dpo} 天`"
+                            f"- {dcf_label} `{engine.currency} {(engine.val_3stmt_dcf or engine.fair_val):.2f}`\n"
+                            f"- {pe_label} `{engine.currency} {(engine.val_pe or engine.fair_val):.2f}`\n"
+                            f"- {ccc_label} `{engine.hist_dso + engine.hist_dio - engine.hist_dpo} {ccc_unit}`"
                         )
 
                 with a_col3:
                     with st.container(border=True):
                         st.markdown("<span class='agent-badge' style='background:rgba(245,158,11,0.2);color:#f59e0b;'>📰 NEWS & SENTIMENT</span>", unsafe_allow_html=True)
-                        st.markdown(f"**隐含增长率:** `{pipe['implied_g_pct']:.1f}% / 年`")
+                        implied_g_label = "**隐含增长率:**" if lang_key == "zh" else "**Implied Growth Rate:**"
+                        per_yr = "/ 年" if lang_key == "zh" else "/ yr"
+                        st.markdown(f"{implied_g_label} `{pipe['implied_g_pct']:.1f}% {per_yr}`")
+                        ws_target_label = "**华尔街目标均值:**" if lang_key == "zh" else "**Wall St Target Mean:**"
+                        jensen_label = "**年化 Jensen's α:**" if lang_key == "zh" else "**Annualized Jensen's α:**"
+                        earnings_label = "**下一季财报日:**" if lang_key == "zh" else "**Next Earnings Date:**"
+                        news_label = "**最新头条监控:**" if lang_key == "zh" else "**Latest News Feed:**"
+                        no_news_txt = "  - *暂无突发黑天鹅新闻*" if lang_key == "zh" else "  - *No breaking black swan headlines*"
                         st.markdown(
-                            f"- **华尔街目标均值:** `{engine.currency} {pipe['target_mean']:.2f}` ({pipe['ws_upside']:+.1f}%)\n"
-                            f"- **年化 Jensen's α:** `{engine.alpha_annual*100:+.1f}% / 年`\n"
-                            f"- **下一季财报日:** `{opt_info.get('earnings_date', 'N/A')}`\n"
-                            f"- **最新头条监控:**\n" +
-                            ("\n".join([f"  - *{ h[:48] }...*" for h in pipe["news"][:2]]) if pipe["news"] else "  - *暂无突发黑天鹅新闻*")
+                            f"- {ws_target_label} `{engine.currency} {pipe['target_mean']:.2f}` ({pipe['ws_upside']:+.1f}%)\n"
+                            f"- {jensen_label} `{engine.alpha_annual*100:+.1f}% {per_yr}`\n"
+                            f"- {earnings_label} `{opt_info.get('earnings_date', 'N/A')}`\n"
+                            f"- {news_label}\n" +
+                            ("\n".join([f"  - *{ h[:48] }...*" for h in pipe["news"][:2]]) if pipe["news"] else no_news_txt)
                         )
 
                 with a_col4:
                     with st.container(border=True):
                         if engine.is_malaysia:
                             st.markdown("<span class='agent-badge' style='background:rgba(168,85,247,0.2);color:#c084fc;'>🇲🇾 VOL & WARRANT ANALYST</span>", unsafe_allow_html=True)
-                            st.markdown("**市场制度:** `马股无个股期权 (No Stock Options)`")
+                            regime_label = "**市场制度:**" if lang_key == "zh" else "**Market Regime:**"
+                            regime_val = "`马股无个股期权 (No Stock Options)`" if lang_key == "zh" else "`No Single-Stock Options on Bursa`"
+                            unit_label = "**Bursa 交易单位:**" if lang_key == "zh" else "**Bursa Trading Unit:**"
+                            unit_val = "`1 Lot = 100 股`" if lang_key == "zh" else "`1 Lot = 100 shares`"
+                            fc_vol_label = "**GARCH(1,1) 预测波动率:**" if lang_key == "zh" else "**GARCH(1,1) Forecast Vol:**"
+                            hv_label = "**30日历史波动率 (HV30):**" if lang_key == "zh" else "**30D Historical Vol (HV30):**"
+                            warr_label = "**B-S 凭单定标波动率:**" if lang_key == "zh" else "**B-S Warrant Benchmark Vol:**"
+                            move_label = "**30D 隐含震荡波幅:**" if lang_key == "zh" else "**30D Implied Expected Move:**"
+                            alt_label = "**衍生品替代工具:**" if lang_key == "zh" else "**Derivatives Alternative:**"
+                            alt_val = "`结构化凭单 (CW) / FKLI 期货`" if lang_key == "zh" else "`Structured Call Warrants (CW) / FKLI Futures`"
+                            st.markdown(f"{regime_label} {regime_val}")
                             st.markdown(
-                                f"- **Bursa 交易单位:** `1 Lot = 100 股`\n"
-                                f"- **GARCH(1,1) 预测波动率:** `{opt_info.get('garch_vol', tech['hv30'])*100:.1f}%` (`{tech.get('vol_regime', 'NORMAL')}`)\n"
-                                f"- **30日历史波动率 (HV30):** `{tech['hv30']*100:.1f}%`\n"
-                                f"- **B-S 凭单定标波动率:** `{opt_info['atm_iv']*100:.1f}%`\n"
-                                f"- **30D 隐含震荡波幅:** `±{opt_info.get('implied_move_pct', 0.0):.1f}%`\n"
-                                f"- **衍生品替代工具:** `结构化凭单 (CW) / FKLI 期货`"
+                                f"- {unit_label} {unit_val}\n"
+                                f"- {fc_vol_label} `{opt_info.get('garch_vol', tech['hv30'])*100:.1f}%` (`{tech.get('vol_regime', 'NORMAL')}`)\n"
+                                f"- {hv_label} `{tech['hv30']*100:.1f}%`\n"
+                                f"- {warr_label} `{opt_info['atm_iv']*100:.1f}%`\n"
+                                f"- {move_label} `±{opt_info.get('implied_move_pct', 0.0):.1f}%`\n"
+                                f"- {alt_label} {alt_val}"
                             )
                         else:
                             st.markdown("<span class='agent-badge' style='background:rgba(168,85,247,0.2);color:#c084fc;'>🎯 OPTIONS & VOL ANALYST</span>", unsafe_allow_html=True)
-                            st.markdown(f"**主力合约:** `{opt_info['expiry']}`")
+                            front_label = "**主力合约:**" if lang_key == "zh" else "**Front-Month Contract:**"
+                            st.markdown(f"{front_label} `{opt_info['expiry']}`")
+                            atm_iv_label = "**平值隐含波动率 (IV):**" if lang_key == "zh" else "**ATM Implied Vol (IV):**"
+                            fc_vol_label = "**GARCH(1,1) 预测波动率:**" if lang_key == "zh" else "**GARCH(1,1) Forecast Vol:**"
+                            iv_ratio_label = "**IV / GARCH 溢价比:**" if lang_key == "zh" else "**IV / GARCH Premium Ratio:**"
+                            iv_comment = ("期权偏贵-宜卖方/价差" if opt_info['iv_hv_ratio']>=1.15 else "期权便宜-宜买方") if lang_key == "zh" else ("Options Rich - Sell Spreads/Theta" if opt_info['iv_hv_ratio']>=1.15 else "Options Cheap - Buy Vega")
+                            skew_label = "**Put-Call 偏度 (Skew):**" if lang_key == "zh" else "**Put-Call Skew:**"
+                            move_label = "**隐含预期波幅 (Straddle):**" if lang_key == "zh" else "**Implied Expected Move (Straddle):**"
                             st.markdown(
-                                f"- **平值隐含波动率 (IV):** `{opt_info['atm_iv']*100:.1f}%`\n"
-                                f"- **GARCH(1,1) 预测波动率:** `{opt_info.get('garch_vol', tech['hv30'])*100:.1f}%` (`{tech.get('vol_regime', 'NORMAL')}`)\n"
-                                f"- **IV / GARCH 溢价比:** `{opt_info['iv_hv_ratio']:.2f}x` ({'期权偏贵-宜卖方/价差' if opt_info['iv_hv_ratio']>=1.15 else '期权便宜-宜买方'})\n"
-                                f"- **Put-Call 偏度 (Skew):** `{opt_info['skew']:+.1f}%`\n"
-                                f"- **隐含预期波幅 (Straddle):** `±{opt_info.get('implied_move_pct', 0.0):.1f}%`"
+                                f"- {atm_iv_label} `{opt_info['atm_iv']*100:.1f}%`\n"
+                                f"- {fc_vol_label} `{opt_info.get('garch_vol', tech['hv30'])*100:.1f}%` (`{tech.get('vol_regime', 'NORMAL')}`)\n"
+                                f"- {iv_ratio_label} `{opt_info['iv_hv_ratio']:.2f}x` ({iv_comment})\n"
+                                f"- {skew_label} `{opt_info['skew']:+.1f}%`\n"
+                                f"- {move_label} `±{opt_info.get('implied_move_pct', 0.0):.1f}%`"
                             )
 
                 st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
@@ -5248,24 +5304,42 @@ def main():
                 d_col1, d_col2 = st.columns(2)
 
                 with d_col1:
-                    bull_r1 = (
-                        f"**[第一轮立论 - 估值与成长驱动]** 标的 `{engine.ticker}` 当前自由现金流造血能力强劲（FCF 达 `{engine.cf/1e9:.2f}B`）。"
-                        f"在系统主推模型 (`{engine.model_name}`) 下内在价值为 `{engine.currency} {engine.fair_val:.2f}`，三表动态 DCF 为 `{engine.currency} {(engine.val_3stmt_dcf or engine.fair_val):.2f}`，"
-                        f"华尔街机构目标均值看向 `{engine.currency} {pipe['target_mean']:.2f}`（潜在空间 `{pipe['ws_upside']:+.1f}%`）。20日关键支撑位稳固在 `{tech['support']:.2f}`。"
-                    )
-                    if engine.is_malaysia:
-                        bull_r2 = (
-                            f"**[第二轮反驳空方 - 马股高股息护城河与网格复利]** 空方过度夸大了宏观折现率 (WACC `{engine.wacc*100:.2f}%`) 的压力！"
-                            f"虽然马股（Bursa Malaysia）无美式个股期权，但我们可以利用 GARCH(1,1) 动态波动率 (`{tech.get('garch_vol', tech['hv30'])*100:.1f}%`) 测算的折让支撑位布设现货限价接货网格，配合 `{pipe['div_yield']:.2f}%` 现金股息率复利再投资 (DRIP)，持仓胜率极高。"
+                    if lang_key == "zh":
+                        bull_r1 = (
+                            f"**[第一轮立论 - 估值与成长驱动]** 标的 `{engine.ticker}` 当前自由现金流造血能力强劲（FCF 达 `{engine.cf/1e9:.2f}B`）。"
+                            f"在系统主推模型 (`{engine.model_name}`) 下内在价值为 `{engine.currency} {engine.fair_val:.2f}`，三表动态 DCF 为 `{engine.currency} {(engine.val_3stmt_dcf or engine.fair_val):.2f}`，"
+                            f"华尔街机构目标均值看向 `{engine.currency} {pipe['target_mean']:.2f}`（潜在空间 `{pipe['ws_upside']:+.1f}%`）。20日关键支撑位稳固在 `{tech['support']:.2f}`。"
                         )
+                        if engine.is_malaysia:
+                            bull_r2 = (
+                                f"**[第二轮反驳空方 - 马股高股息护城河与网格复利]** 空方过度夸大了宏观折现率 (WACC `{engine.wacc*100:.2f}%`) 的压力！"
+                                f"虽然马股（Bursa Malaysia）无美式个股期权，但我们可以利用 GARCH(1,1) 动态波动率 (`{tech.get('garch_vol', tech['hv30'])*100:.1f}%`) 测算的折让支撑位布设现货限价接货网格，配合 `{pipe['div_yield']:.2f}%` 现金股息率复利再投资 (DRIP)，持仓胜率极高。"
+                            )
+                        else:
+                            bull_r2 = (
+                                f"**[第二轮反驳空方 - 期权与现金流护城河]** 空方过度夸大了宏观折现率 (WACC `{engine.wacc*100:.2f}%`) 的压力！"
+                                f"即便短期股价横盘，我们也可以利用当前 `{opt_info['atm_iv']*100:.1f}%` 的隐含波动率（对比 GARCH 动态波动率 `{tech.get('garch_vol', tech['hv30'])*100:.1f}%`），通过期权策略收割权利金或构建低成本垂直价差，持仓胜率极高。"
+                            )
                     else:
-                        bull_r2 = (
-                            f"**[第二轮反驳空方 - 期权与现金流护城河]** 空方过度夸大了宏观折现率 (WACC `{engine.wacc*100:.2f}%`) 的压力！"
-                            f"即便短期股价横盘，我们也可以利用当前 `{opt_info['atm_iv']*100:.1f}%` 的隐含波动率（对比 GARCH 动态波动率 `{tech.get('garch_vol', tech['hv30'])*100:.1f}%`），通过期权策略收割权利金或构建低成本垂直价差，持仓胜率极高。"
+                        bull_r1 = (
+                            f"**[Round 1 Argument - Valuation & Growth Drivers]** Target `{engine.ticker}` demonstrates robust free cash flow generation (FCF of `{engine.cf/1e9:.2f}B`). "
+                            f"Under our primary model (`{engine.model_name}`), intrinsic value is `{engine.currency} {engine.fair_val:.2f}`, 3-statement dynamic DCF stands at `{engine.currency} {(engine.val_3stmt_dcf or engine.fair_val):.2f}`, "
+                            f"and Wall Street consensus points toward `{engine.currency} {pipe['target_mean']:.2f}` (`{pipe['ws_upside']:+.1f}%` upside). Crucial 20-day support holds firm at `{tech['support']:.2f}`."
                         )
+                        if engine.is_malaysia:
+                            bull_r2 = (
+                                f"**[Round 2 Rebuttal - Bursa Dividend Moat & Limit Grid]** The Bear camp overstates macroeconomic discount rate (WACC `{engine.wacc*100:.2f}%`) pressure! "
+                                f"While Bursa Malaysia lacks exchange single-stock options, we leverage GARCH(1,1) conditional volatility (`{tech.get('garch_vol', tech['hv30'])*100:.1f}%`) to anchor discount limit-buy grids at support, compounded by `{pipe['div_yield']:.2f}%` dividend reinvestment (DRIP) for asymmetric upside."
+                            )
+                        else:
+                            bull_r2 = (
+                                f"**[Round 2 Rebuttal - Options & Volatility Moat]** The Bear camp overstates macroeconomic discount rate (WACC `{engine.wacc*100:.2f}%`) pressure! "
+                                f"Even if spot trades sideways, current `{opt_info['atm_iv']*100:.1f}%` IV trades at an actionable premium over GARCH volatility (`{tech.get('garch_vol', tech['hv30'])*100:.1f}%`), allowing us to harvest rich theta or structure risk-defined vertical spreads."
+                            )
+                    bull_card_title = "🐂 看多研究员 (Bull Researcher)" if lang_key == "zh" else "🐂 Bull Researcher"
                     st.markdown(
                         f"<div class='debate-card-bull'>"
-                        f"<div style='color:#10b981;font-weight:800;font-size:15px;margin-bottom:6px;'>🐂 看多研究员 (Bull Researcher)</div>"
+                        f"<div style='color:#10b981;font-weight:800;font-size:15px;margin-bottom:6px;'>{bull_card_title}</div>"
                         f"<p style='font-size:13.5px;line-height:1.6;margin-bottom:8px;'>{bull_r1}</p>"
                         f"{f'<p style=\"font-size:13.5px;line-height:1.6;margin-bottom:0;\">{bull_r2}</p>' if debate_rounds >= 2 else ''}"
                         f"</div>",
@@ -5273,18 +5347,30 @@ def main():
                     )
 
                 with d_col2:
-                    bear_r1 = (
-                        f"**[第一轮立论 - 估值透支与财务质量审视]** 当前市价 `{engine.currency} {engine.price:.2f}` 对比模型公允价 `{engine.fair_val:.2f}` 的安全边际为 `{pipe['mos_pct']:+.1f}%`，"
-                        f"Beneish M-Score 财务质量得分为 `{beneish.get('m_score', -2.5):.2f}`（应计比率 `{beneish.get('accruals_pct', 0.0):+.2f}%`）。"
-                        f"测谎仪显示市场当前定价隐含了每年 `{pipe['implied_g_pct']:.1f}%` 的增长预期，一旦增速放缓将面临剧烈的估值杀跌。"
-                    )
-                    bear_r2 = (
-                        f"**[第二轮反驳多方 - 尾部风险与回撤压力]** 历史回测显示该标的过去 1 年最大回撤达 `{tech.get('mdd_pct', 0.0):.1f}%`，95% 极端日 CVaR 尾部亏损为 `{tech.get('cvar_95_pct', 0.0):.2f}%`。"
-                        f"技术指标 RSI 目前处于 `{tech['rsi']:.1f}`，上方 `{tech['resistance']:.2f}` 阻力重重，盲目单边重仓正股极易在波动中受损！"
-                    )
+                    if lang_key == "zh":
+                        bear_r1 = (
+                            f"**[第一轮立论 - 估值透支与财务质量审视]** 当前市价 `{engine.currency} {engine.price:.2f}` 对比模型公允价 `{engine.fair_val:.2f}` 的安全边际为 `{pipe['mos_pct']:+.1f}%`，"
+                            f"Beneish M-Score 财务质量得分为 `{beneish.get('m_score', -2.5):.2f}`（应计比率 `{beneish.get('accruals_pct', 0.0):+.2f}%`）。"
+                            f"测谎仪显示市场当前定价隐含了每年 `{pipe['implied_g_pct']:.1f}%` 的增长预期，一旦增速放缓将面临剧烈的估值杀跌。"
+                        )
+                        bear_r2 = (
+                            f"**[第二轮反驳多方 - 尾部风险与回撤压力]** 历史回测显示该标的过去 1 年最大回撤达 `{tech.get('mdd_pct', 0.0):.1f}%`，95% 极端日 CVaR 尾部亏损为 `{tech.get('cvar_95_pct', 0.0):.2f}%`。"
+                            f"技术指标 RSI 目前处于 `{tech['rsi']:.1f}`，上方 `{tech['resistance']:.2f}` 阻力重重，盲目单边重仓正股极易在波动中受损！"
+                        )
+                    else:
+                        bear_r1 = (
+                            f"**[Round 1 Argument - Valuation Premium & Quality Check]** Current market price `{engine.currency} {engine.price:.2f}` against model fair value `{engine.fair_val:.2f}` leaves a margin of safety of `{pipe['mos_pct']:+.1f}%`. "
+                            f"Beneish M-Score stands at `{beneish.get('m_score', -2.5):.2f}` (accruals ratio `{beneish.get('accruals_pct', 0.0):+.2f}%`). "
+                            f"Reverse-engineering indicates the market prices in `{pipe['implied_g_pct']:.1f}%` annual growth—leaving zero room for operational deceleration."
+                        )
+                        bear_r2 = (
+                            f"**[Round 2 Rebuttal - Tail-Risk & Drawdown Exposure]** Historical metrics show a 1-year max drawdown of `{tech.get('mdd_pct', 0.0):.1f}%` and a 95% 1-day CVaR of `{tech.get('cvar_95_pct', 0.0):.2f}%`. "
+                            f"With RSI at `{tech['rsi']:.1f}` and resistance overhead at `{tech['resistance']:.2f}`, unhedged directional long spot risks severe whipsaw losses!"
+                        )
+                    bear_card_title = "🐻 看空研究员 (Bear Researcher)" if lang_key == "zh" else "🐻 Bear Researcher"
                     st.markdown(
                         f"<div class='debate-card-bear'>"
-                        f"<div style='color:#ef4444;font-weight:800;font-size:15px;margin-bottom:6px;'>🐻 看空研究员 (Bear Researcher)</div>"
+                        f"<div style='color:#ef4444;font-weight:800;font-size:15px;margin-bottom:6px;'>{bear_card_title}</div>"
                         f"<p style='font-size:13.5px;line-height:1.6;margin-bottom:8px;'>{bear_r1}</p>"
                         f"{f'<p style=\"font-size:13.5px;line-height:1.6;margin-bottom:0;\">{bear_r2}</p>' if debate_rounds >= 2 else ''}"
                         f"</div>",
@@ -5292,18 +5378,32 @@ def main():
                     )
 
                 with st.container(border=True):
-                    st.markdown(
-                        f"**⚖️ 研究总监裁决 (Research Manager Synthesis - `ResearchPlan`)**  |  "
-                        f"**初步投研评级: `{pipe['final_rating'].upper()}` (综合量化得分: `{pipe['total_score']:+.1f}`，含 Beneish 财务修正 `{beneish.get('penalty', 0.0):+.0f}` 分)**"
-                    )
-                    st.write(
-                        f"综合多空双方 {debate_rounds} 轮辩论：基本面估值偏离度为 `{pipe['mos_pct']:+.1f}%`，技术面处于 `{tech['trend']}` 格局。"
-                        + (
-                            "鉴于马股（Bursa Malaysia）无交易所个股期权，研究部决定采用 **【半凯利公式 (Half-Kelly) 仓位控制 + 马股现货分批网格/结构化凭单 + Beta 中性多空配对】** 的复合战略指令。"
-                            if engine.is_malaysia else
-                            "研究部决定采用 **【半凯利公式 (Half-Kelly) 仓位控制 + 期权波动率套利/保护 + Beta 中性多空配对】** 的复合战略指令。"
+                    if lang_key == "zh":
+                        st.markdown(
+                            f"**⚖️ 研究总监裁决 (Research Manager Synthesis - `ResearchPlan`)**  |  "
+                            f"**初步投研评级: `{pipe['final_rating'].upper()}` (综合量化得分: `{pipe['total_score']:+.1f}`，含 Beneish 财务修正 `{beneish.get('penalty', 0.0):+.0f}` 分)**"
                         )
-                    )
+                        st.write(
+                            f"综合多空双方 {debate_rounds} 轮辩论：基本面估值偏离度为 `{pipe['mos_pct']:+.1f}%`，技术面处于 `{tech['trend']}` 格局。"
+                            + (
+                                "鉴于马股（Bursa Malaysia）无交易所个股期权，研究部决定采用 **【半凯利公式 (Half-Kelly) 仓位控制 + 马股现货分批网格/结构化凭单 + Beta 中性多空配对】** 的复合战略指令。"
+                                if engine.is_malaysia else
+                                "研究部决定采用 **【半凯利公式 (Half-Kelly) 仓位控制 + 期权波动率套利/保护 + Beta 中性多空配对】** 的复合战略指令。"
+                            )
+                        )
+                    else:
+                        st.markdown(
+                            f"**⚖️ Research Manager Synthesis (`ResearchPlan`)**  |  "
+                            f"**Preliminary Rating: `{pipe['final_rating'].upper()}` (Multi-Factor Score: `{pipe['total_score']:+.1f}`, Beneish Penalty: `{beneish.get('penalty', 0.0):+.0f}`)**"
+                        )
+                        st.write(
+                            f"Synthesizing {debate_rounds} rounds of debate: Valuation margin of safety is `{pipe['mos_pct']:+.1f}%` with technical regime `{tech['trend']}`. "
+                            + (
+                                "Given that Bursa Malaysia has no single-stock options, the Committee institutes **[Half-Kelly Sizing + Bursa Spot Limit Grid / Warrants + Beta-Neutral Long-Short Pairs]**."
+                                if engine.is_malaysia else
+                                "The Committee institutes **[Half-Kelly Sizing + Options Volatility / Downside Hedge + Beta-Neutral Long-Short Pairs]**."
+                            )
+                        )
 
                 st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
 
@@ -5315,48 +5415,81 @@ def main():
 
                 with t_col1:
                     with st.container(border=True):
-                        st.markdown("<span class='agent-badge' style='background:rgba(56,189,248,0.2);color:#38bdf8;'>💵 SPOT EQUITY ORDER (半凯利公式仓位提案)</span>", unsafe_allow_html=True)
-                        st.markdown(f"##### 执行方向: `{pipe['trader_action']}`  |  Half-Kelly 建议仓位: `{pipe['alloc_pct']:.1f}%`")
+                        spot_badge = "<span class='agent-badge' style='background:rgba(56,189,248,0.2);color:#38bdf8;'>💵 SPOT EQUITY ORDER (半凯利公式仓位提案)</span>" if lang_key == "zh" else "<span class='agent-badge' style='background:rgba(56,189,248,0.2);color:#38bdf8;'>💵 SPOT EQUITY ORDER (Half-Kelly Sizing)</span>"
+                        st.markdown(spot_badge, unsafe_allow_html=True)
+                        order_hdr = f"##### 执行方向: `{pipe['trader_action']}`  |  Half-Kelly 建议仓位: `{pipe['alloc_pct']:.1f}%`" if lang_key == "zh" else f"##### Action: `{pipe['trader_action']}`  |  Half-Kelly Target Sizing: `{pipe['alloc_pct']:.1f}%`"
+                        st.markdown(order_hdr)
                         raw_shares = int((user_cash * (pipe['alloc_pct'] / 100.0)) // engine.price) if engine.price > 0 else 0
                         if engine.is_malaysia:
                             suggested_shares = (raw_shares // 100) * 100
-                            lot_str = f"约 `{suggested_shares:,}` 股（折合 Bursa 标准手数 `{suggested_shares // 100:,} Lots`，1 Lot = 100 股 | 现有持仓 `{user_shares}` 股）"
+                            lot_str = f"约 `{suggested_shares:,}` 股（折合 Bursa 标准手数 `{suggested_shares // 100:,} Lots`，1 Lot = 100 股 | 现有持仓 `{user_shares}` 股）" if lang_key == "zh" else f"~`{suggested_shares:,}` shares (`{suggested_shares // 100:,} Bursa Lots`, 1 Lot = 100 shares | Current: `{user_shares}` shares)"
                         else:
                             suggested_shares = raw_shares
-                            lot_str = f"约 `{suggested_shares:,}` 股 (现有持仓 `{user_shares}` 股)"
-                        st.markdown(
-                            f"- **参考建仓/挂单价 (Entry):** `{engine.currency} {pipe['entry_price']:.2f}`\n"
-                            f"- **ATR 硬性止损位 (Stop-Loss):** `{engine.currency} {pipe['stop_loss']:.2f}` (2x ATR 支撑防线)\n"
-                            f"- **第一止盈目标位 (Take-Profit):** `{engine.currency} {pipe['take_profit']:.2f}`\n"
-                            f"- **凯利数学推导 ($0.5 f^*$):** 综合胜率 $p={pipe.get('win_prob_p', 0.5)*100:.1f}\\%$, 赔率 $b={pipe.get('odds_b', 1.5):.2f}:1$ $\\rightarrow$ 全凯利 `{pipe.get('full_kelly_pct', 0.0):.1f}%` $\\rightarrow$ **半凯利 `{pipe.get('half_kelly_pct', 0.0):.1f}%`**\n"
-                            f"- **按可用现金折算股数:** {lot_str}"
-                        )
+                            lot_str = f"约 `{suggested_shares:,}` 股 (现有持仓 `{user_shares}` 股)" if lang_key == "zh" else f"~`{suggested_shares:,}` shares (Current: `{user_shares}` shares)"
+                        if lang_key == "zh":
+                            st.markdown(
+                                f"- **参考建仓/挂单价 (Entry):** `{engine.currency} {pipe['entry_price']:.2f}`\n"
+                                f"- **ATR 硬性止损位 (Stop-Loss):** `{engine.currency} {pipe['stop_loss']:.2f}` (2x ATR 支撑防线)\n"
+                                f"- **第一止盈目标位 (Take-Profit):** `{engine.currency} {pipe['take_profit']:.2f}`\n"
+                                f"- **凯利数学推导 ($0.5 f^*$):** 综合胜率 $p={pipe.get('win_prob_p', 0.5)*100:.1f}\\%$, 赔率 $b={pipe.get('odds_b', 1.5):.2f}:1$ $\\rightarrow$ 全凯利 `{pipe.get('full_kelly_pct', 0.0):.1f}%` $\\rightarrow$ **半凯利 `{pipe.get('half_kelly_pct', 0.0):.1f}%`**\n"
+                                f"- **按可用现金折算股数:** {lot_str}"
+                            )
+                        else:
+                            st.markdown(
+                                f"- **Reference Entry Price:** `{engine.currency} {pipe['entry_price']:.2f}`\n"
+                                f"- **ATR Hard Stop-Loss:** `{engine.currency} {pipe['stop_loss']:.2f}` (2x ATR Support Floor)\n"
+                                f"- **Take-Profit Target:** `{engine.currency} {pipe['take_profit']:.2f}`\n"
+                                f"- **Half-Kelly Derivation ($0.5 f^*$):** Win prob $p={pipe.get('win_prob_p', 0.5)*100:.1f}\\%$, Odds $b={pipe.get('odds_b', 1.5):.2f}:1$ $\\rightarrow$ Full Kelly `{pipe.get('full_kelly_pct', 0.0):.1f}%` $\\rightarrow$ **Half-Kelly `{pipe.get('half_kelly_pct', 0.0):.1f}%`**\n"
+                                f"- **Shares from Free Cash:** {lot_str}"
+                            )
 
                 with t_col2:
                     with st.container(border=True):
-                        badge_t2 = "🇲🇾 BURSA GRID & WARRANT OVERLAY (马股网格与凭单战术指令)" if engine.is_malaysia else "🎯 OPTIONS TACTICAL ORDER (衍生品期权作战指令)"
+                        if engine.is_malaysia:
+                            badge_t2 = "🇲🇾 BURSA GRID & WARRANT OVERLAY (马股网格与凭单战术指令)" if lang_key == "zh" else "🇲🇾 BURSA GRID & WARRANT OVERLAY"
+                        else:
+                            badge_t2 = "🎯 OPTIONS TACTICAL ORDER (衍生品期权作战指令)" if lang_key == "zh" else "🎯 OPTIONS TACTICAL ORDER"
                         st.markdown(f"<span class='agent-badge' style='background:rgba(16,185,129,0.25);color:#10b981;'>{badge_t2}</span>", unsafe_allow_html=True)
-                        st.markdown(f"##### 推荐策略: {pipe['opt_strategy_name']}")
-                        st.markdown(f"- **具体执行细节:** {pipe['opt_action_detail']}")
-                        st.info(f"💡 **交易台逻辑 (Desk Rationale):** {pipe['opt_rationale']}")
+                        strat_hdr = f"##### 推荐策略: {pipe['opt_strategy_name']}" if lang_key == "zh" else f"##### Strategy: {pipe['opt_strategy_name']}"
+                        st.markdown(strat_hdr)
+                        detail_label = "- **具体执行细节:**" if lang_key == "zh" else "- **Execution Details:**"
+                        st.markdown(f"{detail_label} {pipe['opt_action_detail']}")
+                        info_label = "💡 **交易台逻辑 (Desk Rationale):**" if lang_key == "zh" else "💡 **Desk Rationale:**"
+                        st.info(f"{info_label} {pipe['opt_rationale']}")
 
                 # 🌟 V13.0 极致优化 C：对冲基金多空配对交易 (Market-Neutral Long-Short Equity Pairs Trading)
                 if pair_info:
                     with st.container(border=True):
-                        st.markdown("<span class='agent-badge' style='background:rgba(192,132,252,0.22);color:#c084fc;'>⚖️ STAT-ARB LONG-SHORT PAIRS DESK (Beta 中性多空配对统计套利指令)</span>", unsafe_allow_html=True)
-                        st.markdown(f"##### 配对结构: {pair_info.get('spread_desc', '')}")
-                        st.markdown(
-                            f"- **多头腿名义本金 (Long Leg Notional):** `{engine.currency} {pair_info.get('long_notional', 0):,.0f}` (`{pair_info.get('long_tk')}`)  |  "
-                            f"**空头腿 Beta 对冲本金 (Short Leg Notional):** `{engine.currency} {pair_info.get('short_notional', 0):,.0f}` (`{pair_info.get('short_tk')}`)\n"
-                            f"- **统计套利逻辑:** {pair_info.get('rationale', '')}"
-                        )
+                        pair_badge = "⚖️ STAT-ARB LONG-SHORT PAIRS DESK (Beta 中性多空配对统计套利指令)" if lang_key == "zh" else "⚖️ STAT-ARB LONG-SHORT PAIRS DESK (Beta-Neutral Pairs)"
+                        st.markdown(f"<span class='agent-badge' style='background:rgba(192,132,252,0.22);color:#c084fc;'>{pair_badge}</span>", unsafe_allow_html=True)
+                        pair_struct_hdr = f"##### 配对结构: {pair_info.get('spread_desc', '')}" if lang_key == "zh" else f"##### Pair Structure: {pair_info.get('spread_desc', '')}"
+                        st.markdown(pair_struct_hdr)
+                        if lang_key == "zh":
+                            st.markdown(
+                                f"- **多头腿名义本金 (Long Leg Notional):** `{engine.currency} {pair_info.get('long_notional', 0):,.0f}` (`{pair_info.get('long_tk')}`)  |  "
+                                f"**空头腿 Beta 对冲本金 (Short Leg Notional):** `{engine.currency} {pair_info.get('short_notional', 0):,.0f}` (`{pair_info.get('short_tk')}`)\n"
+                                f"- **统计套利逻辑:** {pair_info.get('rationale', '')}"
+                            )
+                        else:
+                            st.markdown(
+                                f"- **Long Leg Notional:** `{engine.currency} {pair_info.get('long_notional', 0):,.0f}` (`{pair_info.get('long_tk')}`)  |  "
+                                f"**Short Leg Beta Hedge Notional:** `{engine.currency} {pair_info.get('short_notional', 0):,.0f}` (`{pair_info.get('short_tk')}`)\n"
+                                f"- **Stat-Arb Rationale:** {pair_info.get('rationale', '')}"
+                            )
 
                 with st.container(border=True):
-                    chart_hdr_t8 = (
-                        f"**📊 马股理论 B-S 等效盈亏包络线与 GBM 胜率测算 ({pipe['opt_strategy_name']} — 仅供网格/凭单定标参考，1手=100股)**"
-                        if engine.is_malaysia else
-                        f"**📊 交易台推荐期权策略双曲线盈亏仿真与 GBM 到期胜率 ({pipe['opt_strategy_name']})**"
-                    )
+                    if lang_key == "zh":
+                        chart_hdr_t8 = (
+                            f"**📊 马股理论 B-S 等效盈亏包络线与 GBM 胜率测算 ({pipe['opt_strategy_name']} — 仅供网格/凭单定标参考，1手=100股)**"
+                            if engine.is_malaysia else
+                            f"**📊 交易台推荐期权策略双曲线盈亏仿真与 GBM 到期胜率 ({pipe['opt_strategy_name']})**"
+                        )
+                    else:
+                        chart_hdr_t8 = (
+                            f"**📊 Bursa Theoretical B-S Payoff Envelope & GBM PoP ({pipe['opt_strategy_name']} — Reference 1 Lot=100 shs)**"
+                            if engine.is_malaysia else
+                            f"**📊 Option Strategy Payoff Simulation & GBM Probability of Profit ({pipe['opt_strategy_name']})**"
+                        )
                     st.markdown(chart_hdr_t8)
                     fig_ta_payoff, ta_max_p, ta_max_l, ta_opt_stats = draw_option_payoff_diagram(
                         engine, pipe["opt_strat_key"], opt_info["T_years"], opt_info["atm_iv"], lang_key, pipe["opt_legs_meta"], return_stats=True
@@ -5364,10 +5497,10 @@ def main():
                     ta_be_list = ta_opt_stats.get("breakevens", [])
                     ta_be_str = " / ".join([f"{engine.currency}{b:.2f}" for b in ta_be_list]) if ta_be_list else "N/A"
                     pm_c1, pm_c2, pm_c3, pm_c4 = st.columns(4)
-                    pm_c1.metric("🎯 策略到期盈利胜率 (PoP %)", f"{ta_opt_stats.get('pop_pct', 0.0):.1f}%", "GBM Risk-Neutral PDF", delta_color="off")
-                    pm_c2.metric("⚖️ 精确盈亏平衡点 (Breakevens)", ta_be_str)
-                    pm_c3.metric("🚀 单手/单张最大潜在盈利 (100股)", f"{engine.currency} {ta_max_p:,.0f}")
-                    pm_c4.metric("🛡️ 单手/单张最大潜在亏损 (100股)", f"{engine.currency} {ta_max_l:,.0f}")
+                    pm_c1.metric("🎯 策略到期盈利胜率 (PoP %)" if lang_key == "zh" else "🎯 PoP (Win %)", f"{ta_opt_stats.get('pop_pct', 0.0):.1f}%", "GBM Risk-Neutral PDF", delta_color="off")
+                    pm_c2.metric("⚖️ 精确盈亏平衡点 (Breakevens)" if lang_key == "zh" else "⚖️ Exact Breakevens", ta_be_str)
+                    pm_c3.metric("🚀 单手/单张最大潜在盈利 (100股)" if lang_key == "zh" else "🚀 Max Potential Profit (100 shs)", f"{engine.currency} {ta_max_p:,.0f}")
+                    pm_c4.metric("🛡️ 单手/单张最大潜在亏损 (100股)" if lang_key == "zh" else "🛡️ Max Potential Loss (100 shs)", f"{engine.currency} {ta_max_l:,.0f}")
                     st.plotly_chart(fig_ta_payoff, use_container_width=True)
 
                 st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
@@ -5381,47 +5514,85 @@ def main():
                 with r_col1:
                     with st.container(border=True):
                         st.markdown("<span class='agent-badge' style='background:rgba(239,68,68,0.2);color:#f87171;'>🔥 AGGRESSIVE RISK DEBATOR</span>", unsafe_allow_html=True)
-                        if engine.is_malaysia:
-                            st.write(
-                                f"**激进派风控意见：** 全凯利公式给出的理论上限仓位为 `{pipe.get('full_kelly_pct', 0.0):.1f}%`。由于马股无个股期权，"
-                                f"建议在半凯利底仓基础上，于支撑位 `{ta_be_str}` 积极挂单低吸（GBM 30天胜率 PoP 达 `{ta_opt_stats.get('pop_pct', 0.0):.1f}%`），或配置 ≤2% 仓位的投行结构化凭单博取非线性弹性。"
-                            )
+                        if lang_key == "zh":
+                            if engine.is_malaysia:
+                                agg_speech = (
+                                    f"**激进派风控意见：** 全凯利公式给出的理论上限仓位为 `{pipe.get('full_kelly_pct', 0.0):.1f}%`。由于马股无个股期权，"
+                                    f"建议在半凯利底仓基础上，于支撑位 `{ta_be_str}` 积极挂单低吸（GBM 30天胜率 PoP 达 `{ta_opt_stats.get('pop_pct', 0.0):.1f}%`），或配置 ≤2% 仓位的投行结构化凭单博取非线性弹性。"
+                                )
+                            else:
+                                agg_speech = (
+                                    f"**激进派风控意见：** 全凯利公式给出的理论上限仓位为 `{pipe.get('full_kelly_pct', 0.0):.1f}%`。建议利用期权非线性凸性（Gamma），"
+                                    f"将部分正股预算置换为 `{opt_info['expiry']}` 到期的看涨价差或卖 Put（当前策略到期胜率 PoP 达 `{ta_opt_stats.get('pop_pct', 0.0):.1f}%`），放大资本效率。"
+                                )
                         else:
-                            st.write(
-                                f"**激进派风控意见：** 全凯利公式给出的理论上限仓位为 `{pipe.get('full_kelly_pct', 0.0):.1f}%`。建议利用期权非线性凸性（Gamma），"
-                                f"将部分正股预算置换为 `{opt_info['expiry']}` 到期的看涨价差或卖 Put（当前策略到期胜率 PoP 达 `{ta_opt_stats.get('pop_pct', 0.0):.1f}%`），放大资本效率。"
-                            )
+                            if engine.is_malaysia:
+                                agg_speech = (
+                                    f"**Aggressive Risk Assessment:** Full Kelly theoretical upper ceiling is `{pipe.get('full_kelly_pct', 0.0):.1f}%`. With no single-stock options on Bursa, "
+                                    f"we advocate anchoring Half-Kelly core equity, placing limit bids near support `{ta_be_str}` (GBM 30D PoP `{ta_opt_stats.get('pop_pct', 0.0):.1f}%`), and adding ≤2% in structured call warrants for nonlinear convexity."
+                                )
+                            else:
+                                agg_speech = (
+                                    f"**Aggressive Risk Assessment:** Full Kelly indicates theoretical ceiling of `{pipe.get('full_kelly_pct', 0.0):.1f}%`. We recommend harnessing option convexity (Gamma) "
+                                    f"by deploying `{opt_info['expiry']}` vertical call spreads or cash-secured puts (Strategy PoP `{ta_opt_stats.get('pop_pct', 0.0):.1f}%`) to maximize capital efficiency."
+                                )
+                        st.write(agg_speech)
 
                 with r_col2:
                     with st.container(border=True):
                         st.markdown("<span class='agent-badge' style='background:rgba(59,130,246,0.2);color:#60a5fa;'>🛡️ CONSERVATIVE RISK DEBATOR</span>", unsafe_allow_html=True)
-                        st.write(
-                            f"**保守派风控意见：** 标的过去 1 年最大回撤为 `{tech.get('mdd_pct', 0.0):.1f}%`，95% 日 CVaR 极端亏损为 `{tech.get('cvar_95_pct', 0.0):.2f}%`。"
-                            f"严禁使用全凯利满仓！必须砍半执行 **Half-Kelly (`{pipe['alloc_pct']:.1f}%`)**，或采用 **多空配对 (`Long {pair_info.get('long_tk')} / Short {pair_info.get('short_tk')}`)** 剥离大盘 Beta。"
-                        )
+                        if lang_key == "zh":
+                            con_speech = (
+                                f"**保守派风控意见：** 标的过去 1 年最大回撤为 `{tech.get('mdd_pct', 0.0):.1f}%`，95% 日 CVaR 极端亏损为 `{tech.get('cvar_95_pct', 0.0):.2f}%`。"
+                                f"严禁使用全凯利满仓！必须砍半执行 **Half-Kelly (`{pipe['alloc_pct']:.1f}%`)**，或采用 **多空配对 (`Long {pair_info.get('long_tk')} / Short {pair_info.get('short_tk')}`)** 剥离大盘 Beta。"
+                            )
+                        else:
+                            con_speech = (
+                                f"**Conservative Risk Assessment:** 1-year max drawdown is `{tech.get('mdd_pct', 0.0):.1f}%` and 95% 1-day CVaR is `{tech.get('cvar_95_pct', 0.0):.2f}%`. "
+                                f"Full Kelly is strictly prohibited. Enforce **Half-Kelly (`{pipe['alloc_pct']:.1f}%`)** or deploy a **market-neutral pair (`Long {pair_info.get('long_tk')} / Short {pair_info.get('short_tk')}`)** to immunize broad-market Beta."
+                            )
+                        st.write(con_speech)
 
                 with r_col3:
                     with st.container(border=True):
                         st.markdown("<span class='agent-badge' style='background:rgba(16,185,129,0.2);color:#34d399;'>⚖️ NEUTRAL RISK DEBATOR</span>", unsafe_allow_html=True)
-                        st.write(
-                            f"**中立派风控意见：** 折中激进派与保守派诉求，最佳方案是 **【Half-Kelly 现货底仓 (`{pipe['alloc_pct']:.1f}%`) + {pipe['opt_strategy_name'].split('(')[0]}】** 组合。"
-                            f"既保留了基本面价值回归的收益，又将安全接货/防守边界锁定在 `{ta_be_str}`。"
-                        )
+                        if lang_key == "zh":
+                            neu_speech = (
+                                f"**中立派风控意见：** 折中激进派与保守派诉求，最佳方案是 **【Half-Kelly 现货底仓 (`{pipe['alloc_pct']:.1f}%`) + {pipe['opt_strategy_name'].split('(')[0]}】** 组合。"
+                                f"既保留了基本面价值回归的收益，又将安全接货/防守边界锁定在 `{ta_be_str}`。"
+                            )
+                        else:
+                            neu_speech = (
+                                f"**Neutral Risk Assessment:** Reconciling both camps, the optimal execution is **[Half-Kelly Spot Core (`{pipe['alloc_pct']:.1f}%`) + {pipe['opt_strategy_name'].split('(')[0]}]**. "
+                                f"This retains fundamental upside while anchoring defensive margin at `{ta_be_str}`."
+                            )
+                        st.write(neu_speech)
 
+                pm_title = "👑 投资组合经理终审决议 (Portfolio Manager Final Decision - V13.0)" if lang_key == "zh" else "👑 Portfolio Manager Final Decision (V14.0 Grandmaster)"
+                if lang_key == "zh":
+                    pm_body = f"""
+                        <b>1. 终审定调：</b> 综合四大分析师硬核数据、Beneish M-Score 财务侦测 (<b>{beneish.get('m_score', -2.5):.2f}</b>)、多空辩论及三方风控意见，批准对 <b>{engine.name} ({engine.ticker})</b> 赋予 <b>【{pipe['final_rating']}】</b> 机构评级。<br>
+                        <b>2. 现货执行批示 (Half-Kelly)：</b> 建议目标仓位配比 <b>{pipe['alloc_pct']:.1f}%</b>，参考入场位 <b>{engine.currency} {pipe['entry_price']:.2f}</b>，铁律止损位 <b>{engine.currency} {pipe['stop_loss']:.2f}</b>，目标止盈位 <b>{engine.currency} {pipe['take_profit']:.2f}</b>。<br>
+                        <b>3. 衍生品/网格与配对协同批示：</b> 同步执行 <b>【{pipe['opt_strategy_name']}】</b>（{pipe['opt_action_detail']}），理论等效胜率 (PoP) 为 <b>{ta_opt_stats.get('pop_pct', 0.0):.1f}%</b>，参考平衡点 <b>{ta_be_str}</b>；或执行 <b>Beta 中性配对 (Long {pair_info.get('long_tk')} / Short {pair_info.get('short_tk')})</b>。
+                    """
+                else:
+                    pm_body = f"""
+                        <b>1. Executive Verdict:</b> Synthesizing the 4-analyst forensic data, Beneish M-Score (<b>{beneish.get('m_score', -2.5):.2f}</b>), researcher debate, and Risk Committee consensus, we approve institutional rating <b>[{pipe['final_rating']}]</b> for <b>{engine.name} ({engine.ticker})</b>.<br>
+                        <b>2. Spot Equity Directive (Half-Kelly):</b> Target allocation set at <b>{pipe['alloc_pct']:.1f}%</b>, reference entry at <b>{engine.currency} {pipe['entry_price']:.2f}</b>, strict ATR stop-loss at <b>{engine.currency} {pipe['stop_loss']:.2f}</b>, and profit target at <b>{engine.currency} {pipe['take_profit']:.2f}</b>.<br>
+                        <b>3. Tactical Derivatives / Grid & Pair Directives:</b> Execute <b>[{pipe['opt_strategy_name']}]</b> ({pipe['opt_action_detail']}), model PoP at <b>{ta_opt_stats.get('pop_pct', 0.0):.1f}%</b> with breakevens at <b>{ta_be_str}</b>; or deploy <b>Beta-Neutral Pair (Long {pair_info.get('long_tk')} / Short {pair_info.get('short_tk')})</b>.
+                    """
                 st.markdown(
                     f"""
                     <div class="debate-card-pm">
                         <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;">
-                            <div style="color:#38bdf8;font-weight:800;font-size:18px;">👑 投资组合经理终审决议 (Portfolio Manager Final Decision - V13.0)</div>
+                            <div style="color:#38bdf8;font-weight:800;font-size:18px;">{pm_title}</div>
                             <div style="background:linear-gradient(135deg,#10b981,#059669);color:#fff;padding:5px 16px;border-radius:999px;font-weight:800;font-size:15px;">
                                 QUANT RATING: {pipe['final_rating'].upper()}
                             </div>
                         </div>
                         <hr style="border-color:rgba(255,255,255,0.1);margin:12px 0;">
                         <p style="font-size:14px;line-height:1.7;margin-bottom:8px;">
-                            <b>1. 终审定调：</b> 综合四大分析师硬核数据、Beneish M-Score 财务侦测 (<b>{beneish.get('m_score', -2.5):.2f}</b>)、多空辩论及三方风控意见，批准对 <b>{engine.name} ({engine.ticker})</b> 赋予 <b>【{pipe['final_rating']}】</b> 机构评级。<br>
-                            <b>2. 现货执行批示 (Half-Kelly)：</b> 建议目标仓位配比 <b>{pipe['alloc_pct']:.1f}%</b>，参考入场位 <b>{engine.currency} {pipe['entry_price']:.2f}</b>，铁律止损位 <b>{engine.currency} {pipe['stop_loss']:.2f}</b>，目标止盈位 <b>{engine.currency} {pipe['take_profit']:.2f}</b>。<br>
-                            <b>3. 衍生品/网格与配对协同批示：</b> 同步执行 <b>【{pipe['opt_strategy_name']}】</b>（{pipe['opt_action_detail']}），理论等效胜率 (PoP) 为 <b>{ta_opt_stats.get('pop_pct', 0.0):.1f}%</b>，参考平衡点 <b>{ta_be_str}</b>；或执行 <b>Beta 中性配对 (Long {pair_info.get('long_tk')} / Short {pair_info.get('short_tk')})</b>。
+                            {pm_body}
                         </p>
                     </div>
                     """,
@@ -5435,13 +5606,16 @@ def main():
                 # --------------------------------------------------------------
                 mem_c1, mem_c2 = st.columns([1, 1])
                 with mem_c1:
-                    if st.button("📌 归档本次投委会决议至记忆账本 (Save to Memory Log)", use_container_width=True):
+                    btn_save_txt = "📌 归档本次投委会决议至记忆账本 (Save to Memory Log)" if lang_key == "zh" else "📌 Save Decision to Memory Ledger"
+                    if st.button(btn_save_txt, use_container_width=True):
                         save_decision_to_ledger(engine, pipe)
-                        st.success(f"✅ 已将 {engine.ticker} ({pipe['final_rating']}) 归档至本地记忆账本！后续 Gemini 辩论将自动读取此记录进行历史反思。")
+                        succ_msg = f"✅ 已将 {engine.ticker} ({pipe['final_rating']}) 归档至本地记忆账本！后续 Gemini 辩论将自动读取此记录进行历史反思。" if lang_key == "zh" else f"✅ {engine.ticker} ({pipe['final_rating']}) saved to memory ledger! Subsequent Gemini debates will incorporate this history."
+                        st.success(succ_msg)
 
                 ledger_entries = load_memory_ledger()
                 if ledger_entries:
-                    with st.expander("📜 历史投委会决策记忆账本与实时交割盈亏 (TradingAgents Memory & Settlement Ledger)", expanded=False):
+                    exp_ledger_title = "📜 历史投委会决策记忆账本与实时交割盈亏 (TradingAgents Memory & Settlement Ledger)" if lang_key == "zh" else "📜 TradingAgents Historical Memory & Settlement Ledger"
+                    with st.expander(exp_ledger_title, expanded=False):
                         rows = []
                         for item in ledger_entries[:15]:
                             rec_p = float(item.get("recorded_price") or 0.0)
@@ -5506,22 +5680,22 @@ def main():
                         value=bool(saved_gem_key)
                     )
 
-                    run_gem_now = st.button("✨ 立即让【量化模型】与【Google Gemini 2.5】展开深度辩论 & 双向修正战术策略", use_container_width=True)
+                    run_gem_now = st.button("✨ 立即让【量化模型】与【Google Gemini 2.5】展开深度辩论 & 双向修正战术策略" if lang_key == "zh" else "✨ Run Deep Debate & Tactical Synthesis with Google Gemini 2.5", use_container_width=True)
                     report_cache_key = f"gemini_report_{engine.ticker}_{gemini_model_in}_{user_shares}"
 
                     if run_gem_now or (auto_debate and gemini_key_in.strip() and report_cache_key not in st.session_state):
                         if not gemini_key_in.strip():
-                            st.warning("⚠️ 请先在上方输入框填入您的 Google Gemini API Key（以 `AIza` 开头），或配置在环境变量 `GEMINI_API_KEY` 中。")
+                            st.warning("⚠️ 请先在上方输入框填入您的 Google Gemini API Key（以 `AIza` 开头），或配置在环境变量 `GEMINI_API_KEY` 中。" if lang_key == "zh" else "⚠️ Please enter your Google Gemini API Key (starts with 'AIza') or set GEMINI_API_KEY.")
                         else:
                             save_gemini_key_local(gemini_key_in, allow_disk=remember_key)
-                            with st.spinner(f"正在让您的量化数学引擎与 Google 官方 {gemini_model_in} 进行多轮交锋与双向闭环推演..."):
+                            with st.spinner(f"正在让您的量化数学引擎与 Google 官方 {gemini_model_in} 进行多轮交锋与双向闭环推演..." if lang_key == "zh" else f"Executing multi-round debate with Google {gemini_model_in}..."):
                                 try:
                                     gem_report = invoke_gemini_committee(
                                         gemini_key_in, gemini_model_in, engine, pipe, user_cash, user_shares, lang_key
                                     )
                                     st.session_state[report_cache_key] = gem_report
                                 except Exception as gem_exc:
-                                    st.error(f"Gemini API 调用失败: {gem_exc}")
+                                    st.error(f"Gemini API 调用失败: {gem_exc}" if lang_key == "zh" else f"Gemini API Error: {gem_exc}")
 
                     if report_cache_key in st.session_state:
                         clean_gem_md, gem_verdict = parse_gemini_verdict(st.session_state[report_cache_key], pipe)
@@ -5532,14 +5706,22 @@ def main():
                             or str(gem_verdict["gemini_opt_strat_key"]).lower() != pipe["opt_strat_key"].lower()
                         )
                         badge_bg = "linear-gradient(135deg,#f59e0b,#d97706)" if is_overridden else "linear-gradient(135deg,#10b981,#059669)"
-                        status_txt = "⚡ GEMINI 已修正量化初判 (OVERRIDDEN)" if is_overridden else "✅ GEMINI 确认量化初判 (CONFIRMED)"
+                        status_txt = ("⚡ GEMINI 已修正量化初判 (OVERRIDDEN)" if is_overridden else "✅ GEMINI 确认量化初判 (CONFIRMED)") if lang_key == "zh" else ("⚡ GEMINI OVERRIDDEN" if is_overridden else "✅ GEMINI CONFIRMED")
+
+                        hub_title = f"🔄 【双向闭环裁决中心】本地量化模型初判 ↔ Google Gemini ({gemini_model_in}) 终判对比" if lang_key == "zh" else f"🔄 [Closed-Loop Hub] Quant Baseline ↔ Google Gemini ({gemini_model_in}) Arbitration"
+                        quant_lbl = "📊 量化模型初判评级 (Half-Kelly)：" if lang_key == "zh" else "📊 Quant Model Baseline (Half-Kelly):"
+                        quant_sub = f"{pipe['final_rating'].upper()} ({pipe['trader_action']} | 仓位 {pipe['alloc_pct']:.1f}%)" if lang_key == "zh" else f"{pipe['final_rating'].upper()} ({pipe['trader_action']} | Alloc {pipe['alloc_pct']:.1f}%)"
+                        gem_lbl = "✨ Gemini 辩论终判评级：" if lang_key == "zh" else "✨ Gemini Arbitration Rating:"
+                        gem_sub = f"{str(gem_verdict['gemini_rating']).upper()} ({gem_verdict['gemini_action']} | 建议仓位 {gem_verdict['gemini_alloc_pct']}%)" if lang_key == "zh" else f"{str(gem_verdict['gemini_rating']).upper()} ({gem_verdict['gemini_action']} | Target Alloc {gem_verdict['gemini_alloc_pct']}%)"
+                        gem_deriv_lbl = "🎯 Gemini 钦定衍生品/等效结构：" if lang_key == "zh" else "🎯 Gemini Tactical Structure:"
+                        sum_lbl = "💬 <b>投委会主席裁决摘要：</b>" if lang_key == "zh" else "💬 <b>CIO Executive Summary:</b>"
 
                         st.markdown(
                             f"""
                             <div style="background:linear-gradient(135deg,rgba(15,23,42,0.95),rgba(30,41,59,0.9));border:1.5px solid #38bdf8;border-radius:12px;padding:18px;margin-bottom:14px;">
                                 <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;margin-bottom:10px;">
                                     <div style="color:#38bdf8;font-weight:800;font-size:16px;">
-                                        🔄 【双向闭环裁决中心】本地量化模型初判 ↔ Google Gemini ({gemini_model_in}) 终判对比
+                                        {hub_title}
                                     </div>
                                     <span style="background:{badge_bg};color:#fff;padding:4px 12px;border-radius:999px;font-size:12px;font-weight:800;">
                                         {status_txt}
@@ -5547,20 +5729,20 @@ def main():
                                 </div>
                                 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;font-size:13.5px;color:#e2e8f0;">
                                     <div style="background:rgba(255,255,255,0.04);padding:10px 12px;border-radius:8px;">
-                                        <span style="color:#94a3b8;">📊 量化模型初判评级 (Half-Kelly)：</span><br>
-                                        <b>{pipe['final_rating'].upper()} ({pipe['trader_action']} | 仓位 {pipe['alloc_pct']:.1f}%)</b>
+                                        <span style="color:#94a3b8;">{quant_lbl}</span><br>
+                                        <b>{quant_sub}</b>
                                     </div>
                                     <div style="background:rgba(56,189,248,0.1);padding:10px 12px;border-radius:8px;border:1px solid rgba(56,189,248,0.3);">
-                                        <span style="color:#38bdf8;">✨ Gemini 辩论终判评级：</span><br>
-                                        <b>{str(gem_verdict['gemini_rating']).upper()} ({gem_verdict['gemini_action']} | 建议仓位 {gem_verdict['gemini_alloc_pct']}%)</b>
+                                        <span style="color:#38bdf8;">{gem_lbl}</span><br>
+                                        <b>{gem_sub}</b>
                                     </div>
                                     <div style="background:rgba(16,185,129,0.1);padding:10px 12px;border-radius:8px;border:1px solid rgba(16,185,129,0.3);">
-                                        <span style="color:#10b981;">🎯 Gemini 钦定衍生品/等效结构：</span><br>
+                                        <span style="color:#10b981;">{gem_deriv_lbl}</span><br>
                                         <b>{str(gem_verdict['gemini_opt_strat_key']).upper().replace('_', ' ')}</b>
                                     </div>
                                 </div>
                                 <div style="margin-top:10px;font-size:13px;color:#cbd5e1;border-top:1px solid rgba(255,255,255,0.08);padding-top:8px;">
-                                    💬 <b>投委会主席裁决摘要：</b> {gem_verdict['override_summary']}
+                                    {sum_lbl} {gem_verdict['override_summary']}
                                 </div>
                             </div>
                             """,
@@ -5570,33 +5752,45 @@ def main():
                         valid_strat_keys = {"cash_secured_put", "bull_call_spread", "covered_call", "iron_condor", "collar", "bear_put_spread", "protective_put", "straddle"}
                         gem_strat_k = str(gem_verdict.get("gemini_opt_strat_key") or "").strip().lower()
                         if gem_strat_k in valid_strat_keys and gem_strat_k != pipe["opt_strat_key"]:
-                            st.markdown(f"**📈 Gemini 辩论修正后的策略盈亏仿真 (`{gem_strat_k.upper()}`)**")
+                            st.markdown(f"**📈 Gemini 辩论修正后的策略盈亏仿真 (`{gem_strat_k.upper()}`)**" if lang_key == "zh" else f"**📈 Gemini Arbitration Payoff Simulation (`{gem_strat_k.upper()}`)**")
                             fig_gem_payoff, gem_mp, gem_ml, gem_opt_stats = draw_option_payoff_diagram(
                                 engine, gem_strat_k, opt_info["T_years"], opt_info["atm_iv"], lang_key, pipe["opt_legs_meta"], return_stats=True
                             )
                             g_be_list = gem_opt_stats.get("breakevens", [])
                             g_be_str = " / ".join([f"{engine.currency}{b:.2f}" for b in g_be_list]) if g_be_list else "N/A"
                             gc1, gc2, gc3, gc4 = st.columns(4)
-                            gc1.metric("🎯 修正策略到期胜率 (PoP %)", f"{gem_opt_stats.get('pop_pct', 0.0):.1f}%")
-                            gc2.metric("⚖️ 修正策略盈亏平衡点", g_be_str)
-                            gc3.metric("🚀 单张最大潜在盈利", f"{engine.currency} {gem_mp:,.0f}")
-                            gc4.metric("🛡️ 单张最大潜在亏损", f"{engine.currency} {gem_ml:,.0f}")
+                            gc1.metric("🎯 修正策略到期胜率 (PoP %)" if lang_key == "zh" else "🎯 Target PoP %", f"{gem_opt_stats.get('pop_pct', 0.0):.1f}%")
+                            gc2.metric("⚖️ 修正策略盈亏平衡点" if lang_key == "zh" else "⚖️ Target Breakevens", g_be_str)
+                            gc3.metric("🚀 单张最大潜在盈利" if lang_key == "zh" else "🚀 Max Potential Profit", f"{engine.currency} {gem_mp:,.0f}")
+                            gc4.metric("🛡️ 单张最大潜在亏损" if lang_key == "zh" else "🛡️ Max Potential Loss", f"{engine.currency} {gem_ml:,.0f}")
                             st.plotly_chart(fig_gem_payoff, use_container_width=True)
 
                         st.markdown(clean_gem_md)
 
-                        export_md = (
-                            f"# {engine.name} ({engine.ticker}) — V14.0 量化宗师估值与 Google Gemini 多智能体作战书\n"
-                            f"- **生成日期**: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}\n"
-                            f"- **当前现价**: {engine.currency} {engine.price:.2f} | **内在公允价 ({engine.model_name})**: {engine.currency} {engine.fair_val:.2f} (MoS: {pipe['mos_pct']:+.1f}%)\n"
-                            f"- **三表动态 DCF**: {engine.currency} {(engine.val_3stmt_dcf or 0):.2f} | **同业 P/E 隐含价**: {engine.currency} {(engine.val_pe or 0):.2f} | **WACC**: {engine.wacc*100:.2f}%\n"
-                            f"- **Beneish M-Score**: `{beneish.get('m_score', -2.5):.2f}` ({beneish.get('status', 'CLEAN')}) | **GARCH(1,1) 动态波动率**: `{tech.get('garch_vol', tech['hv30'])*100:.1f}%`\n"
-                            f"- **尾部风险**: 1Y MDD `{tech.get('mdd_pct', 0.0):.1f}%` | 95% VaR `{tech.get('var_95_pct', 0.0):.2f}%` | 95% CVaR `{tech.get('cvar_95_pct', 0.0):.2f}%`\n"
-                            f"- **量化初判**: {pipe['final_rating']} (Half-Kelly `{pipe['alloc_pct']:.1f}%` | {pipe['opt_strategy_name']} PoP `{ta_opt_stats.get('pop_pct', 0.0):.1f}%`) | **Gemini 终判**: {gem_verdict['gemini_rating']} ({gem_verdict['gemini_opt_strat_key']})\n\n"
-                            f"---\n\n{clean_gem_md}\n"
-                        )
+                        if lang_key == "zh":
+                            export_md = (
+                                f"# {engine.name} ({engine.ticker}) — V14.0 量化宗师估值与 Google Gemini 多智能体作战书\n"
+                                f"- **生成日期**: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}\n"
+                                f"- **当前现价**: {engine.currency} {engine.price:.2f} | **内在公允价 ({engine.model_name})**: {engine.currency} {engine.fair_val:.2f} (MoS: {pipe['mos_pct']:+.1f}%)\n"
+                                f"- **三表动态 DCF**: {engine.currency} {(engine.val_3stmt_dcf or 0):.2f} | **同业 P/E 隐含价**: {engine.currency} {(engine.val_pe or 0):.2f} | **WACC**: {engine.wacc*100:.2f}%\n"
+                                f"- **Beneish M-Score**: `{beneish.get('m_score', -2.5):.2f}` ({beneish.get('status', 'CLEAN')}) | **GARCH(1,1) 动态波动率**: `{tech.get('garch_vol', tech['hv30'])*100:.1f}%`\n"
+                                f"- **尾部风险**: 1Y MDD `{tech.get('mdd_pct', 0.0):.1f}%` | 95% VaR `{tech.get('var_95_pct', 0.0):.2f}%` | 95% CVaR `{tech.get('cvar_95_pct', 0.0):.2f}%`\n"
+                                f"- **量化初判**: {pipe['final_rating']} (Half-Kelly `{pipe['alloc_pct']:.1f}%` | {pipe['opt_strategy_name']} PoP `{ta_opt_stats.get('pop_pct', 0.0):.1f}%`) | **Gemini 终判**: {gem_verdict['gemini_rating']} ({gem_verdict['gemini_opt_strat_key']})\n\n"
+                                f"---\n\n{clean_gem_md}\n"
+                            )
+                        else:
+                            export_md = (
+                                f"# {engine.name} ({engine.ticker}) — V14.0 Quant Grandmaster Valuation & Google Gemini Playbook\n"
+                                f"- **Date**: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}\n"
+                                f"- **Market Price**: {engine.currency} {engine.price:.2f} | **Fair Value ({engine.model_name})**: {engine.currency} {engine.fair_val:.2f} (MoS: {pipe['mos_pct']:+.1f}%)\n"
+                                f"- **3-Stmt NWC DCF**: {engine.currency} {(engine.val_3stmt_dcf or 0):.2f} | **Peer P/E Price**: {engine.currency} {(engine.val_pe or 0):.2f} | **WACC**: {engine.wacc*100:.2f}%\n"
+                                f"- **Beneish M-Score**: `{beneish.get('m_score', -2.5):.2f}` ({beneish.get('status', 'CLEAN')}) | **GARCH(1,1) Vol**: `{tech.get('garch_vol', tech['hv30'])*100:.1f}%`\n"
+                                f"- **Tail Risk**: 1Y MDD `{tech.get('mdd_pct', 0.0):.1f}%` | 95% VaR `{tech.get('var_95_pct', 0.0):.2f}%` | 95% CVaR `{tech.get('cvar_95_pct', 0.0):.2f}%`\n"
+                                f"- **Quant Rating**: {pipe['final_rating']} (Half-Kelly `{pipe['alloc_pct']:.1f}%` | {pipe['opt_strategy_name']} PoP `{ta_opt_stats.get('pop_pct', 0.0):.1f}%`) | **Gemini Verdict**: {gem_verdict['gemini_rating']} ({gem_verdict['gemini_opt_strat_key']})\n\n"
+                                f"---\n\n{clean_gem_md}\n"
+                            )
                         st.download_button(
-                            label="📥 一键下载完整【V14.0 量化估值 + Gemini 辩论 + 实战作战书】(.md)",
+                            label="📥 一键下载完整【V14.0 量化估值 + Gemini 辩论 + 实战作战书】(.md)" if lang_key == "zh" else "📥 Download Full Quant Valuation & Gemini Playbook (.md)",
                             data=export_md.encode("utf-8"),
                             file_name=f"{engine.ticker}_V14_Quant_Gemini_Playbook_{datetime.datetime.now().strftime('%Y%m%d')}.md",
                             mime="text/markdown",
@@ -5605,17 +5799,17 @@ def main():
 
 
                 # 保留给其他人的可选外部接口 (OpenAI / DeepSeek / OpenRouter)
-                with st.expander("🔌 【其他人可选】接入其他第三方兼容接口 (OpenAI / DeepSeek / OpenRouter)", expanded=False):
-                    st.caption("如果您或团队其他成员需要使用 OpenAI / DeepSeek 等其他模型接口，可在此处单独调用：")
+                with st.expander("🔌 【其他人可选】接入其他第三方兼容接口 (OpenAI / DeepSeek / OpenRouter)" if lang_key == "zh" else "🔌 [Optional] Connect Third-Party API (OpenAI / DeepSeek / OpenRouter)", expanded=False):
+                    st.caption("如果您或团队其他成员需要使用 OpenAI / DeepSeek 等其他模型接口，可在此处单独调用：" if lang_key == "zh" else "Call OpenAI / DeepSeek / OpenRouter models for independent third-party debate:")
                     llm_c1, llm_c2, llm_c3 = st.columns(3)
                     api_key_in = llm_c1.text_input("Other API Key", type="password", placeholder="sk-...")
                     base_url_in = llm_c2.text_input("API Base URL", value="https://api.openai.com/v1")
                     model_in = llm_c3.text_input("Model Name", value="gpt-4o-mini")
-                    if st.button("🚀 使用第三方接口生成辩论"):
+                    if st.button("🚀 使用第三方接口生成辩论" if lang_key == "zh" else "🚀 Run Third-Party LLM Debate"):
                         if not api_key_in.strip():
-                            st.warning("⚠️ 请先输入有效的 API Key。")
+                            st.warning("⚠️ 请先输入有效的 API Key。" if lang_key == "zh" else "⚠️ Please provide a valid API Key.")
                         else:
-                            with st.spinner("第三方大模型正在推演..."):
+                            with st.spinner("第三方大模型正在推演..." if lang_key == "zh" else "Third-party LLM synthesizing..."):
                                 try:
                                     llm_output = invoke_live_llm_committee(api_key_in, base_url_in, model_in, engine, pipe, user_cash, user_shares, lang_key)
                                     clean_other_md, _ = parse_gemini_verdict(llm_output, pipe)
@@ -5743,7 +5937,7 @@ def main():
                     if st.button("🚀 开始自动化量化筛选与组合求解 (Execute Cash Robo-Strategist)", key=f"btn_run_cash_{engine.ticker}"):
                         with st.spinner("多线程并发扫描股票池、计算 Beneish M-Score 与求解最优资产权重..." if lang_key == "zh" else "Screening universe, running Beneish radar, and solving optimal allocations..."):
                             screen_res = run_cash_deployment_screener(
-                                custom_list, total_cash=cash_input, risk_appetite=risk_app, currency=base_curr_code, rf=engine.rf, usd_myr_rate=fx_rate_in
+                                custom_list, total_cash=cash_input, risk_appetite=risk_app, currency=base_curr_code, rf=engine.rf, usd_myr_rate=fx_rate_in, lang_key=lang_key
                             )
                             st.session_state[f"last_cash_screen_{engine.ticker}"] = screen_res
 
@@ -5751,12 +5945,14 @@ def main():
                     if screen_res and "error" not in screen_res:
                         kpis = screen_res["kpis"]
                         st.markdown("---")
-                        st.markdown("#### 🎯 组合配置预期收益与风险指标 (Portfolio KPI Dashboard)")
+                        st.markdown("#### 🎯 组合配置预期收益与风险指标 (Portfolio KPI Dashboard)" if lang_key == "zh" else "#### 🎯 Portfolio Expected Return & Risk KPI Dashboard")
                         m1, m2, m3, m4 = st.columns(4)
-                        m1.metric("预期年化收益 (Expected Return)", f"{kpis['exp_return']:+.2f}%", f"Rf={engine.rf*100:.2f}% 基准", delta_color="normal")
-                        m2.metric("年化预期波动率 (Portfolio Vol)", f"{kpis['volatility']:.2f}%", "Annualized Risk", delta_color="off")
-                        m3.metric("预期夏普比率 (Sharpe Ratio)", f"{kpis['sharpe']:.2f}", "Risk-Adjusted Return", delta_color="normal" if kpis['sharpe'] > 1.0 else "off")
-                        m4.metric("防御现金缓冲池 (Cash Buffer)", f"{base_curr_code} {kpis['cash_buffer_amt']:,.2f}", f"占比 {kpis['cash_buffer_pct']:.1f}%", delta_color="off")
+                        rf_sub = f"Rf={engine.rf*100:.2f}% 基准" if lang_key == "zh" else f"Rf={engine.rf*100:.2f}% Hurdle"
+                        m1.metric("预期年化收益 (Expected Return)" if lang_key == "zh" else "Expected Return", f"{kpis['exp_return']:+.2f}%", rf_sub, delta_color="normal")
+                        m2.metric("年化预期波动率 (Portfolio Vol)" if lang_key == "zh" else "Annualized Portfolio Vol", f"{kpis['volatility']:.2f}%", "Annualized Risk", delta_color="off")
+                        m3.metric("预期夏普比率 (Sharpe Ratio)" if lang_key == "zh" else "Expected Sharpe Ratio", f"{kpis['sharpe']:.2f}", "Risk-Adjusted Return", delta_color="normal" if kpis['sharpe'] > 1.0 else "off")
+                        cash_sub = f"占比 {kpis['cash_buffer_pct']:.1f}%" if lang_key == "zh" else f"Weight {kpis['cash_buffer_pct']:.1f}%"
+                        m4.metric("防御现金缓冲池 (Cash Buffer)" if lang_key == "zh" else "Cash Buffer Reserve", f"{base_curr_code} {kpis['cash_buffer_amt']:,.2f}", cash_sub, delta_color="off")
 
                         st.markdown("---")
                         st.markdown(
@@ -5781,7 +5977,7 @@ def main():
                                 marker=dict(colors=['#38bdf8', '#34d399', '#f59e0b', '#c084fc', '#94a3b8'])
                             )])
                             fig_donut.update_layout(
-                                title=dict(text="🎯 资金分配比例图 (Capital Allocation Donut)", font=dict(color='#ffffff', size=13)),
+                                title=dict(text="🎯 资金分配比例图 (Capital Allocation Donut)" if lang_key == "zh" else "🎯 Capital Allocation Donut", font=dict(color='#ffffff', size=13)),
                                 paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                                 font=dict(color='#94a3b8'), height=320, margin=dict(l=10, r=10, t=40, b=10)
                             )
@@ -5819,7 +6015,7 @@ def main():
                                     "* **Collar**: Fund downside Put protection by writing upside Call for zero-cost safety."
                                 )
 
-                        with st.expander("🔍 查看全市场多因子与 Beneish 财务造假雷达扫描总表 (Full Screened Universe)", expanded=False):
+                        with st.expander("🔍 查看全市场多因子与 Beneish 财务造假雷达扫描总表 (Full Screened Universe)" if lang_key == "zh" else "🔍 Full Screened Universe & Beneish Forensics Radar", expanded=False):
                             st.dataframe(screen_res["full_scan_df"], use_container_width=True)
                     elif screen_res and "error" in screen_res:
                         st.error(screen_res["error"])
@@ -5881,7 +6077,7 @@ def main():
                             holdings_dict_list = edited_holdings_df.to_dict(orient="records")
                             diag_res = run_personal_portfolio_optimizer(
                                 holdings_dict_list, available_cash=rebal_cash_in, risk_appetite=rebal_appetite,
-                                currency=base_curr_code, rf=engine.rf, usd_myr_rate=fx_rate_in
+                                currency=base_curr_code, rf=engine.rf, usd_myr_rate=fx_rate_in, lang_key=lang_key
                             )
                             st.session_state[f"last_rebal_res_{engine.ticker}"] = diag_res
 
@@ -5889,13 +6085,16 @@ def main():
                     if diag_res and "error" not in diag_res:
                         d = diag_res["diagnostics"]
                         st.markdown("---")
-                        st.markdown("#### 📊 现有组合健康诊断与风险指标 (Portfolio Health Diagnostics)")
+                        st.markdown("#### 📊 现有组合健康诊断与风险指标 (Portfolio Health Diagnostics)" if lang_key == "zh" else "#### 📊 Portfolio Health Diagnostics & Risk KPIs")
                         d1, d2, d3, d4, d5 = st.columns(5)
-                        d1.metric("组合总净值 (Total Equity)", f"{base_curr_code} {d['total_equity']:,.2f}", f"现金: {base_curr_code} {d['available_cash']:,.2f}", delta_color="off")
-                        d2.metric("浮动未实现盈亏 (Unrealized P&L)", f"{base_curr_code} {d['unrealized_pnl']:+,.2f}", f"{d['unrealized_pnl_pct']:+.2f}%", delta_color="normal")
-                        d3.metric("持仓组合 Beta (Portfolio Beta)", f"{d['portfolio_beta']:.2f}", "vs Benchmark", delta_color="off")
-                        d4.metric("95% 单日在险价值 (1D 95% VaR)", f"{base_curr_code} -{d['daily_var_95']:,.2f}", f"-{d['daily_var_pct']:.2f}% 净值", delta_color="inverse")
-                        d5.metric("再平衡目标夏普 (Target Sharpe)", f"{d['target_sharpe']:.2f}", f"预期年化波动: {d['target_vol']:.1f}%", delta_color="normal")
+                        cash_lbl = f"现金: {base_curr_code} {d['available_cash']:,.2f}" if lang_key == "zh" else f"Cash: {base_curr_code} {d['available_cash']:,.2f}"
+                        d1.metric("组合总净值 (Total Equity)" if lang_key == "zh" else "Total Equity", f"{base_curr_code} {d['total_equity']:,.2f}", cash_lbl, delta_color="off")
+                        d2.metric("浮动未实现盈亏 (Unrealized P&L)" if lang_key == "zh" else "Unrealized P&L", f"{base_curr_code} {d['unrealized_pnl']:+,.2f}", f"{d['unrealized_pnl_pct']:+.2f}%", delta_color="normal")
+                        d3.metric("持仓组合 Beta (Portfolio Beta)" if lang_key == "zh" else "Portfolio Beta", f"{d['portfolio_beta']:.2f}", "vs Benchmark", delta_color="off")
+                        var_sub = f"-{d['daily_var_pct']:.2f}% 净值" if lang_key == "zh" else f"-{d['daily_var_pct']:.2f}% Equity"
+                        d4.metric("95% 单日在险价值 (1D 95% VaR)" if lang_key == "zh" else "1-Day 95% Stressed VaR", f"{base_curr_code} -{d['daily_var_95']:,.2f}", var_sub, delta_color="inverse")
+                        vol_sub = f"预期年化波动: {d['target_vol']:.1f}%" if lang_key == "zh" else f"Target Vol: {d['target_vol']:.1f}%"
+                        d5.metric("再平衡目标夏普 (Target Sharpe)" if lang_key == "zh" else "Target Sharpe Ratio", f"{d['target_sharpe']:.2f}", vol_sub, delta_color="normal")
 
                         st.markdown("---")
                         st.markdown(
@@ -5927,7 +6126,7 @@ def main():
                             ))
                             fig_bar.update_layout(
                                 barmode='group',
-                                title=dict(text="📊 各标的当前市值 vs 目标再平衡市值 (Current vs Target Value)", font=dict(color='#ffffff', size=13)),
+                                title=dict(text="📊 各标的当前市值 vs 目标再平衡市值 (Current vs Target Value)" if lang_key == "zh" else "📊 Current vs Target Rebalanced Value", font=dict(color='#ffffff', size=13)),
                                 paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                                 font=dict(color='#94a3b8'), height=320, margin=dict(l=10, r=10, t=40, b=10),
                                 legend=dict(yanchor="top", y=0.98, xanchor="right", x=0.98)
@@ -5936,15 +6135,17 @@ def main():
 
                         with c_plot2:
                             fig_mig = go.Figure()
+                            txt_curr = ["当前组合 (Current)"] if lang_key == "zh" else ["Current Portfolio"]
+                            txt_tgt = ["再平衡组合 (Target)"] if lang_key == "zh" else ["Target Rebalanced Portfolio"]
                             fig_mig.add_trace(go.Scatter(
                                 x=[d["curr_vol"]], y=[d["target_ret"] * 0.85],
                                 mode='markers+text', marker=dict(color='#ef4444', size=14, symbol='diamond'),
-                                text=["当前组合 (Current)"], textposition="top center", name="Current Portfolio"
+                                text=txt_curr, textposition="top center", name="Current Portfolio"
                             ))
                             fig_mig.add_trace(go.Scatter(
                                 x=[d["target_vol"]], y=[d["target_ret"]],
                                 mode='markers+text', marker=dict(color='#10b981', size=16, symbol='star'),
-                                text=["再平衡组合 (Target)"], textposition="top center", name="Target Rebalanced Portfolio"
+                                text=txt_tgt, textposition="top center", name="Target Rebalanced Portfolio"
                             ))
                             # 绘制迁移虚线箭头
                             fig_mig.add_trace(go.Scatter(
@@ -5962,7 +6163,7 @@ def main():
 
                         # 对冲方案指引
                         st.markdown("---")
-                        st.markdown("##### 🛡️ 现有持仓防暴跌与下行对冲作战手册 (Hedging & Downside Protection Playbook)")
+                        st.markdown("##### 🛡️ 现有持仓防暴跌与下行对冲作战手册 (Hedging & Downside Protection Playbook)" if lang_key == "zh" else "##### 🛡️ Downside Protection & Hedging Playbook")
                         has_kl_pos = any(p["is_malaysia"] for p in diag_res.get("valid_pos", []))
                         has_us_pos = any(not p["is_malaysia"] for p in diag_res.get("valid_pos", []))
 
@@ -6053,7 +6254,7 @@ Structure:
                                         memo_res = invoke_gemini_portfolio_memo(gem_key, gem_model_sel, memo_prompt, lang_key=lang_key)
                                         st.session_state[f"last_cio_memo_{engine.ticker}"] = memo_res
                                     except Exception as exc:
-                                        st.error(f"Gemini API 调用异常: {exc}")
+                                        st.error(f"Gemini API 调用异常: {exc}" if lang_key == "zh" else f"Gemini API Error: {exc}")
 
                         memo_content = st.session_state.get(f"last_cio_memo_{engine.ticker}")
                         if memo_content:
@@ -6110,7 +6311,7 @@ Structure:
                             options=[
                                 "🇲🇾 Bursa Malaysia KLCI 蓝筹核心池 (1155.KL, 1023.KL, 1295.KL, 5183.KL, 5347.KL, 1066.KL, 6033.KL, 5225.KL)" if engine.is_malaysia else "🇺🇸 US Tech & Mega-Cap Leaders (AAPL, MSFT, NVDA, GOOGL, AMZN, META, TSLA, BRK-B)",
                                 "🇺🇸 US Tech & Mega-Cap Leaders (AAPL, MSFT, NVDA, GOOGL, AMZN, META, TSLA, BRK-B)" if engine.is_malaysia else "🇲🇾 Bursa Malaysia KLCI 蓝筹核心池 (1155.KL, 1023.KL, 1295.KL, 5183.KL, 5347.KL, 1066.KL, 6033.KL, 5225.KL)",
-                                "✍️ 自选股票池 (Custom Universe / Comma-separated)"
+                                "✍️ 自选股票池 (Custom Universe / Comma-separated)" if lang_key == "zh" else "✍️ Custom Universe (Comma-separated)"
                             ],
                             key=f"bt_univ_sel_{engine.ticker}"
                         )
@@ -6131,45 +6332,63 @@ Structure:
                     bt_chk1, bt_chk2, bt_chk3 = st.columns([1.5, 1.5, 1.0])
                     with bt_chk1:
                         bt_enable_opt = st.checkbox(
-                            "✅ 启用期权/凭单/FKLI衍生品叠加层 (Enable Options / Warrant / FKLI Overlay)",
+                            "✅ 启用期权/凭单/FKLI衍生品叠加层 (Enable Options / Warrant / FKLI Overlay)" if lang_key == "zh" else "✅ Enable Options / Warrant / FKLI Overlay",
                             value=True, key=f"bt_enable_opt_{engine.ticker}"
                         )
                     with bt_chk2:
                         bt_enable_atr = st.checkbox(
-                            "✅ 启用 2.2x ATR 移动止损保护 (Enable 2.2x ATR Trailing Stop)",
+                            "✅ 启用 2.2x ATR 移动止损保护 (Enable 2.2x ATR Trailing Stop)" if lang_key == "zh" else "✅ Enable 2.2x ATR Trailing Stop",
                             value=True, key=f"bt_enable_atr_{engine.ticker}"
                         )
                     with bt_chk3:
                         bt_cost_bps = st.number_input(
-                            "摩擦成本 (bps)", value=15.0, min_value=0.0, max_value=100.0, step=5.0,
+                            "摩擦成本 (bps)" if lang_key == "zh" else "Friction Cost (bps)",
+                            value=15.0, min_value=0.0, max_value=100.0, step=5.0,
                             key=f"bt_cost_bps_{engine.ticker}"
                         )
 
-                    if st.button("🚀 执行 5 年全模型 Walk-Forward 真实回测 (Run 5-Year Full-Model Backtest)", key=f"btn_run_bt_{engine.ticker}"):
+                    if st.button("🚀 执行 5 年全模型 Walk-Forward 真实回测 (Run 5-Year Full-Model Backtest)" if lang_key == "zh" else "🚀 Run 5-Year Full-Model Walk-Forward Backtest", key=f"btn_run_bt_{engine.ticker}"):
                         with st.spinner("正在从 Yahoo Finance 获取 5 年真实历史高开低收数据，推演逐期点时间信号、期权定价与调仓执行..." if lang_key == "zh" else "Fetching 5Y historical data, executing point-in-time walk-forward backtest..."):
                             bt_res = run_5y_full_model_backtest(
                                 tuple(bt_tickers), initial_cash=bt_init_cash, rebalance_days=bt_reb_days,
                                 cost_bps=bt_cost_bps, rf_annual=engine.rf, enable_options_overlay=bt_enable_opt,
-                                enable_atr_stop=bt_enable_atr, currency=base_curr_code
+                                enable_atr_stop=bt_enable_atr, currency=base_curr_code, lang_key=lang_key
                             )
                             st.session_state[f"last_bt_res_{engine.ticker}"] = bt_res
 
                     bt_res = st.session_state.get(f"last_bt_res_{engine.ticker}")
                     if bt_res and "error" not in bt_res:
                         st.markdown("---")
-                        st.markdown("#### 🏆 5 年四轨收益与风险全景指标表 (Performance Tearsheet)")
+                        st.markdown("#### 🏆 5 年四轨收益与风险全景指标表 (Performance Tearsheet)" if lang_key == "zh" else "#### 🏆 5-Year Four-Track Performance & Risk Tearsheet")
                         st.dataframe(bt_res["tearsheet_df"], use_container_width=True)
 
-                        st.markdown("#### 📈 四轨净值走势对比 (Comparative Equity Curves: 2021 — 2026)")
+                        st.markdown("#### 📈 四轨净值走势对比 (Comparative Equity Curves: 2021 — 2026)" if lang_key == "zh" else "#### 📈 Four-Track Equity Progression (2021 — 2026)")
                         fig_eq = go.Figure()
                         d_dates = bt_res["dates"]
-                        fig_eq.add_trace(go.Scatter(x=d_dates, y=bt_res["daily_eq_agg"], mode='lines', name="⚔️ 进取全模型 (SLSQP + Kelly + Options + ATR)", line=dict(color='#f59e0b', width=2.5)))
-                        fig_eq.add_trace(go.Scatter(x=d_dates, y=bt_res["daily_eq_con"], mode='lines', name="🛡️ 保守全模型 (Bridgewater ERC + Collar/CSP + DRIP)", line=dict(color='#10b981', width=2.5)))
-                        fig_eq.add_trace(go.Scatter(x=d_dates, y=bt_res["daily_eq_spot"], mode='lines', name="📊 纯现货基线 (Spot-Only Quant Baseline)", line=dict(color='#38bdf8', width=1.8, dash='dot')))
-                        fig_eq.add_trace(go.Scatter(x=d_dates, y=bt_res["daily_eq_bm"], mode='lines', name=f"📈 市场买入持有基准 ({bt_res['benchmark_ticker']})", line=dict(color='#94a3b8', width=1.5, dash='dash')))
+                        fig_eq.add_trace(go.Scatter(
+                            x=d_dates, y=bt_res["daily_eq_agg"], mode='lines',
+                            name="⚔️ 进取全模型 (SLSQP + Kelly + Options + ATR)" if lang_key == "zh" else "⚔️ Aggressive Full-Model (SLSQP + Kelly + Options + ATR)",
+                            line=dict(color='#f59e0b', width=2.5)
+                        ))
+                        fig_eq.add_trace(go.Scatter(
+                            x=d_dates, y=bt_res["daily_eq_con"], mode='lines',
+                            name="🛡️ 保守全模型 (Bridgewater ERC + Collar/CSP + DRIP)" if lang_key == "zh" else "🛡️ Conservative Full-Model (Bridgewater ERC + Collar/CSP + DRIP)",
+                            line=dict(color='#10b981', width=2.5)
+                        ))
+                        fig_eq.add_trace(go.Scatter(
+                            x=d_dates, y=bt_res["daily_eq_spot"], mode='lines',
+                            name="📊 纯现货基线 (Spot-Only Quant Baseline)" if lang_key == "zh" else "📊 Spot-Only Quant Baseline",
+                            line=dict(color='#38bdf8', width=1.8, dash='dot')
+                        ))
+                        fig_eq.add_trace(go.Scatter(
+                            x=d_dates, y=bt_res["daily_eq_bm"], mode='lines',
+                            name=f"📈 市场买入持有基准 ({bt_res['benchmark_ticker']})" if lang_key == "zh" else f"📈 Benchmark Buy & Hold ({bt_res['benchmark_ticker']})",
+                            line=dict(color='#94a3b8', width=1.5, dash='dash')
+                        ))
                         fig_eq.update_layout(
                             title=dict(text=f"5-Year Walk-Forward Equity Progression ({base_curr_code})", font=dict(color='#ffffff', size=14)),
-                            xaxis_title="Calendar Date", yaxis_title=f"Portfolio Equity ({base_curr_code})",
+                            xaxis_title="Calendar Date" if lang_key == "en" else "交易日期 (Calendar Date)",
+                            yaxis_title=f"Portfolio Equity ({base_curr_code})",
                             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                             font=dict(color='#94a3b8'), height=400, margin=dict(l=10, r=10, t=40, b=10),
                             legend=dict(yanchor="top", y=0.98, xanchor="left", x=0.02)
@@ -6178,10 +6397,11 @@ Structure:
 
                         col_att1, col_att2 = st.columns(2)
                         with col_att1:
-                            st.markdown("##### 🔍 进取策略收益来源归因 (Aggressive P&L Attribution)")
+                            st.markdown("##### 🔍 进取策略收益来源归因 (Aggressive P&L Attribution)" if lang_key == "zh" else "##### 🔍 Aggressive P&L Attribution Breakdown")
                             a_agg = bt_res["attribution_agg"]
+                            x_agg_cats = ["现货+DRIP收益", "期权/凭单Alpha", "ATR止损挽回", "现金利息", "交易摩擦成本"] if lang_key == "zh" else ["Spot + DRIP", "Options/Warrant α", "ATR Recovery", "Cash Interest", "Friction Cost"]
                             fig_att_agg = go.Figure(go.Bar(
-                                x=["现货+DRIP收益", "期权/凭单Alpha", "ATR止损挽回", "现金利息", "交易摩擦成本"],
+                                x=x_agg_cats,
                                 y=[a_agg["spot_pnl"], a_agg["options_pnl"], a_agg["atr_saved"], a_agg["interest"], -a_agg["friction"]],
                                 marker_color=['#38bdf8', '#f59e0b', '#10b981', '#818cf8', '#ef4444']
                             ))
@@ -6193,10 +6413,11 @@ Structure:
                             st.plotly_chart(fig_att_agg, use_container_width=True)
 
                         with col_att2:
-                            st.markdown("##### 🔍 保守策略收益来源归因 (Conservative P&L Attribution)")
+                            st.markdown("##### 🔍 保守策略收益来源归因 (Conservative P&L Attribution)" if lang_key == "zh" else "##### 🔍 Conservative P&L Attribution Breakdown")
                             a_con = bt_res["attribution_con"]
+                            x_con_cats = ["现货+DRIP收益", "期权收租/网格Alpha", "现金利息", "交易摩擦成本"] if lang_key == "zh" else ["Spot + DRIP", "Options Income α", "Cash Interest", "Friction Cost"]
                             fig_att_con = go.Figure(go.Bar(
-                                x=["现货+DRIP收益", "期权收租/网格Alpha", "现金利息", "交易摩擦成本"],
+                                x=x_con_cats,
                                 y=[a_con["spot_pnl"], a_con["options_pnl"], a_con["interest"], -a_con["friction"]],
                                 marker_color=['#38bdf8', '#10b981', '#818cf8', '#ef4444']
                             ))
@@ -6209,10 +6430,10 @@ Structure:
 
                         c_yb1, c_yb2 = st.columns([1.1, 1.9])
                         with c_yb1:
-                            st.markdown("##### 📅 年度收益率分解 (Year-by-Year)")
+                            st.markdown("##### 📅 年度收益率分解 (Year-by-Year)" if lang_key == "zh" else "##### 📅 Year-by-Year Performance Breakdown")
                             st.dataframe(bt_res["yby_df"], use_container_width=True)
                         with c_yb2:
-                            st.markdown("##### 📜 真实期权/凭单叠加层实盘交割日志 (Recent Option/Warrant Realized Trades)")
+                            st.markdown("##### 📜 真实期权/凭单叠加层实盘交割日志 (Recent Option/Warrant Realized Trades)" if lang_key == "zh" else "##### 📜 Option & Warrant Overlay Settlement Ledger")
                             st.dataframe(bt_res["trades_log_df"], use_container_width=True)
 
                     elif bt_res and "error" in bt_res:
