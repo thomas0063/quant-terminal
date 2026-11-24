@@ -1,3 +1,7 @@
+from __future__ import annotations
+import ast
+import math
+from typing import Any
 import datetime
 import json
 import os
@@ -16,39 +20,1388 @@ import scipy.stats as stats
 from scipy.stats import norm
 import scipy.optimize as sco
 
-_CUR_DIR = str(Path(__file__).resolve().parent)
-if _CUR_DIR not in sys.path:
-    sys.path.insert(0, _CUR_DIR)
 
-import quant_v15_modules as qv15
-from quant_v15_modules import (
-    US_CORE_8,
-    BURSA_CORE_8,
-    US_SP25_UNIVERSE,
-    BURSA_KLCI20_UNIVERSE,
-    V15_EXPANDED_TICKER_META,
-    calc_per_share_slippage,
-    calc_bursa_transaction_fee,
-    compute_log_price_r2,
-    classify_three_state_regime,
-    compute_hma55_slope,
-    compute_rolling_vwap_rsi,
-    compute_three_stage_exit_levels,
-    update_tsp_guardian_state,
-    select_orthogonal_top_k,
-    enforce_sector_weight_cap,
-    compute_ai_agent_lens_scorecard,
-    ALLOWED_ALPHA_VARIABLES,
-    ALLOWED_ALPHA_OPERATORS,
-    DEFAULT_ALPHA_SEED_TEMPLATES,
-    count_ast_nodes,
-    validate_alpha_ast,
-    build_feature_panels,
-    SafeAlphaASTEvaluator,
-    mutate_alpha_expressions,
-    evaluate_alpha_candidates,
-    detect_clean_room_pivot_zone,
-)
+# ==============================================================================
+# 0. V15.0 内置模块化计算引擎 (Single-File Standalone Edition for Streamlit Cloud)
+# ==============================================================================
+# ==============================================================================
+# 1. Expanded Cross-Sector Universes (25 US & 20 Bursa Malaysia) + Metadata
+# ==============================================================================
+US_CORE_8 = ["AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "BRK-B"]
+
+BURSA_CORE_8 = [
+    "1155.KL", "1023.KL", "1295.KL", "5183.KL",
+    "5347.KL", "1066.KL", "6033.KL", "5225.KL"
+]
+
+US_SP25_UNIVERSE = [
+    "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "BRK-B",
+    "AVGO", "AMD", "JPM", "V", "MA", "LLY", "UNH", "JNJ",
+    "WMT", "COST", "PG", "HD", "XOM", "CVX", "CAT", "GE", "NFLX"
+]
+
+BURSA_KLCI20_UNIVERSE = [
+    "1155.KL", "1023.KL", "1295.KL", "1066.KL", "5819.KL",
+    "5347.KL", "6033.KL", "5264.KL", "5183.KL", "5225.KL",
+    "5285.KL", "1961.KL", "6888.KL", "4863.KL", "6012.KL",
+    "8869.KL", "4707.KL", "3816.KL", "4197.KL", "7277.KL"
+]
+
+V15_EXPANDED_TICKER_META: dict[str, dict[str, Any]] = {
+    # --- Bursa Malaysia 20 Blue-Chip Core ---
+    "1155.KL": {"name": "Malayan Banking Bhd (Maybank)", "sector": "Financial Services", "shares": 12081096315.0, "div_rate": 0.60, "pe": 12.8, "gm": 0.52},
+    "1023.KL": {"name": "CIMB Group Holdings Bhd", "sector": "Financial Services", "shares": 10715000000.0, "div_rate": 0.43, "pe": 11.5, "gm": 0.50},
+    "1295.KL": {"name": "Public Bank Bhd", "sector": "Financial Services", "shares": 19410691735.0, "div_rate": 0.20, "pe": 12.6, "gm": 0.54},
+    "1066.KL": {"name": "RHB Bank Bhd", "sector": "Financial Services", "shares": 4359000000.0, "div_rate": 0.40, "pe": 9.8, "gm": 0.48},
+    "5819.KL": {"name": "Hong Leong Bank Bhd", "sector": "Financial Services", "shares": 2049000000.0, "div_rate": 0.68, "pe": 10.5, "gm": 0.51},
+    "5347.KL": {"name": "Tenaga Nasional Bhd", "sector": "Utilities", "shares": 5812000000.0, "div_rate": 0.46, "pe": 18.5, "gm": 0.25},
+    "6033.KL": {"name": "Petronas Gas Bhd", "sector": "Utilities", "shares": 1978731915.0, "div_rate": 0.72, "pe": 19.2, "gm": 0.36},
+    "5264.KL": {"name": "Malakoff Corporation Bhd", "sector": "Utilities", "shares": 4886961300.0, "div_rate": 0.03, "pe": 14.5, "gm": 0.18},
+    "5183.KL": {"name": "Petronas Chemicals Group Bhd", "sector": "Basic Materials", "shares": 8000000000.0, "div_rate": 0.13, "pe": 19.0, "gm": 0.22},
+    "5225.KL": {"name": "IHH Healthcare Bhd", "sector": "Healthcare", "shares": 8807000000.0, "div_rate": 0.09, "pe": 26.0, "gm": 0.32},
+    "5285.KL": {"name": "SD Guthrie Bhd (Sime Darby Plantation)", "sector": "Consumer Defensive", "shares": 6915714601.0, "div_rate": 0.15, "pe": 18.0, "gm": 0.26},
+    "1961.KL": {"name": "IOI Corporation Bhd", "sector": "Consumer Defensive", "shares": 6203000000.0, "div_rate": 0.10, "pe": 17.5, "gm": 0.24},
+    "6888.KL": {"name": "Axiata Group Bhd", "sector": "Communication Services", "shares": 9179000000.0, "div_rate": 0.10, "pe": 22.0, "gm": 0.38},
+    "4863.KL": {"name": "Telekom Malaysia Bhd", "sector": "Communication Services", "shares": 3837000000.0, "div_rate": 0.25, "pe": 13.8, "gm": 0.41},
+    "6012.KL": {"name": "Maxis Bhd", "sector": "Communication Services", "shares": 7832000000.0, "div_rate": 0.16, "pe": 20.5, "gm": 0.45},
+    "8869.KL": {"name": "Press Metal Aluminium Holdings Bhd", "sector": "Basic Materials", "shares": 8239000000.0, "div_rate": 0.07, "pe": 25.0, "gm": 0.21},
+    "4707.KL": {"name": "Nestle (Malaysia) Bhd", "sector": "Consumer Defensive", "shares": 234500000.0, "div_rate": 2.68, "pe": 34.0, "gm": 0.31},
+    "3816.KL": {"name": "MISC Bhd", "sector": "Industrials", "shares": 4463794000.0, "div_rate": 0.36, "pe": 16.2, "gm": 0.28},
+    "4197.KL": {"name": "Sime Darby Bhd", "sector": "Industrials", "shares": 6815000000.0, "div_rate": 0.13, "pe": 11.2, "gm": 0.17},
+    "7277.KL": {"name": "Dialog Group Bhd", "sector": "Energy", "shares": 5642000000.0, "div_rate": 0.04, "pe": 21.0, "gm": 0.25},
+    "1188.KL": {"name": "Bumi Armada Bhd", "sector": "Energy", "shares": 5927000000.0, "div_rate": 0.02, "pe": 6.5, "gm": 0.42},
+    # --- US S&P 25 Cross-Sector Core & Peer Universe ---
+    "NVDA": {"name": "NVIDIA Corporation", "sector": "Technology", "shares": 24480000000.0, "div_rate": 0.04, "pe": 38.0, "gm": 0.75},
+    "AAPL": {"name": "Apple Inc.", "sector": "Technology", "shares": 15115000000.0, "div_rate": 1.00, "pe": 31.0, "gm": 0.46},
+    "MSFT": {"name": "Microsoft Corporation", "sector": "Technology", "shares": 7435000000.0, "div_rate": 3.32, "pe": 33.0, "gm": 0.69},
+    "GOOGL": {"name": "Alphabet Inc.", "sector": "Communication Services", "shares": 12210000000.0, "div_rate": 0.80, "pe": 23.5, "gm": 0.58},
+    "AMZN": {"name": "Amazon.com, Inc.", "sector": "Consumer Cyclical", "shares": 10515000000.0, "div_rate": 0.0, "pe": 36.0, "gm": 0.48},
+    "META": {"name": "Meta Platforms, Inc.", "sector": "Communication Services", "shares": 2524000000.0, "div_rate": 2.00, "pe": 26.0, "gm": 0.81},
+    "TSLA": {"name": "Tesla, Inc.", "sector": "Consumer Cyclical", "shares": 3210000000.0, "div_rate": 0.0, "pe": 65.0, "gm": 0.18},
+    "BRK-B": {"name": "Berkshire Hathaway Inc.", "sector": "Financial Services", "shares": 2155000000.0, "div_rate": 0.0, "pe": 21.0, "gm": 0.28},
+    "AVGO": {"name": "Broadcom Inc.", "sector": "Technology", "shares": 4670000000.0, "div_rate": 2.10, "pe": 35.0, "gm": 0.74},
+    "AMD": {"name": "Advanced Micro Devices, Inc.", "sector": "Technology", "shares": 1618000000.0, "div_rate": 0.0, "pe": 42.0, "gm": 0.50},
+    "JPM": {"name": "JPMorgan Chase & Co.", "sector": "Financial Services", "shares": 2845000000.0, "div_rate": 5.00, "pe": 12.5, "gm": 0.55},
+    "V": {"name": "Visa Inc.", "sector": "Financial Services", "shares": 1995000000.0, "div_rate": 2.36, "pe": 29.0, "gm": 0.80},
+    "MA": {"name": "Mastercard Incorporated", "sector": "Financial Services", "shares": 925000000.0, "div_rate": 2.64, "pe": 34.0, "gm": 0.78},
+    "LLY": {"name": "Eli Lilly and Company", "sector": "Healthcare", "shares": 950000000.0, "div_rate": 5.20, "pe": 52.0, "gm": 0.81},
+    "UNH": {"name": "UnitedHealth Group Incorporated", "sector": "Healthcare", "shares": 920000000.0, "div_rate": 8.40, "pe": 21.0, "gm": 0.24},
+    "JNJ": {"name": "Johnson & Johnson", "sector": "Healthcare", "shares": 2407000000.0, "div_rate": 4.96, "pe": 15.8, "gm": 0.69},
+    "WMT": {"name": "Walmart Inc.", "sector": "Consumer Defensive", "shares": 8038000000.0, "div_rate": 0.83, "pe": 33.0, "gm": 0.24},
+    "COST": {"name": "Costco Wholesale Corporation", "sector": "Consumer Defensive", "shares": 443000000.0, "div_rate": 4.64, "pe": 50.0, "gm": 0.13},
+    "PG": {"name": "The Procter & Gamble Company", "sector": "Consumer Defensive", "shares": 2355000000.0, "div_rate": 4.03, "pe": 26.5, "gm": 0.51},
+    "HD": {"name": "The Home Depot, Inc.", "sector": "Consumer Cyclical", "shares": 993000000.0, "div_rate": 9.00, "pe": 26.0, "gm": 0.33},
+    "XOM": {"name": "Exxon Mobil Corporation", "sector": "Energy", "shares": 4395000000.0, "div_rate": 3.80, "pe": 14.2, "gm": 0.32},
+    "CVX": {"name": "Chevron Corporation", "sector": "Energy", "shares": 1828000000.0, "div_rate": 6.52, "pe": 14.5, "gm": 0.38},
+    "CAT": {"name": "Caterpillar Inc.", "sector": "Industrials", "shares": 485000000.0, "div_rate": 5.64, "pe": 17.5, "gm": 0.36},
+    "GE": {"name": "GE Aerospace", "sector": "Industrials", "shares": 1082000000.0, "div_rate": 1.12, "pe": 34.0, "gm": 0.31},
+    "NFLX": {"name": "Netflix, Inc.", "sector": "Communication Services", "shares": 429000000.0, "div_rate": 0.0, "pe": 38.0, "gm": 0.45},
+    "INTC": {"name": "Intel Corporation", "sector": "Technology", "shares": 4315000000.0, "div_rate": 0.0, "pe": 22.0, "gm": 0.40},
+    "TSM": {"name": "Taiwan Semiconductor Manufacturing", "sector": "Technology", "shares": 5186000000.0, "div_rate": 2.40, "pe": 24.0, "gm": 0.56},
+    "QCOM": {"name": "QUALCOMM Incorporated", "sector": "Technology", "shares": 1114000000.0, "div_rate": 3.40, "pe": 18.5, "gm": 0.56},
+    "RIVN": {"name": "Rivian Automotive, Inc.", "sector": "Consumer Cyclical", "shares": 1015000000.0, "div_rate": 0.0, "pe": 0.0, "gm": -0.25},
+    "F": {"name": "Ford Motor Company", "sector": "Consumer Cyclical", "shares": 3975000000.0, "div_rate": 0.60, "pe": 11.5, "gm": 0.09},
+    "GM": {"name": "General Motors Company", "sector": "Consumer Cyclical", "shares": 1105000000.0, "div_rate": 0.48, "pe": 6.5, "gm": 0.13},
+    "TM": {"name": "Toyota Motor Corporation", "sector": "Consumer Cyclical", "shares": 1347000000.0, "div_rate": 5.10, "pe": 9.5, "gm": 0.21},
+}
+
+
+# ==============================================================================
+# 2. Bursa Malaysia Realistic Transaction Fee Schedule & Slippage Guard (P0.4)
+# ==============================================================================
+def calc_per_share_slippage(spot_price: float, slippage_bps: float = 15.0) -> float:
+    """
+    P0.4 Fix: Avoid hardcoded $0.05/share minimum floor on low-priced Bursa Malaysia stocks.
+    Scales floor proportionally as min(0.05, spot_price * 0.002).
+    """
+    s = max(float(spot_price), 1e-4)
+    bps_cost = s * (float(slippage_bps) / 10000.0)
+    floor_cost = min(0.05, s * 0.002)
+    return float(max(bps_cost, floor_cost))
+
+
+def calc_bursa_transaction_fee(trade_notional: float, cost_bps: float = 15.0, use_bursa_schedule: bool = True) -> float:
+    """
+    P0.4 Bursa Malaysia Realistic Fee Schedule:
+    - Brokerage Commission: max(0.08% of notional, RM 8.00)
+    - Bursa Clearing Fee: 0.03% of notional (capped at RM 1,000.00)
+    - Stamp Duty: RM 1.00 per RM 1,000 (0.10%) of notional (capped at RM 1,000.00)
+    - Market Impact / Bid-Ask Slippage: max(cost_bps - 13.0, 2.0) bps
+    """
+    notional = abs(float(trade_notional))
+    if notional <= 1.0:
+        return 0.0
+    if not use_bursa_schedule:
+        return notional * (float(cost_bps) / 10000.0)
+
+    brokerage = max(notional * 0.0008, 8.0)
+    clearing_fee = min(notional * 0.0003, 1000.0)
+    stamp_duty = min(math.ceil(notional / 1000.0) * 1.0, 1000.0)
+    slippage_extra = notional * (max(float(cost_bps) - 13.0, 2.0) / 10000.0)
+    return float(brokerage + clearing_fee + stamp_duty + slippage_extra)
+
+
+# ==============================================================================
+# 3. Daily-Adapted Technical & Regime Operators (P1.1 & P2.2)
+# ==============================================================================
+def compute_log_price_r2(close_series: pd.Series | np.ndarray, window: int = 20) -> float:
+    """
+    P1.1: 20-Day rolling linear regression coefficient of determination (R^2 in [0, 1])
+    on log(Close). Measures directional trend purity vs random-walk noise.
+    """
+    arr = np.asarray(close_series, dtype=float)
+    arr = arr[np.isfinite(arr) & (arr > 0)]
+    if len(arr) < max(window, 5):
+        if len(arr) < 5:
+            return 0.25
+        sub = np.log(arr)
+    else:
+        sub = np.log(arr[-window:])
+    n = len(sub)
+    x = np.arange(n, dtype=float)
+    x_mean = 0.5 * (n - 1)
+    dx = x - x_mean
+    dy = sub - float(np.mean(sub))
+    denom = float(np.sum(dx * dx) * np.sum(dy * dy))
+    if denom <= 1e-12:
+        return 0.0
+    r_val = float(np.sum(dx * dy)) / math.sqrt(denom)
+    return float(np.clip(r_val * r_val, 0.0, 1.0))
+
+
+def compute_log_price_r2_series(close_series: pd.Series, window: int = 20) -> pd.Series:
+    """Vectorized rolling R^2 series for panel/backtest evaluation."""
+    s = pd.to_numeric(close_series, errors="coerce").ffill().bfill()
+    log_s = np.log(s.clip(lower=1e-4))
+    n = int(max(window, 5))
+    x = np.arange(n, dtype=float)
+    dx = x - np.mean(x)
+    ss_x = float(np.sum(dx * dx))
+
+    def _r2_func(y_win: np.ndarray) -> float:
+        dy = y_win - np.mean(y_win)
+        ss_y = float(np.sum(dy * dy))
+        if ss_y <= 1e-12 or ss_x <= 1e-12:
+            return 0.0
+        cov_xy = float(np.sum(dx * dy))
+        return float(np.clip((cov_xy * cov_xy) / (ss_x * ss_y), 0.0, 1.0))
+
+    return log_s.rolling(n, min_periods=max(5, n // 2)).apply(
+        lambda w: _r2_func(np.asarray(w, dtype=float)) if len(w) == n else compute_log_price_r2(w, len(w)),
+        raw=True
+    ).fillna(0.25)
+
+
+def classify_three_state_regime(
+    choppiness_index: float,
+    r2_20d: float,
+    ulcer_index: float,
+    efficiency_ratio: float = 0.45
+) -> dict[str, Any]:
+    """
+    P1.1 Three-State Market Regime Router:
+    - TREND_MODE: CI < 54 and R^2 >= 0.45 (Unlocks high-momentum & directional vertical spreads)
+    - CHAOS_WAIT: CI >= 64 and Ulcer > 6.0 (or Ulcer > 9.0) (Freezes offensive new entries; defensive/hedge only)
+    - RANGE_MODE: All other states (Favors mean-reversion & Covered Call / Iron Condor / Range Grid theta harvest)
+    """
+    ci = float(choppiness_index)
+    r2 = float(r2_20d)
+    ulcer = float(ulcer_index)
+    er = float(efficiency_ratio)
+
+    if ci < 54.0 and r2 >= 0.45:
+        regime = "TREND_MODE"
+        badge_zh = f"🚀 TREND_MODE (高纯度单边趋势 | R²={r2:.2f}, CI={ci:.1f})"
+        badge_en = f"🚀 TREND_MODE (High-Purity Trend | R²={r2:.2f}, CI={ci:.1f})"
+    elif (ci >= 64.0 and ulcer > 6.0) or (ulcer > 9.5 and r2 < 0.25):
+        regime = "CHAOS_WAIT"
+        badge_zh = f"🚨 CHAOS_WAIT (高熵无序动荡/冻结进攻 | CI={ci:.1f}, Ulcer={ulcer:.2f})"
+        badge_en = f"🚨 CHAOS_WAIT (High-Entropy Chaos / Freeze Offense | CI={ci:.1f}, Ulcer={ulcer:.2f})"
+    else:
+        regime = "RANGE_MODE"
+        badge_zh = f"⚖️ RANGE_MODE (箱体均值回归与期权收租 | R²={r2:.2f}, CI={ci:.1f})"
+        badge_en = f"⚖️ RANGE_MODE (Mean-Reversion & Theta Harvest | R²={r2:.2f}, CI={ci:.1f})"
+
+    return {
+        "regime": regime,
+        "r2_20d": round(r2, 4),
+        "choppiness_index": round(ci, 2),
+        "ulcer_index": round(ulcer, 2),
+        "efficiency_ratio": round(er, 4),
+        "badge_zh": badge_zh,
+        "badge_en": badge_en
+    }
+
+
+def _wma_series(s: pd.Series, period: int) -> pd.Series:
+    """Weighted Moving Average helper for Hull Moving Average (HMA)."""
+    p = max(int(period), 1)
+    weights = np.arange(1, p + 1, dtype=float)
+    w_sum = float(np.sum(weights))
+    return s.rolling(p, min_periods=1).apply(
+        lambda x: float(np.dot(x, weights[-len(x):]) / max(np.sum(weights[-len(x):]), 1.0)),
+        raw=True
+    )
+
+
+def compute_hma55_slope_series(close_series: pd.Series, period: int = 55) -> pd.Series:
+    """
+    P2.2 Operator 1: Hull Moving Average HMA(55) 2nd-order normalized slope:
+    hma_slope[t] = (HMA55[t] - HMA55[t-2]) / Close[t]
+    """
+    c = pd.to_numeric(close_series, errors="coerce").ffill().bfill().clip(lower=1e-4)
+    half_p = max(int(period // 2), 2)
+    sqrt_p = max(int(math.isqrt(period)), 2)
+    wma_half = _wma_series(c, half_p)
+    wma_full = _wma_series(c, period)
+    raw_hma = 2.0 * wma_half - wma_full
+    hma = _wma_series(raw_hma, sqrt_p)
+    slope = (hma - hma.shift(2)) / c
+    return slope.fillna(0.0).clip(-0.25, 0.25)
+
+
+def compute_hma55_slope(close_series: pd.Series) -> float:
+    """Scalar latest HMA(55) 2nd-order normalized slope."""
+    if close_series is None or len(close_series) < 5:
+        return 0.0
+    s_sub = close_series.iloc[-80:] if len(close_series) > 80 else close_series
+    ser = compute_hma55_slope_series(s_sub, period=min(55, max(len(s_sub) - 2, 6)))
+    val = float(ser.iloc[-1]) if len(ser) > 0 else 0.0
+    return val if np.isfinite(val) else 0.0
+
+
+def compute_rolling_vwap_rsi_series(
+    high_series: pd.Series,
+    low_series: pd.Series,
+    close_series: pd.Series,
+    vol_series: pd.Series,
+    vwap_win: int = 20,
+    rsi_win: int = 14
+) -> pd.Series:
+    """
+    P2.2 Operator 2: 20-Day Rolling VWAP 14-Day RSI (`rolling_vwap_rsi`).
+    Adapted for daily stock bars (which have no intraday session reset):
+    1) Typical Price TP = (High + Low + Close) / 3
+    2) 20D Rolling VWAP = sum(TP * Vol, 20) / sum(Vol, 20)
+    3) 14D Wilder/SMA RSI on the 20D Rolling VWAP curve.
+    """
+    h = pd.to_numeric(high_series, errors="coerce").ffill().bfill()
+    l = pd.to_numeric(low_series, errors="coerce").ffill().bfill()
+    c = pd.to_numeric(close_series, errors="coerce").ffill().bfill()
+    v = pd.to_numeric(vol_series, errors="coerce").ffill().bfill().clip(lower=1.0)
+
+    tp = (h + l + c) / 3.0
+    tp_vol = (tp * v).rolling(vwap_win, min_periods=2).sum()
+    vol_sum = v.rolling(vwap_win, min_periods=2).sum().replace(0, np.nan)
+    rvwap = (tp_vol / vol_sum).ffill().bfill().fillna(c)
+
+    delta = rvwap.diff()
+    gain = delta.clip(lower=0.0).rolling(rsi_win, min_periods=2).mean()
+    loss = (-delta.clip(upper=0.0)).rolling(rsi_win, min_periods=2).mean()
+    rs = gain / loss.replace(0.0, np.nan)
+    rsi = 100.0 - (100.0 / (1.0 + rs))
+    rsi = rsi.where(loss > 0, np.where(gain > 0, 100.0, 50.0))
+    return pd.Series(rsi, index=c.index).fillna(50.0).clip(0.0, 100.0)
+
+
+def compute_rolling_vwap_rsi(
+    high_series: pd.Series,
+    low_series: pd.Series,
+    close_series: pd.Series,
+    vol_series: pd.Series,
+    vwap_win: int = 20,
+    rsi_win: int = 14
+) -> float:
+    """Scalar latest 20D Rolling VWAP 14D RSI."""
+    if close_series is None or len(close_series) < 10:
+        return 50.0
+    sub_n = min(len(close_series), 60)
+    ser = compute_rolling_vwap_rsi_series(
+        high_series.iloc[-sub_n:],
+        low_series.iloc[-sub_n:],
+        close_series.iloc[-sub_n:],
+        vol_series.iloc[-sub_n:],
+        vwap_win=min(vwap_win, max(sub_n // 2, 5)),
+        rsi_win=min(rsi_win, max(sub_n // 3, 5))
+    )
+    val = float(ser.iloc[-1]) if len(ser) > 0 else 50.0
+    return val if np.isfinite(val) else 50.0
+
+
+# ==============================================================================
+# 4. Three-Stage Stock Exit State Machine & Portfolio TSP Guardian (P1.2)
+# ==============================================================================
+def compute_three_stage_exit_levels(
+    entry_price: float,
+    atr: float,
+    support: float,
+    fair_val: float,
+    tp_cap_pct: float = 0.25,
+    is_long: bool = True
+) -> dict[str, Any]:
+    """
+    P1.2 Stock-Level 3-Stage Exit State Machine:
+    - Stage 1 (Initial Hard Stop): 2.2x ATR below entry (or 2% below 20D support floor)
+    - Stage 2 (Pre-BE Breakeven Trigger): At +1.5x ATR profit, stop ratchets up to Entry Cost (+0.2% friction pad)
+    - Stage 3 (Peak Trailing Profit Stop): At +2.5x ATR profit, activates 1.8x ATR trailing stop below peak high
+    """
+    S = max(float(entry_price), 0.01)
+    a = max(float(atr), S * 0.01)
+    sup = max(float(support), S * 0.85)
+    fv = max(float(fair_val), S * 0.50)
+
+    if is_long:
+        stage1_init_stop = round(min(S * 0.965, max(sup * 0.98, S - 2.2 * a)), 2)
+        stage2_be_trigger = round(S + 1.5 * a, 2)
+        stage2_be_stop = round(S * 1.002, 2)
+        stage3_trail_trigger = round(S + 2.5 * a, 2)
+        stage3_trail_dist = round(1.8 * a, 2)
+        take_profit = round(min(max(fv, S + 3.0 * a), S * (1.0 + tp_cap_pct)), 2)
+        if take_profit <= stage2_be_trigger:
+            take_profit = round(max(stage3_trail_trigger * 1.03, S * 1.12), 2)
+    else:
+        stage1_init_stop = round(max(S * 1.035, S + 2.2 * a), 2)
+        stage2_be_trigger = round(max(0.01, S - 1.5 * a), 2)
+        stage2_be_stop = round(S * 0.998, 2)
+        stage3_trail_trigger = round(max(0.01, S - 2.5 * a), 2)
+        stage3_trail_dist = round(1.8 * a, 2)
+        take_profit = round(max(0.01, min(fv, S - 3.0 * a), S * (1.0 - tp_cap_pct)), 2)
+        if take_profit >= stage2_be_trigger:
+            take_profit = round(min(stage3_trail_trigger * 0.97, S * 0.88), 2)
+
+    return {
+        "stage1_init_stop": stage1_init_stop,
+        "stage2_be_trigger": stage2_be_trigger,
+        "stage2_be_stop": stage2_be_stop,
+        "stage3_trail_trigger": stage3_trail_trigger,
+        "stage3_trail_dist": stage3_trail_dist,
+        "trail_atr_mult": 1.8,
+        "init_atr_mult": 2.2,
+        "be_atr_mult": 1.5,
+        "take_profit": take_profit,
+    }
+
+
+def update_tsp_guardian_state(
+    eq_history: list[float],
+    prev_state: str = "HEALTHY"
+) -> tuple[str, float, float]:
+    """
+    P1.2 Portfolio-Level Trailing Stop Protection (TSP) 3-State Guardian:
+    - Drawdown < 8%: HEALTHY (1.00x equity allocation)
+    - Drawdown 8% ~ 14%: WATCH (0.60x equity allocation, 40% parked in risk-free cash)
+    - Drawdown > 14%: HIBERNATING (0.35x equity allocation, 65% parked in risk-free cash)
+      Remains in HIBERNATING/WATCH until portfolio equity recovers above its own 20-day equity MA!
+    Returns (new_state, exposure_scale, current_drawdown_pct).
+    """
+    if not eq_history:
+        return "HEALTHY", 1.0, 0.0
+
+    curr_eq = float(eq_history[-1])
+    peak_eq = float(max(eq_history))
+    dd_pct = ((peak_eq - curr_eq) / max(peak_eq, 1.0)) * 100.0
+    ma20_eq = float(np.mean(eq_history[-min(20, len(eq_history)):]))
+
+    if dd_pct > 14.0:
+        return "HIBERNATING", 0.35, dd_pct
+    elif dd_pct >= 8.0:
+        if prev_state == "HIBERNATING" and curr_eq < ma20_eq:
+            return "HIBERNATING", 0.35, dd_pct
+        return "WATCH", 0.60, dd_pct
+    else:
+        # Drawdown < 8%: if recovering from HIBERNATING, confirm curr_eq >= ma20_eq
+        if prev_state == "HIBERNATING" and curr_eq < ma20_eq:
+            return "WATCH", 0.60, dd_pct
+        return "HEALTHY", 1.00, dd_pct
+
+
+# ==============================================================================
+# 5. Orthogonal Correlation-Penalized Top-K Selector + Sector Cap (P1.3)
+# ==============================================================================
+def select_orthogonal_top_k(
+    scored_candidates: list[dict[str, Any]],
+    score_key: str,
+    rets_df: pd.DataFrame | None,
+    k: int = 4,
+    corr_threshold: float = 0.70,
+    max_per_sector: int = 2
+) -> tuple[list[dict[str, Any]], pd.DataFrame, list[str]]:
+    """
+    P1.3 Orthogonal Stock Selector (Correlation-Penalized Top-K + Sector Cap):
+    Greedily selects Top-K stocks while penalizing candidates whose 63D return correlation
+    with already-selected picks exceeds `corr_threshold` (|r| > 0.70) and limiting single-sector
+    concentration to at most `max_per_sector` picks (<= 45% sector weight cap).
+    """
+    if not scored_candidates:
+        return [], pd.DataFrame(), []
+
+    pool = sorted(scored_candidates, key=lambda x: float(x.get(score_key, 0.0)), reverse=True)
+    clean_pool = [c for c in pool if c.get("status", "CLEAN") != "HIGH_RISK"]
+    working_pool = clean_pool if len(clean_pool) >= min(k, 2) else pool
+
+    corr_mat = pd.DataFrame()
+    if rets_df is not None and not rets_df.empty and len(rets_df) >= 10:
+        sub_r = rets_df.tail(63)
+        corr_mat = sub_r.corr().fillna(0.0)
+
+    selected: list[dict[str, Any]] = []
+    sector_counts: dict[str, int] = {}
+    ortho_logs: list[str] = []
+    remaining = list(working_pool)
+
+    while len(selected) < min(k, len(working_pool)) and remaining:
+        if not selected:
+            first_pick = remaining.pop(0)
+            first_pick["max_pair_corr"] = 0.0
+            first_pick["ortho_adj_score"] = float(first_pick.get(score_key, 0.0))
+            selected.append(first_pick)
+            sec = str(first_pick.get("sector") or "Unknown")
+            sector_counts[sec] = sector_counts.get(sec, 0) + 1
+            continue
+
+        best_cand = None
+        best_adj_score = -1e18
+        best_max_corr = 0.0
+
+        for cand in remaining:
+            tk_c = cand["ticker"]
+            raw_s = float(cand.get(score_key, 0.0))
+            sec_c = str(cand.get("sector") or "Unknown")
+
+            # Compute max |r| with already selected tickers
+            max_r = 0.0
+            if not corr_mat.empty and tk_c in corr_mat.index:
+                for sel_item in selected:
+                    tk_s = sel_item["ticker"]
+                    if tk_s in corr_mat.columns:
+                        r_val = abs(float(corr_mat.loc[tk_c, tk_s]))
+                        if np.isfinite(r_val) and r_val > max_r:
+                            max_r = r_val
+
+            penalty_mult = 1.0
+            # Correlation penalty when max |r| > 0.70
+            if max_r > corr_threshold:
+                excess_r = (max_r - corr_threshold) / max(1.0 - corr_threshold, 0.1)
+                penalty_mult *= max(0.35, 1.0 - 0.55 * excess_r)
+
+            # Sector cap penalty when sector already has max_per_sector picks
+            if sec_c != "Unknown" and sector_counts.get(sec_c, 0) >= max_per_sector:
+                penalty_mult *= 0.45
+
+            adj_s = raw_s * penalty_mult if raw_s >= 0 else raw_s / max(penalty_mult, 0.2)
+            if adj_s > best_adj_score:
+                best_adj_score = adj_s
+                best_cand = cand
+                best_max_corr = max_r
+
+        if best_cand is None:
+            break
+
+        remaining.remove(best_cand)
+        best_cand["max_pair_corr"] = round(float(best_max_corr), 3)
+        best_cand["ortho_adj_score"] = round(float(best_adj_score), 2)
+        if best_max_corr > corr_threshold:
+            ortho_logs.append(f"{best_cand['ticker']} (max |r|={best_max_corr:.2f} > {corr_threshold:.2f}, penalized)")
+        selected.append(best_cand)
+        sec_b = str(best_cand.get("sector") or "Unknown")
+        sector_counts[sec_b] = sector_counts.get(sec_b, 0) + 1
+
+    sel_syms = [s["ticker"] for s in selected]
+    if not corr_mat.empty and all(t in corr_mat.index for t in sel_syms):
+        sel_corr_df = corr_mat.loc[sel_syms, sel_syms].round(3)
+    else:
+        sel_corr_df = pd.DataFrame(np.eye(len(sel_syms)), index=sel_syms, columns=sel_syms)
+
+    return selected, sel_corr_df, ortho_logs
+
+
+def enforce_sector_weight_cap(
+    weights: np.ndarray,
+    picks: list[dict[str, Any]],
+    max_sector_weight: float = 0.45
+) -> np.ndarray:
+    """
+    P1.3 Enforces single-sector weight cap <= 45% across selected portfolio weights
+    and redistributes any excess weight proportionally to unconstrained sectors.
+    """
+    w = np.asarray(weights, dtype=float).copy()
+    tot_w = float(np.sum(w))
+    if tot_w <= 1e-8 or len(w) <= 1:
+        return w
+    w = w / tot_w
+
+    sectors = [str(p.get("sector") or f"Unique_{i}") for i, p in enumerate(picks)]
+    unique_secs = list(dict.fromkeys(sectors))
+    if len(unique_secs) <= 1:
+        return w
+
+    for _ in range(4):
+        excess_total = 0.0
+        free_mask = np.ones(len(w), dtype=bool)
+        for sec in unique_secs:
+            idx_sec = [i for i, s in enumerate(sectors) if s == sec]
+            sec_w = float(np.sum(w[idx_sec]))
+            if sec_w > max_sector_weight + 1e-4:
+                scale_down = max_sector_weight / sec_w
+                w[idx_sec] *= scale_down
+                excess_total += (sec_w - max_sector_weight)
+                for i in idx_sec:
+                    free_mask[i] = False
+        if excess_total <= 1e-5 or not np.any(free_mask):
+            break
+        free_sum = float(np.sum(w[free_mask]))
+        if free_sum > 1e-6:
+            w[free_mask] += excess_total * (w[free_mask] / free_sum)
+        else:
+            w[free_mask] += excess_total / float(np.sum(free_mask))
+
+    return w / max(float(np.sum(w)), 1e-8)
+
+
+# ==============================================================================
+# 6. AI Agent Lens 0-100 5-Pillar Transparent Scorecard + <66 WAIT Gate (P1.4)
+# ==============================================================================
+def compute_ai_agent_lens_scorecard(
+    mos_pct: float,
+    beneish: dict[str, Any],
+    tech: dict[str, Any],
+    opt_info: dict[str, Any],
+    ws_upside: float,
+    news_lex_score: float,
+    div_yield: float,
+    lang_key: str = "zh"
+) -> dict[str, Any]:
+    """
+    P1.4 AI Agent Lens 0-100 Five-Pillar Transparent Review Chain:
+    [PACKET -> READ -> SCORE -> DECISION]
+    - Pillar 1: Valuation Margin of Safety (0 - 25 pts)
+    - Pillar 2: Beneish Forensics & Accounting Quality (0 - 20 pts)
+    - Pillar 3: 3-State Market Regime & Trend Purity R^2 (0 - 20 pts)
+    - Pillar 4: Technical Momentum & M4 Falling-Knife Guard (0 - 20 pts)
+    - Pillar 5: Options Vol Edge, Dividend & Wall Street Expectation Gap (0 - 15 pts)
+    Strict < 66 WAIT / HOLD Gate: If total_score_100 < 66.0, offensive BUY/OVERWEIGHT is blocked!
+    """
+    # 1. Pillar 1: Valuation Margin of Safety (0 - 25 pts)
+    # mos_pct = 0% -> 13.5 pts, +20% -> 22.5 pts, +30% -> 25 pts, -25% -> 2.5 pts
+    p1_raw = 13.5 + 0.45 * float(np.clip(mos_pct, -30.0, 30.0))
+    if div_yield >= 3.5 and mos_pct >= -5.0:
+        p1_raw += 2.0
+    p1_score = round(float(np.clip(p1_raw, 0.0, 25.0)), 1)
+    if mos_pct >= 12.0:
+        p1_note_zh = f"内在价值折价显著 (MoS {mos_pct:+.1f}%)，具备安全边际垫"
+        p1_note_en = f"Strong intrinsic discount (MoS {mos_pct:+.1f}%), solid safety buffer"
+    elif mos_pct >= -5.0:
+        p1_note_zh = f"估值处于公允合理区间 (MoS {mos_pct:+.1f}%)"
+        p1_note_en = f"Fairly valued near intrinsic equilibrium (MoS {mos_pct:+.1f}%)"
+    else:
+        p1_note_zh = f"市价高于模型公允价 (MoS {mos_pct:+.1f}%)，扣减估值溢价分"
+        p1_note_en = f"Trades at premium to fair value (MoS {mos_pct:+.1f}%), valuation deduction"
+
+    # 2. Pillar 2: Beneish Forensics & Earnings Quality (0 - 20 pts)
+    b_status = str(beneish.get("status", "CLEAN"))
+    m_score = float(beneish.get("m_score", -2.50))
+    accruals = float(beneish.get("accruals_pct", 0.0))
+    if b_status == "CLEAN":
+        p2_raw = 19.0 - max(0.0, accruals * 0.15)
+        p2_note_zh = f"Beneish M-Score={m_score:.2f} (CLEAN 绿灯)，现金流质量优异"
+        p2_note_en = f"Beneish M-Score={m_score:.2f} (CLEAN), high earnings cash quality"
+    elif b_status == "GRAY_ZONE":
+        p2_raw = 11.5
+        p2_note_zh = f"Beneish M-Score={m_score:.2f} (GRAY_ZONE 灰区)，扣减应计利润预警分"
+        p2_note_en = f"Beneish M-Score={m_score:.2f} (GRAY_ZONE), accruals caution deduction"
+    else:
+        p2_raw = 0.0
+        p2_note_zh = f"🚨 M-Score={m_score:.2f} (> -1.78 造假高危红线)，该维度直接归零！"
+        p2_note_en = f"🚨 M-Score={m_score:.2f} (> -1.78 Forensic Red Flag), pillar zeroed!"
+    p2_score = round(float(np.clip(p2_raw, 0.0, 20.0)), 1)
+
+    # 3. Pillar 3: Market Regime & Trend Purity R^2 (0 - 20 pts)
+    r2_val = float(tech.get("r2_20d", 0.35))
+    ci_val = float(tech.get("choppiness_index", 50.0))
+    er_val = float(tech.get("efficiency_ratio", 0.45))
+    ulcer_val = float(tech.get("ulcer_index", 2.5))
+    regime_state = str(tech.get("market_regime", "RANGE_MODE"))
+
+    if regime_state == "TREND_MODE":
+        p3_raw = 15.5 + 4.5 * min(r2_val, 1.0)
+        p3_note_zh = f"TREND_MODE 单边趋势成立 (R²={r2_val:.2f}, CI={ci_val:.1f}, ER={er_val:.2f})"
+        p3_note_en = f"TREND_MODE confirmed (R²={r2_val:.2f}, CI={ci_val:.1f}, ER={er_val:.2f})"
+    elif regime_state == "CHAOS_WAIT":
+        p3_raw = max(2.0, 6.0 - 0.3 * max(ulcer_val - 6.0, 0.0))
+        p3_note_zh = f"🚨 CHAOS_WAIT 高熵动荡 (CI={ci_val:.1f}, Ulcer={ulcer_val:.2f})，触发体制扣分"
+        p3_note_en = f"🚨 CHAOS_WAIT regime (CI={ci_val:.1f}, Ulcer={ulcer_val:.2f}), regime penalty"
+    else:
+        p3_raw = 11.5 + 4.0 * r2_val + 2.0 * er_val - max(0.0, (ci_val - 55.0) * 0.25)
+        p3_note_zh = f"RANGE_MODE 震荡平衡体制 (R²={r2_val:.2f}, CI={ci_val:.1f})，宜网格/收租"
+        p3_note_en = f"RANGE_MODE consolidation (R²={r2_val:.2f}, CI={ci_val:.1f}), favor grid/theta"
+    p3_score = round(float(np.clip(p3_raw, 0.0, 20.0)), 1)
+
+    # 4. Pillar 4: Technical Momentum, HMA55/VWAP-RSI & M4 Falling-Knife Guard (0 - 20 pts)
+    trend = str(tech.get("trend", "NEUTRAL"))
+    rsi = float(tech.get("rsi", 50.0))
+    vwap_rsi = float(tech.get("rolling_vwap_rsi", rsi))
+    hma_slope = float(tech.get("hma_slope", 0.0))
+    panic = bool(tech.get("panic_breakdown", False))
+
+    if trend == "STRONG_BULLISH":
+        p4_raw = 16.5
+    elif trend == "MODERATE_BULLISH":
+        p4_raw = 13.5
+    elif trend == "STRONG_BEARISH":
+        p4_raw = 5.0
+    else:
+        p4_raw = 10.0
+
+    if hma_slope > 0.002:
+        p4_raw += 2.0
+    elif hma_slope < -0.003:
+        p4_raw -= 2.0
+
+    if 38.0 <= vwap_rsi <= 68.0:
+        p4_raw += 1.5
+    elif vwap_rsi > 76.0:
+        p4_raw -= 2.5
+
+    if panic:
+        p4_raw = min(p4_raw, 3.0)
+        p4_note_zh = f"🚨 触发 M4 破位防接飞刀保护 (RSI={rsi:.1f}, VWAP-RSI={vwap_rsi:.1f})，严禁盲目抄底"
+        p4_note_en = f"🚨 M4 Falling-Knife Guard triggered (RSI={rsi:.1f}, VWAP-RSI={vwap_rsi:.1f})"
+    else:
+        p4_note_zh = f"趋势={trend} | HMA55斜率={hma_slope*100:+.2f}% | 量价VWAP-RSI={vwap_rsi:.1f}"
+        p4_note_en = f"Trend={trend} | HMA55 Slope={hma_slope*100:+.2f}% | VWAP-RSI={vwap_rsi:.1f}"
+    p4_score = round(float(np.clip(p4_raw, 0.0, 20.0)), 1)
+
+    # 5. Pillar 5: Options Vol Edge, Dividend & Wall Street Expectation Gap (0 - 15 pts)
+    iv_ratio = float(opt_info.get("iv_hv_ratio", 1.1))
+    p5_raw = 8.0 + float(np.clip(ws_upside * 0.18 + news_lex_score * 0.35, -5.5, 5.5))
+    if 0.90 <= iv_ratio <= 1.35:
+        p5_raw += 1.5
+    p5_score = round(float(np.clip(p5_raw, 0.0, 15.0)), 1)
+    p5_note_zh = f"华尔街空间 {ws_upside:+.1f}% | 情绪分 {news_lex_score:+.1f} | IV/GARCH {iv_ratio:.2f}x"
+    p5_note_en = f"WS Upside {ws_upside:+.1f}% | News {news_lex_score:+.1f} | IV/GARCH {iv_ratio:.2f}x"
+
+    total_100 = round(p1_score + p2_score + p3_score + p4_score + p5_score, 1)
+
+    # Strict < 66 WAIT / HOLD Gate
+    wait_gate_triggered = False
+    wait_reason_zh = ""
+    wait_reason_en = ""
+
+    if b_status == "HIGH_RISK":
+        wait_gate_triggered = True
+        wait_reason_zh = "Beneish M-Score 触发财务造假高危红线 (> -1.78)"
+        wait_reason_en = "Beneish M-Score Forensic Red Flag (> -1.78)"
+    elif regime_state == "CHAOS_WAIT":
+        wait_gate_triggered = True
+        wait_reason_zh = "市场处于 CHAOS_WAIT 高熵无序动荡期，冻结进攻型买单"
+        wait_reason_en = "CHAOS_WAIT high-entropy regime active; offensive entries frozen"
+    elif panic:
+        wait_gate_triggered = True
+        wait_reason_zh = "M4 破位暴跌防飞刀机制激活，等待右侧企稳"
+        wait_reason_en = "M4 Panic-Breakdown Guard active; wait for stabilization"
+    elif total_100 < 66.0:
+        wait_gate_triggered = True
+        wait_reason_zh = f"AI Agent Lens 综合得分 {total_100:.1f}/100 (< 66 分机构开仓门禁)，强制进入 WAIT/HOLD 观望或防守"
+        wait_reason_en = f"AI Agent Lens Score {total_100:.1f}/100 (< 66 Institutional Entry Gate); WAIT/HOLD enforced"
+
+    if not wait_gate_triggered:
+        if total_100 >= 78.0:
+            final_rating = "Buy"
+            decision_tag = "🟢 CONVICTION BUY (>= 78)"
+        else:
+            final_rating = "Overweight"
+            decision_tag = "🟢 OVERWEIGHT (66 - 77.9)"
+    else:
+        if total_100 >= 48.0:
+            final_rating = "Hold"
+            decision_tag = "🟡 WAIT / HOLD GATE (< 66 or Regime Block)"
+        elif total_100 >= 34.0:
+            final_rating = "Underweight"
+            decision_tag = "🟠 UNDERWEIGHT / TRIM (34 - 47.9)"
+        else:
+            final_rating = "Sell"
+            decision_tag = "🔴 DEFENSIVE SELL / HEDGE (< 34)"
+
+    pillars = [
+        {
+            "Pillar_ZH": "① 估值与安全边际 (Valuation & MoS)",
+            "Pillar_EN": "1. Valuation & Margin of Safety",
+            "Score": p1_score,
+            "Max": 25.0,
+            "Pct": round(p1_score / 25.0 * 100.0, 1),
+            "Audit_ZH": p1_note_zh,
+            "Audit_EN": p1_note_en
+        },
+        {
+            "Pillar_ZH": "② Beneish 财务质量侦测 (Forensics Quality)",
+            "Pillar_EN": "2. Beneish Accounting Forensics",
+            "Score": p2_score,
+            "Max": 20.0,
+            "Pct": round(p2_score / 20.0 * 100.0, 1),
+            "Audit_ZH": p2_note_zh,
+            "Audit_EN": p2_note_en
+        },
+        {
+            "Pillar_ZH": "③ 三态市场体制与趋势纯度 R² (Regime & R²)",
+            "Pillar_EN": "3. 3-State Regime & Trend Purity R²",
+            "Score": p3_score,
+            "Max": 20.0,
+            "Pct": round(p3_score / 20.0 * 100.0, 1),
+            "Audit_ZH": p3_note_zh,
+            "Audit_EN": p3_note_en
+        },
+        {
+            "Pillar_ZH": "④ 技术动量与 M4 防飞刀 (Momentum & Guard)",
+            "Pillar_EN": "4. Technical Momentum & M4 Guard",
+            "Score": p4_score,
+            "Max": 20.0,
+            "Pct": round(p4_score / 20.0 * 100.0, 1),
+            "Audit_ZH": p4_note_zh,
+            "Audit_EN": p4_note_en
+        },
+        {
+            "Pillar_ZH": "⑤ 期权波动率与华尔街预期差 (Vol & WS Gap)",
+            "Pillar_EN": "5. Options Vol Edge & WS Expectation Gap",
+            "Score": p5_score,
+            "Max": 15.0,
+            "Pct": round(p5_score / 15.0 * 100.0, 1),
+            "Audit_ZH": p5_note_zh,
+            "Audit_EN": p5_note_en
+        }
+    ]
+
+    df_pillars = pd.DataFrame([
+        {
+            "Dimension" if lang_key == "en" else "五维评分支柱 (Pillar)": p["Pillar_EN"] if lang_key == "en" else p["Pillar_ZH"],
+            "Score" if lang_key == "en" else "得分": f"{p['Score']:.1f} / {p['Max']:.0f}",
+            "Completion" if lang_key == "en" else "达成率": f"{p['Pct']:.0f}%",
+            "Audit Rationale" if lang_key == "en" else "量化审单扣分/加分依据": p["Audit_EN"] if lang_key == "en" else p["Audit_ZH"],
+        }
+        for p in pillars
+    ])
+
+    chain_str_zh = (
+        f"[PACKET: MoS={mos_pct:+.1f}%, M-Score={m_score:.2f}, R²={r2_val:.2f}, CI={ci_val:.1f}, VWAP-RSI={vwap_rsi:.1f}] "
+        f"→ [READ: 体制={regime_state}, 防飞刀={'触发' if panic else '正常'}] "
+        f"→ [SCORE: {total_100:.1f} / 100.0 (门禁 66.0)] "
+        f"→ [DECISION: {final_rating.upper()} ({decision_tag})]"
+    )
+    chain_str_en = (
+        f"[PACKET: MoS={mos_pct:+.1f}%, M-Score={m_score:.2f}, R²={r2_val:.2f}, CI={ci_val:.1f}, VWAP-RSI={vwap_rsi:.1f}] "
+        f"→ [READ: Regime={regime_state}, KnifeGuard={'TRIGGERED' if panic else 'CLEAR'}] "
+        f"→ [SCORE: {total_100:.1f} / 100.0 (Gate 66.0)] "
+        f"→ [DECISION: {final_rating.upper()} ({decision_tag})]"
+    )
+
+    return {
+        "score_100": total_100,
+        "legacy_centered_score": round((total_100 - 52.0) * 1.2, 1),
+        "final_rating": final_rating,
+        "decision_tag": decision_tag,
+        "wait_gate_triggered": wait_gate_triggered,
+        "wait_reason": wait_reason_zh if lang_key == "zh" else wait_reason_en,
+        "wait_reason_zh": wait_reason_zh,
+        "wait_reason_en": wait_reason_en,
+        "pillars": pillars,
+        "pillars_df": df_pillars,
+        "chain_summary": chain_str_zh if lang_key == "zh" else chain_str_en,
+        "chain_summary_zh": chain_str_zh,
+        "chain_summary_en": chain_str_en,
+    }
+
+
+# ==============================================================================
+# 7. Alpha-GPT Lite Safe AST Expression Parser & 3-Gate Factor Lab (P2.3)
+# ==============================================================================
+ALLOWED_ALPHA_VARIABLES = {
+    "close", "open", "high", "low", "volume",
+    "ret_1d", "ret_5d", "ret_20d", "ret_63d",
+    "vol_20d", "er_14", "ci_14", "ulcer_14",
+    "r2_20", "hma_slope", "rolling_vwap_rsi", "amihud_20"
+}
+
+ALLOWED_ALPHA_OPERATORS = {
+    "ts_mean", "ts_std", "ts_rank", "cs_rank",
+    "delta", "delay", "corr", "zscore", "ret",
+    "hma_slope", "rolling_vwap_rsi", "er_14", "ulcer_14",
+    "add", "sub", "mul", "div", "neg", "abs_val"
+}
+
+DEFAULT_ALPHA_SEED_TEMPLATES: dict[str, list[str]] = {
+    "trend_purity": [
+        "cs_rank(mul(ret_63d, r2_20))",
+        "sub(cs_rank(hma_slope), cs_rank(ulcer_14))",
+        "cs_rank(div(er_14, add(vol_20d, 0.05)))",
+        "add(cs_rank(hma_slope), cs_rank(r2_20))",
+    ],
+    "vwap_reversion": [
+        "sub(cs_rank(er_14), cs_rank(rolling_vwap_rsi))",
+        "cs_rank(mul(sub(55, rolling_vwap_rsi), r2_20))",
+        "sub(cs_rank(ret_20d), cs_rank(ts_std(ret_1d, 20)))",
+        "cs_rank(div(hma_slope, add(ulcer_14, 1.0)))",
+    ],
+    "low_ulcer_quality": [
+        "sub(cs_rank(ret_63d), cs_rank(ulcer_14))",
+        "cs_rank(div(add(er_14, r2_20), add(ulcer_14, 1.0)))",
+        "sub(cs_rank(ts_mean(ret_1d, 20)), cs_rank(vol_20d))",
+        "add(cs_rank(er_14), neg(cs_rank(amihud_20)))",
+    ],
+}
+
+
+def count_ast_nodes(expr: str) -> int:
+    """
+    Counts the number of operational AST nodes (Call, BinOp, UnaryOp, Name, Constant)
+    in an Alpha expression. Gate 1 requires complexity <= 10.
+    """
+    tree = ast.parse(str(expr).strip(), mode="eval")
+    count = 0
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Call, ast.BinOp, ast.UnaryOp, ast.Name, ast.Constant)):
+            if isinstance(node, ast.Name) and node.id in ALLOWED_ALPHA_OPERATORS:
+                continue  # Function identifier is already counted by ast.Call
+            count += 1
+    return count
+
+
+def validate_alpha_ast(expr: str, max_nodes: int = 18) -> tuple[bool, int, str]:
+    """
+    Strictly validates an Alpha formula using Python's `ast` module without executing anything.
+    Rejects any attribute access, subscript, lambda, comprehension, import, or non-whitelisted symbol.
+    """
+    clean_expr = str(expr or "").strip()
+    if not clean_expr or len(clean_expr) > 220:
+        return False, 99, "Empty or excessively long expression"
+    try:
+        tree = ast.parse(clean_expr, mode="eval")
+    except SyntaxError as exc:
+        return False, 99, f"Syntax error: {exc}"
+
+    allowed_node_types = (
+        ast.Expression, ast.Call, ast.BinOp, ast.UnaryOp,
+        ast.Add, ast.Sub, ast.Mult, ast.Div, ast.USub, ast.UAdd,
+        ast.Name, ast.Load, ast.Constant
+    )
+
+    for node in ast.walk(tree):
+        if not isinstance(node, allowed_node_types):
+            return False, 99, f"Disallowed AST construct: {type(node).__name__}"
+        if isinstance(node, ast.Call):
+            if not isinstance(node.func, ast.Name) or node.func.id not in ALLOWED_ALPHA_OPERATORS:
+                fn_name = getattr(node.func, "id", repr(node.func))
+                return False, 99, f"Operator '{fn_name}' is not in the safe whitelist"
+            if node.keywords:
+                return False, 99, "Keyword arguments are not permitted in alpha expressions"
+        elif isinstance(node, ast.Name):
+            if node.id not in ALLOWED_ALPHA_VARIABLES and node.id not in ALLOWED_ALPHA_OPERATORS:
+                return False, 99, f"Variable '{node.id}' is not in the safe feature whitelist"
+        elif isinstance(node, ast.Constant):
+            if not isinstance(node.value, (int, float)) or isinstance(node.value, bool):
+                return False, 99, "Only numeric constants (int/float) are allowed"
+
+    n_nodes = count_ast_nodes(clean_expr)
+    if n_nodes > max_nodes:
+        return False, n_nodes, f"AST node count {n_nodes} exceeds hard safety limit {max_nodes}"
+    return True, n_nodes, "VALID"
+
+
+def build_feature_panels(
+    close_df: pd.DataFrame,
+    high_df: pd.DataFrame | None = None,
+    low_df: pd.DataFrame | None = None,
+    open_df: pd.DataFrame | None = None,
+    vol_df: pd.DataFrame | None = None
+) -> dict[str, pd.DataFrame]:
+    """
+    Precomputes point-in-time feature panels (Date x Ticker) for the Safe AST Alpha Engine.
+    Strictly uses backward-looking rolling windows (zero look-ahead bias).
+    """
+    c = close_df.ffill().bfill().clip(lower=1e-4)
+    h = high_df.reindex_like(c).ffill().bfill() if high_df is not None and not high_df.empty else c * 1.01
+    l = low_df.reindex_like(c).ffill().bfill() if low_df is not None and not low_df.empty else c * 0.99
+    o = open_df.reindex_like(c).ffill().bfill() if open_df is not None and not open_df.empty else c.copy()
+    v = vol_df.reindex_like(c).ffill().bfill().clip(lower=1.0) if vol_df is not None and not vol_df.empty else pd.DataFrame(1e6, index=c.index, columns=c.columns)
+
+    ret_1d = c.pct_change(1).fillna(0.0)
+    ret_5d = c.pct_change(5).fillna(0.0)
+    ret_20d = c.pct_change(20).fillna(0.0)
+    ret_63d = c.pct_change(63).fillna(0.0)
+    vol_20d = (ret_1d.rolling(20, min_periods=5).std() * np.sqrt(252.0)).bfill().fillna(0.25)
+
+    # Kaufman ER(14)
+    er_dir = (c - c.shift(14)).abs()
+    er_vol = c.diff().abs().rolling(14, min_periods=3).sum().replace(0, np.nan)
+    er_14 = (er_dir / er_vol).fillna(0.45).clip(0.0, 1.0)
+
+    # Choppiness CI(14)
+    tr = np.maximum(h - l, np.maximum((h - c.shift(1)).abs(), (l - c.shift(1)).abs()))
+    atr_sum = tr.rolling(14, min_periods=3).sum()
+    hl_span = (h.rolling(14, min_periods=3).max() - l.rolling(14, min_periods=3).min()).replace(0, np.nan)
+    ci_14 = (100.0 * np.log10((atr_sum / hl_span).clip(lower=1.0)) / np.log10(14.0)).fillna(50.0).clip(0.0, 100.0)
+
+    # Ulcer Index(14)
+    roll_peak = c.rolling(14, min_periods=2).max().replace(0, np.nan)
+    dd_sq = np.square(((c - roll_peak) / roll_peak) * 100.0)
+    ulcer_14 = np.sqrt(dd_sq.rolling(14, min_periods=2).mean()).fillna(2.5)
+
+    # Amihud(20)
+    dvol = (c * v).replace(0, np.nan)
+    amihud_20 = ((ret_1d.abs() / dvol).rolling(20, min_periods=3).mean() * 1e8).fillna(0.05).clip(0.0, 50.0)
+
+    # Per-ticker HMA(55) slope, Rolling VWAP RSI, and 20D R^2
+    hma_dict = {}
+    vwap_rsi_dict = {}
+    r2_dict = {}
+    for tk in c.columns:
+        hma_dict[tk] = compute_hma55_slope_series(c[tk], period=55)
+        vwap_rsi_dict[tk] = compute_rolling_vwap_rsi_series(h[tk], l[tk], c[tk], v[tk], vwap_win=20, rsi_win=14)
+        r2_dict[tk] = compute_log_price_r2_series(c[tk], window=20)
+
+    return {
+        "close": c,
+        "open": o,
+        "high": h,
+        "low": l,
+        "volume": v,
+        "ret_1d": ret_1d,
+        "ret_5d": ret_5d,
+        "ret_20d": ret_20d,
+        "ret_63d": ret_63d,
+        "vol_20d": vol_20d,
+        "er_14": er_14,
+        "ci_14": ci_14,
+        "ulcer_14": ulcer_14,
+        "r2_20": pd.DataFrame(r2_dict, index=c.index),
+        "hma_slope": pd.DataFrame(hma_dict, index=c.index),
+        "rolling_vwap_rsi": pd.DataFrame(vwap_rsi_dict, index=c.index),
+        "amihud_20": amihud_20,
+    }
+
+
+class SafeAlphaASTEvaluator:
+    """
+    P2.3 Whitelisted AST Evaluator for Cross-Sectional Factor Panels (Date x Ticker).
+    Strictly prohibits `eval()` or `exec()`.
+    """
+
+    def __init__(self, panels: dict[str, pd.DataFrame]):
+        self.panels = panels
+        self.ref_df = panels["close"]
+
+    def _to_df(self, val: pd.DataFrame | float | int) -> pd.DataFrame:
+        if isinstance(val, pd.DataFrame):
+            return val
+        return pd.DataFrame(float(val), index=self.ref_df.index, columns=self.ref_df.columns)
+
+    def _to_window(self, val: Any, default: int = 10) -> int:
+        if isinstance(val, (int, float)):
+            return int(np.clip(int(val), 2, 126))
+        return default
+
+    def evaluate(self, expr: str) -> pd.DataFrame:
+        ok, n_nodes, msg = validate_alpha_ast(expr, max_nodes=20)
+        if not ok:
+            raise ValueError(f"Invalid Alpha AST expression ({msg}): {expr}")
+        tree = ast.parse(str(expr).strip(), mode="eval")
+        res = self._eval_node(tree.body)
+        df_out = self._to_df(res).replace([np.inf, -np.inf], np.nan).ffill().fillna(0.0)
+        return df_out
+
+    def _eval_node(self, node: ast.AST) -> pd.DataFrame | float:
+        if isinstance(node, ast.Constant):
+            return float(node.value)
+        if isinstance(node, ast.Name):
+            if node.id in self.panels:
+                return self.panels[node.id]
+            raise ValueError(f"Unknown feature variable: {node.id}")
+        if isinstance(node, ast.UnaryOp):
+            operand = self._eval_node(node.operand)
+            if isinstance(node.op, ast.USub):
+                return -operand
+            if isinstance(node.op, ast.UAdd):
+                return operand
+            raise ValueError(f"Unsupported unary op: {type(node.op).__name__}")
+        if isinstance(node, ast.BinOp):
+            left = self._eval_node(node.left)
+            right = self._eval_node(node.right)
+            if isinstance(node.op, ast.Add):
+                return left + right
+            if isinstance(node.op, ast.Sub):
+                return left - right
+            if isinstance(node.op, ast.Mult):
+                return left * right
+            if isinstance(node.op, ast.Div):
+                r_df = self._to_df(right)
+                safe_denom = r_df.where(r_df.abs() > 1e-6, np.where(r_df >= 0, 1e-6, -1e-6))
+                return self._to_df(left) / safe_denom
+            raise ValueError(f"Unsupported binary op: {type(node.op).__name__}")
+        if isinstance(node, ast.Call):
+            fn = node.func.id
+            args = [self._eval_node(a) for a in node.args]
+            return self._apply_op(fn, args)
+        raise ValueError(f"Unsupported AST node: {type(node).__name__}")
+
+    def _apply_op(self, fn: str, args: list[Any]) -> pd.DataFrame:
+        if fn == "add":
+            return self._to_df(args[0]) + self._to_df(args[1])
+        if fn == "sub":
+            return self._to_df(args[0]) - self._to_df(args[1])
+        if fn == "mul":
+            return self._to_df(args[0]) * self._to_df(args[1])
+        if fn == "div":
+            r_df = self._to_df(args[1])
+            safe_denom = r_df.where(r_df.abs() > 1e-6, 1e-6)
+            return self._to_df(args[0]) / safe_denom
+        if fn == "neg":
+            return -self._to_df(args[0])
+        if fn == "abs_val":
+            return self._to_df(args[0]).abs()
+        if fn == "cs_rank":
+            df_x = self._to_df(args[0])
+            return df_x.rank(axis=1, pct=True).fillna(0.5)
+        if fn == "zscore":
+            df_x = self._to_df(args[0])
+            m = df_x.mean(axis=1)
+            s = df_x.std(axis=1).replace(0, 1.0).fillna(1.0)
+            return df_x.sub(m, axis=0).div(s, axis=0).clip(-3.5, 3.5)
+        if fn == "ts_mean":
+            df_x = self._to_df(args[0])
+            d = self._to_window(args[1] if len(args) > 1 else 10, 10)
+            return df_x.rolling(d, min_periods=2).mean().bfill()
+        if fn == "ts_std":
+            df_x = self._to_df(args[0])
+            d = self._to_window(args[1] if len(args) > 1 else 10, 10)
+            return df_x.rolling(d, min_periods=2).std().bfill().fillna(0.01)
+        if fn == "ts_rank":
+            df_x = self._to_df(args[0])
+            d = self._to_window(args[1] if len(args) > 1 else 10, 10)
+            return df_x.rolling(d, min_periods=2).rank(pct=True).bfill().fillna(0.5)
+        if fn == "delta":
+            df_x = self._to_df(args[0])
+            d = self._to_window(args[1] if len(args) > 1 else 5, 5)
+            return df_x.diff(d).fillna(0.0)
+        if fn == "delay":
+            df_x = self._to_df(args[0])
+            d = self._to_window(args[1] if len(args) > 1 else 5, 5)
+            return df_x.shift(d).bfill()
+        if fn == "ret":
+            df_x = self._to_df(args[0]).clip(lower=1e-4)
+            d = self._to_window(args[1] if len(args) > 1 else 20, 20)
+            return df_x.pct_change(d).fillna(0.0)
+        if fn == "corr":
+            df_x = self._to_df(args[0])
+            df_y = self._to_df(args[1]) if len(args) > 1 else self.panels["volume"]
+            d = self._to_window(args[2] if len(args) > 2 else 20, 20)
+            return df_x.rolling(d, min_periods=5).corr(df_y).fillna(0.0).clip(-1.0, 1.0)
+        if fn in ("hma_slope", "rolling_vwap_rsi", "er_14", "ulcer_14"):
+            return self.panels[fn]
+        raise ValueError(f"Unsupported operator: {fn}")
+
+
+def mutate_alpha_expressions(seed_exprs: list[str], max_candidates: int = 8) -> list[str]:
+    """
+    Lightweight genetic mutation & crossover generator for Alpha-GPT Lite.
+    Produces complexity-bounded (AST nodes <= 10) candidate variations.
+    """
+    candidates: list[str] = []
+    for s in seed_exprs:
+        s_clean = str(s).strip()
+        ok, n_nodes, _ = validate_alpha_ast(s_clean, max_nodes=10)
+        if ok and s_clean not in candidates:
+            candidates.append(s_clean)
+
+    mutation_pool = [
+        "cs_rank(mul(hma_slope, r2_20))",
+        "sub(cs_rank(hma_slope), cs_rank(ulcer_14))",
+        "cs_rank(div(er_14, add(vol_20d, 0.05)))",
+        "sub(cs_rank(er_14), cs_rank(rolling_vwap_rsi))",
+        "add(cs_rank(hma_slope), cs_rank(r2_20))",
+        "sub(cs_rank(ret_20d), cs_rank(ulcer_14))",
+        "cs_rank(div(r2_20, add(ulcer_14, 1.0)))",
+        "sub(cs_rank(r2_20), cs_rank(ci_14))",
+    ]
+    for m_expr in mutation_pool:
+        if len(candidates) >= max_candidates:
+            break
+        ok, _, _ = validate_alpha_ast(m_expr, max_nodes=10)
+        if ok and m_expr not in candidates:
+            candidates.append(m_expr)
+
+    return candidates[:max_candidates]
+
+
+def evaluate_alpha_candidates(
+    candidate_exprs: list[str],
+    panels: dict[str, pd.DataFrame],
+    forward_days: int = 21,
+    max_ast_nodes: int = 10,
+    max_corr_thresh: float = 0.70,
+    lang_key: str = "zh"
+) -> dict[str, Any]:
+    """
+    P2.3 Alpha-GPT Lite Cross-Sectional Factor Lab with 3 Overfitting Gates:
+    - Gate 1: AST Node Complexity <= 10
+    - Gate 2: Max Cross-Sectional Correlation with Baseline Factors |r| < 0.70
+    - Gate 3: 21-Day Forward Return Rank IC > 0 AND ICIR > 0 in BOTH In-Sample (2021-2024) & Out-of-Sample (2025-2026)
+    """
+    evaluator = SafeAlphaASTEvaluator(panels)
+    close_df = panels["close"]
+    fwd_ret_21d = close_df.shift(-forward_days) / close_df - 1.0
+    valid_dates = fwd_ret_21d.dropna(how="all").index
+
+    # Split IS (<= 2024-12-31) vs OOS (>= 2025-01-01); fallback to 70% / 30% split if dates don't span 2025
+    is_dates = [d for d in valid_dates if getattr(d, "year", 2024) <= 2024]
+    oos_dates = [d for d in valid_dates if getattr(d, "year", 2025) >= 2025]
+    if len(is_dates) < 30 or len(oos_dates) < 15:
+        split_idx = int(len(valid_dates) * 0.72)
+        is_dates = list(valid_dates[:split_idx])
+        oos_dates = list(valid_dates[split_idx:])
+
+    # Baseline factors for Gate 2 orthogonality check
+    base_factors = {
+        "mom_63d": panels["ret_63d"],
+        "inv_vol_20d": -panels["vol_20d"],
+        "inv_ulcer_14": -panels["ulcer_14"],
+    }
+
+    def _calc_rank_ic_stats(fac_df: pd.DataFrame, date_list: list[Any]) -> tuple[float, float]:
+        if not date_list:
+            return 0.0, 0.0
+        # Sample every 5 trading days to reduce overlapping serial correlation while preserving statistical power
+        step = max(1, min(5, len(date_list) // 12))
+        sampled_dates = date_list[::step]
+        ics = []
+        for dt in sampled_dates:
+            f_row = fac_df.loc[dt].values
+            r_row = fwd_ret_21d.loc[dt].values
+            mask = np.isfinite(f_row) & np.isfinite(r_row)
+            if np.sum(mask) >= 3 and np.ptp(f_row[mask]) > 1e-8 and np.ptp(r_row[mask]) > 1e-8:
+                rho, _ = stats.spearmanr(f_row[mask], r_row[mask])
+                if np.isfinite(rho):
+                    ics.append(float(rho))
+        if not ics:
+            return 0.0, 0.0
+        mean_ic = float(np.mean(ics))
+        std_ic = float(np.std(ics))
+        icir = mean_ic / max(std_ic, 1e-4)
+        return mean_ic, icir
+
+    def _calc_max_base_corr(fac_df: pd.DataFrame, date_list: list[Any]) -> float:
+        sample_dts = date_list[-min(60, len(date_list)):][::3] if date_list else []
+        max_c = 0.0
+        for b_name, b_df in base_factors.items():
+            corrs = []
+            for dt in sample_dts:
+                f_v = fac_df.loc[dt].values
+                b_v = b_df.loc[dt].values
+                mask = np.isfinite(f_v) & np.isfinite(b_v)
+                if np.sum(mask) >= 3 and np.ptp(f_v[mask]) > 1e-8 and np.ptp(b_v[mask]) > 1e-8:
+                    c_val = np.corrcoef(f_v[mask], b_v[mask])[0, 1]
+                    if np.isfinite(c_val):
+                        corrs.append(abs(float(c_val)))
+            if corrs:
+                avg_abs_c = float(np.mean(corrs))
+                if avg_abs_c > max_c:
+                    max_c = avg_abs_c
+        return min(max_c, 0.999)
+
+    audit_rows = []
+    passing_factors: list[dict[str, Any]] = []
+    latest_scores_map: dict[str, dict[str, float]] = {}
+
+    for expr in candidate_exprs:
+        ok, n_nodes, msg = validate_alpha_ast(expr, max_nodes=18)
+        if not ok:
+            audit_rows.append({
+                "Formula": expr,
+                "AST Nodes": n_nodes,
+                "Max Base Corr |r|": "N/A",
+                "IS Rank IC (21-24)": "N/A",
+                "IS ICIR": "N/A",
+                "OOS Rank IC (25-26)": "N/A",
+                "OOS ICIR": "N/A",
+                "Gate 1 (<=10)": "❌ FAIL",
+                "Gate 2 (|r|<0.70)": "❌ FAIL",
+                "Gate 3 (IS & OOS IC>0)": "❌ FAIL",
+                "Verdict": f"❌ AST Blocked ({msg})"
+            })
+            continue
+
+        try:
+            fac_panel = evaluator.evaluate(expr)
+            max_corr = _calc_max_base_corr(fac_panel, list(valid_dates))
+            is_ic, is_icir = _calc_rank_ic_stats(fac_panel, is_dates)
+            oos_ic, oos_icir = _calc_rank_ic_stats(fac_panel, oos_dates)
+
+            # Auto-flip sign if factor is consistently negatively correlated in IS (value/reversal style),
+            # then test OOS strictly with the IS-determined polarity (zero OOS peeking!)
+            effective_expr = expr
+            if is_ic < 0:
+                neg_expr = f"neg({expr})"
+                if count_ast_nodes(neg_expr) <= max_ast_nodes:
+                    fac_panel = -fac_panel
+                    effective_expr = neg_expr
+                    n_nodes = count_ast_nodes(effective_expr)
+                    is_ic, is_icir = -is_ic, -is_icir
+                    oos_ic, oos_icir = -oos_ic, -oos_icir
+
+            g1_pass = n_nodes <= max_ast_nodes
+            g2_pass = max_corr < max_corr_thresh
+            g3_pass = (is_ic > 0.0 and is_icir > 0.0 and oos_ic > 0.0 and oos_icir > 0.0)
+            all_pass = bool(g1_pass and g2_pass and g3_pass)
+
+            last_row = fac_panel.iloc[-1].rank(pct=True).fillna(0.5)
+            latest_scores_map[effective_expr] = {str(tk): float(last_row[tk]) for tk in close_df.columns}
+
+            if all_pass:
+                passing_factors.append({
+                    "formula": effective_expr,
+                    "ast_nodes": n_nodes,
+                    "max_corr": max_corr,
+                    "is_ic": is_ic,
+                    "is_icir": is_icir,
+                    "oos_ic": oos_ic,
+                    "oos_icir": oos_icir,
+                    "latest_ranks": latest_scores_map[effective_expr],
+                    "panel": fac_panel.rank(axis=1, pct=True).fillna(0.5),
+                })
+
+            audit_rows.append({
+                "Formula": effective_expr,
+                "AST Nodes": n_nodes,
+                "Max Base Corr |r|": f"{max_corr:.2f}",
+                "IS Rank IC (21-24)": f"{is_ic:+.4f}",
+                "IS ICIR": f"{is_icir:+.2f}",
+                "OOS Rank IC (25-26)": f"{oos_ic:+.4f}",
+                "OOS ICIR": f"{oos_icir:+.2f}",
+                "Gate 1 (<=10)": "✅ PASS" if g1_pass else "❌ FAIL",
+                "Gate 2 (|r|<0.70)": "✅ PASS" if g2_pass else "❌ FAIL",
+                "Gate 3 (IS & OOS IC>0)": "✅ PASS" if g3_pass else "❌ FAIL",
+                "Verdict": ("🏆 3-GATE PASSED (可注入选股)" if lang_key == "zh" else "🏆 3-GATE PASSED") if all_pass else ("⚠️ 闸门拦截 (Rejected)" if lang_key == "zh" else "⚠️ Gate Rejected")
+            })
+        except Exception as exc:
+            audit_rows.append({
+                "Formula": expr,
+                "AST Nodes": n_nodes,
+                "Max Base Corr |r|": "ERR",
+                "IS Rank IC (21-24)": "ERR",
+                "IS ICIR": "ERR",
+                "OOS Rank IC (25-26)": "ERR",
+                "OOS ICIR": "ERR",
+                "Gate 1 (<=10)": "❌ FAIL",
+                "Gate 2 (|r|<0.70)": "❌ FAIL",
+                "Gate 3 (IS & OOS IC>0)": "❌ FAIL",
+                "Verdict": f"❌ Eval Error: {exc}"
+            })
+
+    return {
+        "audit_df": pd.DataFrame(audit_rows),
+        "passing_factors": passing_factors,
+        "latest_scores_map": latest_scores_map,
+        "is_days": len(is_dates),
+        "oos_days": len(oos_dates),
+    }
+
+
+# ==============================================================================
+# 8. Clean-Room Confirmed Pivot Consolidation Zone Detector [ZD, ZG] (P2.4)
+# ==============================================================================
+def detect_clean_room_pivot_zone(hist_df: pd.DataFrame, confirm_bars: int = 2) -> dict[str, Any]:
+    """
+    P2.4 Clean-Room Confirmed Pivot Consolidation Zone Detector (~40 lines pure Python):
+    1) Uses closed daily bars with a 5-bar window (`confirm_bars=2` left & right) to confirm
+       irreversible swing highs and swing lows.
+    2) Filters into alternating swing pivots with >= 3 trading days separation.
+    3) Searches the most recent 3 consecutive swing segments [L_1, H_1], [L_2, H_2], [L_3, H_3]
+       for a valid overlapping price consolidation box:
+           ZD = max(L_1, L_2, L_3),   ZG = min(H_1, H_2, H_3)   with ZG > ZD.
+    4) Strictly for visual structural reference on Tab 1 Candlestick chart; NEVER used in Tab 9 backtest.
+    """
+    if hist_df is None or hist_df.empty or len(hist_df) < 25:
+        return {"has_zone": False}
+
+    highs = hist_df["High"].values.astype(float)
+    lows = hist_df["Low"].values.astype(float)
+    closes = hist_df["Close"].values.astype(float)
+    dates = hist_df.index
+    n = len(hist_df)
+    w = max(int(confirm_bars), 2)
+
+    raw_pivots: list[tuple[int, str, float]] = []
+    for i in range(w, n - w):
+        is_hi = highs[i] >= np.max(highs[i - w : i + w + 1])
+        is_lo = lows[i] <= np.min(lows[i - w : i + w + 1])
+        if is_hi and not is_lo:
+            raw_pivots.append((i, "H", float(highs[i])))
+        elif is_lo and not is_hi:
+            raw_pivots.append((i, "L", float(lows[i])))
+
+    # Enforce alternating High-Low-High-Low sequence with >= 3 bars spacing
+    pivots: list[tuple[int, str, float]] = []
+    for idx_i, p_type, p_val in raw_pivots:
+        if not pivots:
+            pivots.append((idx_i, p_type, p_val))
+        else:
+            last_idx, last_type, last_val = pivots[-1]
+            if p_type == last_type:
+                if (p_type == "H" and p_val >= last_val) or (p_type == "L" and p_val <= last_val):
+                    pivots[-1] = (idx_i, p_type, p_val)
+            elif idx_i - last_idx >= 3:
+                pivots.append((idx_i, p_type, p_val))
+
+    # Scan backwards for the most recent 3 consecutive swing segments with overlap ZG > ZD
+    chosen_zone = None
+    if len(pivots) >= 4:
+        for end_k in range(len(pivots) - 1, 2, -1):
+            p0, p1, p2, p3 = pivots[end_k - 3], pivots[end_k - 2], pivots[end_k - 1], pivots[end_k]
+            seg1_lo, seg1_hi = min(p0[2], p1[2]), max(p0[2], p1[2])
+            seg2_lo, seg2_hi = min(p1[2], p2[2]), max(p1[2], p2[2])
+            seg3_lo, seg3_hi = min(p2[2], p3[2]), max(p2[2], p3[2])
+            zd = max(seg1_lo, seg2_lo, seg3_lo)
+            zg = min(seg1_hi, seg2_hi, seg3_hi)
+            if zg > zd * 1.002:
+                chosen_zone = (p0[0], min(n - 1, p3[0] + 5), float(zd), float(zg))
+                break
+
+    # Fallback: if recent 3 swing segments were strongly trending without overlap, take 60D interquartile consolidation box
+    if chosen_zone is None:
+        sub_len = min(60, n)
+        zd = float(np.percentile(lows[-sub_len:], 32))
+        zg = float(np.percentile(highs[-sub_len:], 68))
+        if zg <= zd:
+            zd, zg = float(np.min(lows[-20:])), float(np.max(highs[-20:]))
+        chosen_zone = (max(0, n - sub_len), n - 1, zd, zg)
+
+    i_start, i_end, zd_val, zg_val = chosen_zone
+    spot = float(closes[-1])
+    zm_val = 0.5 * (zd_val + zg_val)
+
+    if spot > zg_val:
+        status_code = "ABOVE_PIVOT"
+        label_zh = f"🟢 中枢上方强势突破 (Spot {spot:.2f} > ZG {zg_val:.2f} | 中枢箱体 [{zd_val:.2f}, {zg_val:.2f}])"
+        label_en = f"🟢 Bullish Breakout Above Pivot Zone (Spot {spot:.2f} > ZG {zg_val:.2f} | Pivot [{zd_val:.2f}, {zg_val:.2f}])"
+    elif spot < zd_val:
+        status_code = "BELOW_PIVOT"
+        label_zh = f"🔴 中枢下方弱势承压 (Spot {spot:.2f} < ZD {zd_val:.2f} | 中枢箱体 [{zd_val:.2f}, {zg_val:.2f}])"
+        label_en = f"🔴 Bearish Below Pivot Zone (Spot {spot:.2f} < ZD {zd_val:.2f} | Pivot [{zd_val:.2f}, {zg_val:.2f}])"
+    else:
+        status_code = "INSIDE_PIVOT"
+        label_zh = f"⚖️ 中枢箱体内震荡博弈 (ZD {zd_val:.2f} ≤ Spot {spot:.2f} ≤ ZG {zg_val:.2f})"
+        label_en = f"⚖️ Consolidating Inside Pivot Zone (ZD {zd_val:.2f} ≤ Spot {spot:.2f} ≤ ZG {zg_val:.2f})"
+
+    return {
+        "has_zone": True,
+        "x0": dates[i_start],
+        "x1": dates[-1],
+        "zd": round(zd_val, 2),
+        "zg": round(zg_val, 2),
+        "zm": round(zm_val, 2),
+        "status_code": status_code,
+        "label_zh": label_zh,
+        "label_en": label_en,
+    }
+
+qv15 = sys.modules[__name__]
 
 # ==============================================================================
 # 1. 页面基本配置与高级 CSS 视觉引擎 (Bento Box + Tabs + TradingAgents 投委会样式)
