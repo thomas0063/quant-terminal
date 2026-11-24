@@ -1406,6 +1406,28 @@ qv15 = sys.modules[__name__]
 # ==============================================================================
 # 1. 页面基本配置与高级 CSS 视觉引擎 (Bento Box + Tabs + TradingAgents 投委会样式)
 # ==============================================================================
+try:
+    if hasattr(st, "_config") and hasattr(st._config, "set_option"):
+        st._config.set_option("theme.base", "dark")
+        st._config.set_option("theme.primaryColor", "#38bdf8")
+        st._config.set_option("theme.backgroundColor", "#0f172a")
+        st._config.set_option("theme.secondaryBackgroundColor", "#1e293b")
+        st._config.set_option("theme.textColor", "#f8fafc")
+except Exception:
+    pass
+
+try:
+    _st_cfg_dir = Path(__file__).resolve().parent / ".streamlit"
+    _st_cfg_file = _st_cfg_dir / "config.toml"
+    if not _st_cfg_file.exists():
+        _st_cfg_dir.mkdir(parents=True, exist_ok=True)
+        _st_cfg_file.write_text(
+            '[theme]\nbase="dark"\nprimaryColor="#38bdf8"\nbackgroundColor="#0f172a"\nsecondaryBackgroundColor="#1e293b"\ntextColor="#f8fafc"\n',
+            encoding="utf-8"
+        )
+except Exception:
+    pass
+
 st.set_page_config(
     page_title="Ultimate Quant & TradingAgents Terminal V15.0 Grandmaster Edition",
     page_icon="💹",
@@ -1417,6 +1439,14 @@ PREMIUM_CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
+:root, .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"], [data-testid="stSidebar"] {
+    color-scheme: dark !important;
+    --primary-color: #38bdf8 !important;
+    --background-color: #0f172a !important;
+    --secondary-background-color: #1e293b !important;
+    --text-color: #f8fafc !important;
+}
+
 .stApp {
     background: radial-gradient(circle at 50% 0%, #1e293b 0%, #0f172a 60%, #090d16 100%) !important;
     font-family: 'Inter', -apple-system, sans-serif !important;
@@ -1425,60 +1455,366 @@ PREMIUM_CSS = """
 .block-container { padding-top: 2rem !important; max-width: 1440px !important; }
 header[data-testid="stHeader"] { background: transparent !important; }
 
+/* 1. 顶部 9 大 Tabs 导航栏高对比度样式 */
 .stTabs [data-baseweb="tab-list"] {
-    gap: 6px; background-color: rgba(15, 23, 42, 0.6); border-radius: 12px; padding: 8px; border: 1px solid rgba(56, 189, 248, 0.2);
+    gap: 6px; background-color: rgba(15, 23, 42, 0.85) !important; border-radius: 12px; padding: 8px; border: 1px solid rgba(56, 189, 248, 0.3) !important;
     flex-wrap: wrap;
 }
 .stTabs [data-baseweb="tab"] {
-    color: #94a3b8 !important; font-weight: 600 !important; border-radius: 8px !important; padding: 9px 12px !important; font-size: 12px !important; transition: all 0.3s ease;
+    background-color: rgba(30, 41, 59, 0.55) !important;
+    color: #e2e8f0 !important; font-weight: 600 !important; border-radius: 8px !important; padding: 9px 12px !important; font-size: 12px !important; transition: all 0.25s ease;
+}
+.stTabs [data-baseweb="tab"] * {
+    color: #e2e8f0 !important;
 }
 .stTabs [aria-selected="true"] {
-    background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%) !important; color: #ffffff !important; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.4);
+    background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%) !important; color: #ffffff !important; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.45);
+}
+.stTabs [aria-selected="true"] * {
+    color: #ffffff !important; font-weight: 700 !important;
 }
 
+/* 2. Bento 卡片容器 */
 [data-testid="column"] > div { height: 100% !important; }
 [data-testid="stVerticalBlockBorderWrapper"] {
-    background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.85) 100%) !important;
-    border: 1px solid rgba(56, 189, 248, 0.3) !important; border-radius: 14px !important;
-    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.78) 0%, rgba(15, 23, 42, 0.92) 100%) !important;
+    border: 1px solid rgba(56, 189, 248, 0.35) !important; border-radius: 14px !important;
+    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
     backdrop-filter: blur(12px) !important; transition: all 0.3s ease !important; padding: 16px 20px !important;
     height: 100% !important; display: flex; flex-direction: column; justify-content: space-between;
 }
 [data-testid="stVerticalBlockBorderWrapper"]:hover {
-    border-color: #38bdf8 !important; box-shadow: 0 10px 30px -4px rgba(56, 189, 248, 0.3) !important; transform: translateY(-2px);
+    border-color: #38bdf8 !important; box-shadow: 0 10px 30px -4px rgba(56, 189, 248, 0.32) !important; transform: translateY(-2px);
 }
 
+/* 3. 按钮与下载按钮 */
 .stButton > button, .stDownloadButton > button {
     background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%) !important; color: #38bdf8 !important;
-    border: 1px solid rgba(56, 189, 248, 0.3) !important; border-radius: 8px !important; font-weight: 600 !important; font-size: 13px !important; transition: all 0.25s ease !important;
+    border: 1px solid rgba(56, 189, 248, 0.4) !important; border-radius: 8px !important; font-weight: 600 !important; font-size: 13px !important; transition: all 0.25s ease !important;
+}
+.stButton > button *, .stDownloadButton > button * {
+    color: #38bdf8 !important;
 }
 .stButton > button:hover, .stDownloadButton > button:hover {
-    background: rgba(56, 189, 248, 0.15) !important; color: #ffffff !important; border-color: #38bdf8 !important; box-shadow: 0 6px 18px -2px rgba(56, 189, 248, 0.4) !important; transform: translateY(-2px);
+    background: rgba(56, 189, 248, 0.2) !important; color: #ffffff !important; border-color: #38bdf8 !important; box-shadow: 0 6px 18px -2px rgba(56, 189, 248, 0.45) !important; transform: translateY(-2px);
+}
+.stButton > button:hover *, .stDownloadButton > button:hover * {
+    color: #ffffff !important;
 }
 
+/* 4. 投委会辩论卡片 */
 .agent-badge {
     display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; letter-spacing: 0.4px; margin-bottom: 6px;
 }
 .debate-card-bull {
-    background: linear-gradient(135deg, rgba(6, 78, 59, 0.35) 0%, rgba(15, 23, 42, 0.9) 100%);
-    border-left: 4px solid #10b981; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px;
+    background: linear-gradient(135deg, rgba(6, 78, 59, 0.45) 0%, rgba(15, 23, 42, 0.95) 100%) !important;
+    border-left: 4px solid #10b981 !important; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; color: #f8fafc !important;
 }
 .debate-card-bear {
-    background: linear-gradient(135deg, rgba(127, 29, 29, 0.35) 0%, rgba(15, 23, 42, 0.9) 100%);
-    border-left: 4px solid #ef4444; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px;
+    background: linear-gradient(135deg, rgba(127, 29, 29, 0.45) 0%, rgba(15, 23, 42, 0.95) 100%) !important;
+    border-left: 4px solid #ef4444 !important; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; color: #f8fafc !important;
 }
 .debate-card-pm {
-    background: linear-gradient(135deg, rgba(30, 58, 138, 0.45) 0%, rgba(15, 23, 42, 0.95) 100%);
-    border: 1.5px solid #38bdf8; border-radius: 12px; padding: 18px 20px; margin-top: 10px;
+    background: linear-gradient(135deg, rgba(30, 58, 138, 0.50) 0%, rgba(15, 23, 42, 0.96) 100%) !important;
+    border: 1.5px solid #38bdf8 !important; border-radius: 12px; padding: 18px 20px; margin-top: 10px; color: #f8fafc !important;
 }
 
-label { color: #cbd5e1 !important; font-weight: 500 !important; }
-p { color: #e2e8f0 !important; }
-h1, h2, h3, h4, h5 { font-family: 'Inter', sans-serif !important; font-weight: 700 !important; color: #ffffff !important; }
-h3 { color: #38bdf8 !important; text-shadow: 0 0 15px rgba(56, 189, 248, 0.2); margin-bottom: 15px !important; }
-[data-testid="stMetricValue"] { font-family: 'JetBrains Mono', monospace !important; font-weight: 800 !important; font-size: 1.8rem !important; color: #f8fafc !important; }
-[data-testid="stMetricLabel"] { font-weight: 600 !important; color: #94a3b8 !important; font-size: 0.85rem !important; }
-div[data-baseweb="input"] > div, div[data-baseweb="select"] > div { background-color: #0f172a !important; border: 1px solid rgba(56, 189, 248, 0.3) !important; border-radius: 8px !important; color: #ffffff !important; }
+/* 5. 基础文字、标题、Caption 与 Label 高对比度护栏 */
+label, [data-testid="stWidgetLabel"], [data-testid="stWidgetLabel"] * {
+    color: #e2e8f0 !important; font-weight: 600 !important;
+}
+p, li { color: #f1f5f9 !important; }
+h1, h2, h3, h4, h5, h6 { font-family: 'Inter', sans-serif !important; font-weight: 700 !important; color: #ffffff !important; }
+h3 { color: #38bdf8 !important; text-shadow: 0 0 15px rgba(56, 189, 248, 0.25); margin-bottom: 15px !important; }
+[data-testid="stCaptionContainer"], [data-testid="stCaptionContainer"] * {
+    color: #cbd5e1 !important; font-size: 0.86rem !important; opacity: 1 !important;
+}
+
+/* 6. 🌟 修复 st.metric 与底部 Delta 胶囊在浅色主题下白底白字看不清的问题 */
+[data-testid="stMetric"] > div {
+    background: transparent !important;
+}
+[data-testid="stMetricValue"], [data-testid="stMetricValue"] * {
+    font-family: 'JetBrains Mono', monospace !important; font-weight: 800 !important; font-size: 1.8rem !important; color: #ffffff !important;
+    background: transparent !important;
+}
+[data-testid="stMetricLabel"], [data-testid="stMetricLabel"] *, [data-testid="stMetricLabel"] p {
+    font-weight: 600 !important; color: #cbd5e1 !important; font-size: 0.88rem !important;
+    background: transparent !important;
+}
+[data-testid="stMetricDelta"] {
+    background-color: #0f172a !important;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
+    border: 1.2px solid rgba(56, 189, 248, 0.55) !important;
+    border-radius: 999px !important;
+    padding: 4px 12px !important;
+    margin-top: 4px !important;
+    color: #38bdf8 !important;
+    font-weight: 700 !important;
+    font-size: 0.82rem !important;
+    width: fit-content !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4) !important;
+}
+[data-testid="stMetricDelta"] *,
+[data-testid="stMetricDelta"] div,
+[data-testid="stMetricDelta"] span,
+[data-testid="stMetricDelta"] p,
+[data-testid="stMetricDelta"] svg {
+    color: #38bdf8 !important;
+    fill: #38bdf8 !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    opacity: 1 !important;
+}
+
+/* 7. 🌟 修复全部 9 个 Tabs 中 st.info / st.warning / st.success / st.error 白底白字看不见字的问题 */
+[data-testid="stAlert"],
+[data-testid="stAlertContainer"],
+[data-testid="stNotification"],
+[data-baseweb="notification"],
+div[role="alert"],
+.stAlert {
+    background-color: #0f172a !important;
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.97) 0%, rgba(30, 41, 59, 0.95) 100%) !important;
+    border: 1px solid rgba(56, 189, 248, 0.48) !important;
+    border-left: 4px solid #38bdf8 !important;
+    border-radius: 10px !important;
+    color: #f8fafc !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35) !important;
+}
+[data-testid="stAlert"] [data-testid="stAlertContainer"],
+[data-testid="stAlert"] [data-baseweb="notification"],
+[data-testid="stAlert"] div[role="alert"] {
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    background-color: transparent !important;
+}
+[data-testid="stAlert"] div,
+[data-testid="stAlertContainer"] div,
+[data-baseweb="notification"] div,
+div[role="alert"] div {
+    background-color: transparent !important;
+    color: #f8fafc !important;
+}
+[data-testid="stAlert"] p,
+[data-testid="stAlert"] span,
+[data-testid="stAlert"] li,
+[data-testid="stAlertContainer"] p,
+[data-testid="stAlertContainer"] span,
+[data-testid="stAlertContainer"] li,
+[data-baseweb="notification"] p,
+[data-baseweb="notification"] span,
+div[role="alert"] p,
+div[role="alert"] span {
+    color: #f8fafc !important;
+    opacity: 1 !important;
+}
+[data-testid="stAlert"] strong,
+[data-testid="stAlert"] b,
+[data-testid="stAlertContainer"] strong,
+[data-testid="stAlertContainer"] b,
+div[role="alert"] strong,
+div[role="alert"] b {
+    color: #38bdf8 !important;
+    font-weight: 700 !important;
+}
+[data-testid="stAlert"] svg,
+[data-testid="stAlertContainer"] svg,
+div[role="alert"] svg {
+    fill: #38bdf8 !important;
+    color: #38bdf8 !important;
+}
+
+/* 8. 🌟 修复输入框、数字框、下拉框、下拉弹出菜单在浅色主题下黑字深底或白字白底看不清的问题 */
+div[data-baseweb="input"],
+div[data-baseweb="input"] > div,
+div[data-baseweb="base-input"],
+div[data-baseweb="textarea"],
+div[data-baseweb="select"] > div {
+    background-color: #0f172a !important;
+    background: #0f172a !important;
+    border: 1px solid rgba(56, 189, 248, 0.42) !important;
+    border-radius: 8px !important;
+    color: #ffffff !important;
+}
+div[data-baseweb="input"] input,
+div[data-baseweb="base-input"] input,
+div[data-baseweb="textarea"] textarea,
+[data-testid="stTextInput"] input,
+[data-testid="stNumberInput"] input,
+[data-testid="stTextArea"] textarea {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+    caret-color: #38bdf8 !important;
+    background-color: transparent !important;
+    background: transparent !important;
+    font-weight: 600 !important;
+}
+input::placeholder, textarea::placeholder {
+    color: #94a3b8 !important;
+    -webkit-text-fill-color: #94a3b8 !important;
+}
+div[data-baseweb="select"] *,
+div[data-baseweb="select"] span,
+div[data-baseweb="select"] div {
+    color: #ffffff !important;
+    -webkit-text-fill-color: #ffffff !important;
+    background-color: transparent !important;
+}
+div[data-baseweb="select"] svg {
+    fill: #38bdf8 !important;
+    color: #38bdf8 !important;
+}
+[data-testid="stNumberInput"] button,
+[data-testid="stNumberInputStepUp"],
+[data-testid="stNumberInputStepDown"],
+div[data-baseweb="input"] button {
+    background-color: #1e293b !important;
+    color: #38bdf8 !important;
+    border-color: rgba(56, 189, 248, 0.35) !important;
+}
+[data-testid="stNumberInput"] button svg,
+div[data-baseweb="input"] button svg {
+    fill: #38bdf8 !important;
+    color: #38bdf8 !important;
+}
+[data-baseweb="popover"],
+[data-baseweb="popover"] > div,
+[data-baseweb="menu"],
+ul[role="listbox"],
+div[role="listbox"] {
+    background-color: #0f172a !important;
+    background: #0f172a !important;
+    border: 1px solid rgba(56, 189, 248, 0.45) !important;
+    color: #ffffff !important;
+}
+li[role="option"],
+div[role="option"],
+li[role="option"] *,
+div[role="option"] * {
+    background-color: #0f172a !important;
+    color: #f8fafc !important;
+}
+li[role="option"]:hover,
+div[role="option"]:hover,
+li[role="option"][aria-selected="true"],
+div[role="option"][aria-selected="true"],
+li[role="option"]:hover *,
+div[role="option"]:hover *,
+li[role="option"][aria-selected="true"] *,
+div[role="option"][aria-selected="true"] * {
+    background-color: #1e293b !important;
+    color: #38bdf8 !important;
+    font-weight: 700 !important;
+}
+
+/* 9. 🌟 修复折叠面板 Expander、Radio、Checkbox、Slider、FileUploader 对比度 */
+[data-testid="stExpander"],
+[data-testid="stExpander"] details {
+    background-color: #0f172a !important;
+    background: rgba(15, 23, 42, 0.92) !important;
+    border: 1px solid rgba(56, 189, 248, 0.35) !important;
+    border-radius: 12px !important;
+    color: #f8fafc !important;
+}
+[data-testid="stExpander"] summary {
+    background-color: #1e293b !important;
+    background: rgba(30, 41, 59, 0.92) !important;
+    color: #38bdf8 !important;
+    border-radius: 10px !important;
+    padding: 10px 14px !important;
+}
+[data-testid="stExpander"] summary *,
+[data-testid="stExpander"] summary p,
+[data-testid="stExpander"] summary span,
+[data-testid="stExpander"] summary svg {
+    color: #38bdf8 !important;
+    fill: #38bdf8 !important;
+    background: transparent !important;
+    font-weight: 700 !important;
+}
+[data-testid="stExpanderDetails"] {
+    background-color: rgba(15, 23, 42, 0.95) !important;
+    color: #f8fafc !important;
+}
+[data-testid="stRadio"] label,
+[data-testid="stRadio"] label *,
+[data-testid="stCheckbox"] label,
+[data-testid="stCheckbox"] label *,
+[data-testid="stSlider"] label,
+[data-testid="stSlider"] * {
+    color: #f1f5f9 !important;
+}
+[data-testid="stSliderTickBarMin"],
+[data-testid="stSliderTickBarMax"],
+[data-testid="stThumbValue"] {
+    color: #38bdf8 !important;
+    font-weight: 700 !important;
+    background: transparent !important;
+}
+[data-testid="stFileUploader"],
+[data-testid="stFileUploaderDropzone"] {
+    background-color: rgba(15, 23, 42, 0.92) !important;
+    border: 1px dashed rgba(56, 189, 248, 0.45) !important;
+    border-radius: 10px !important;
+    color: #e2e8f0 !important;
+}
+[data-testid="stFileUploader"] *,
+[data-testid="stFileUploaderDropzone"] * {
+    color: #e2e8f0 !important;
+    background-color: transparent !important;
+}
+[data-testid="stFileUploaderDropzone"] button {
+    background-color: #1e293b !important;
+    color: #38bdf8 !important;
+    border: 1px solid rgba(56, 189, 248, 0.4) !important;
+}
+
+/* 10. 🌟 修复 st.table、Markdown 表格、行内代码 code 与代码块 pre 对比度 */
+[data-testid="stTable"],
+[data-testid="stTable"] table,
+.stMarkdown table {
+    background-color: #0f172a !important;
+    color: #f8fafc !important;
+    border: 1px solid rgba(56, 189, 248, 0.3) !important;
+    border-radius: 8px !important;
+}
+[data-testid="stTable"] th,
+.stMarkdown th {
+    background-color: #1e293b !important;
+    color: #38bdf8 !important;
+    font-weight: 700 !important;
+    border-bottom: 1px solid rgba(56, 189, 248, 0.35) !important;
+    padding: 8px 12px !important;
+}
+[data-testid="stTable"] td,
+.stMarkdown td {
+    background-color: #0f172a !important;
+    color: #f1f5f9 !important;
+    border-bottom: 1px solid rgba(56, 189, 248, 0.15) !important;
+    padding: 8px 12px !important;
+}
+code {
+    background-color: rgba(30, 41, 59, 0.96) !important;
+    color: #38bdf8 !important;
+    border: 1px solid rgba(56, 189, 248, 0.35) !important;
+    padding: 2px 6px !important;
+    border-radius: 5px !important;
+    font-family: 'JetBrains Mono', monospace !important;
+    font-weight: 600 !important;
+}
+pre, pre code, [data-testid="stCodeBlock"], [data-testid="stCodeBlock"] * {
+    background-color: #090d16 !important;
+    color: #f1f5f9 !important;
+}
+[data-baseweb="tooltip"], [role="tooltip"], [data-baseweb="tooltip"] * {
+    background-color: #0f172a !important;
+    color: #f8fafc !important;
+}
 </style>
 """
 st.markdown(PREMIUM_CSS, unsafe_allow_html=True)
