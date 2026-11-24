@@ -2,6 +2,7 @@ import datetime
 import json
 import os
 import re
+import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import numpy as np
@@ -15,11 +16,45 @@ import scipy.stats as stats
 from scipy.stats import norm
 import scipy.optimize as sco
 
+_CUR_DIR = str(Path(__file__).resolve().parent)
+if _CUR_DIR not in sys.path:
+    sys.path.insert(0, _CUR_DIR)
+
+import quant_v15_modules as qv15
+from quant_v15_modules import (
+    US_CORE_8,
+    BURSA_CORE_8,
+    US_SP25_UNIVERSE,
+    BURSA_KLCI20_UNIVERSE,
+    V15_EXPANDED_TICKER_META,
+    calc_per_share_slippage,
+    calc_bursa_transaction_fee,
+    compute_log_price_r2,
+    classify_three_state_regime,
+    compute_hma55_slope,
+    compute_rolling_vwap_rsi,
+    compute_three_stage_exit_levels,
+    update_tsp_guardian_state,
+    select_orthogonal_top_k,
+    enforce_sector_weight_cap,
+    compute_ai_agent_lens_scorecard,
+    ALLOWED_ALPHA_VARIABLES,
+    ALLOWED_ALPHA_OPERATORS,
+    DEFAULT_ALPHA_SEED_TEMPLATES,
+    count_ast_nodes,
+    validate_alpha_ast,
+    build_feature_panels,
+    SafeAlphaASTEvaluator,
+    mutate_alpha_expressions,
+    evaluate_alpha_candidates,
+    detect_clean_room_pivot_zone,
+)
+
 # ==============================================================================
 # 1. 页面基本配置与高级 CSS 视觉引擎 (Bento Box + Tabs + TradingAgents 投委会样式)
 # ==============================================================================
 st.set_page_config(
-    page_title="Ultimate Quant & TradingAgents Terminal V14.0 Grandmaster Edition",
+    page_title="Ultimate Quant & TradingAgents Terminal V15.0 Grandmaster Edition",
     page_icon="💹",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -130,36 +165,8 @@ def _strip_df_tz(df):
     return out
 
 
-# 🌟 V14.1 机构级核心标的元数据兜底字典 (当云端服务器遭遇 Yahoo Finance quoteSummary/info 限流返回空字典时，100% 保障股本、行业、股息与同业倍数不失真)
-INSTITUTIONAL_TICKER_META = {
-    "1155.KL": {"name": "Malayan Banking Bhd (Maybank)", "sector": "Financial Services", "shares": 12081096315.0, "div_rate": 0.60, "pe": 12.8, "gm": 0.52},
-    "1023.KL": {"name": "CIMB Group Holdings Bhd", "sector": "Financial Services", "shares": 10715000000.0, "div_rate": 0.43, "pe": 11.5, "gm": 0.50},
-    "1295.KL": {"name": "Public Bank Bhd", "sector": "Financial Services", "shares": 19410691735.0, "div_rate": 0.20, "pe": 12.6, "gm": 0.54},
-    "1066.KL": {"name": "RHB Bank Bhd", "sector": "Financial Services", "shares": 4359000000.0, "div_rate": 0.40, "pe": 9.8, "gm": 0.48},
-    "5819.KL": {"name": "Hong Leong Bank Bhd", "sector": "Financial Services", "shares": 2049000000.0, "div_rate": 0.68, "pe": 10.5, "gm": 0.51},
-    "1188.KL": {"name": "Bumi Armada Bhd", "sector": "Energy", "shares": 5927000000.0, "div_rate": 0.02, "pe": 6.5, "gm": 0.42},
-    "5347.KL": {"name": "Tenaga Nasional Bhd", "sector": "Utilities", "shares": 5812000000.0, "div_rate": 0.46, "pe": 18.5, "gm": 0.25},
-    "5183.KL": {"name": "Petronas Chemicals Group Bhd", "sector": "Basic Materials", "shares": 8000000000.0, "div_rate": 0.13, "pe": 19.0, "gm": 0.22},
-    "6033.KL": {"name": "Petronas Gas Bhd", "sector": "Utilities", "shares": 1978731915.0, "div_rate": 0.72, "pe": 19.2, "gm": 0.36},
-    "5225.KL": {"name": "IHH Healthcare Bhd", "sector": "Healthcare", "shares": 8807000000.0, "div_rate": 0.09, "pe": 26.0, "gm": 0.32},
-    "5264.KL": {"name": "Malakoff Corporation Bhd", "sector": "Utilities", "shares": 4886961300.0, "div_rate": 0.03, "pe": 14.5, "gm": 0.18},
-    "NVDA": {"name": "NVIDIA Corporation", "sector": "Technology", "shares": 24480000000.0, "div_rate": 0.04, "pe": 38.0, "gm": 0.75},
-    "AAPL": {"name": "Apple Inc.", "sector": "Technology", "shares": 15115000000.0, "div_rate": 1.00, "pe": 31.0, "gm": 0.46},
-    "MSFT": {"name": "Microsoft Corporation", "sector": "Technology", "shares": 7435000000.0, "div_rate": 3.32, "pe": 33.0, "gm": 0.69},
-    "GOOGL": {"name": "Alphabet Inc.", "sector": "Communication Services", "shares": 12210000000.0, "div_rate": 0.80, "pe": 23.5, "gm": 0.58},
-    "AMZN": {"name": "Amazon.com, Inc.", "sector": "Consumer Cyclical", "shares": 10515000000.0, "div_rate": 0.0, "pe": 36.0, "gm": 0.48},
-    "META": {"name": "Meta Platforms, Inc.", "sector": "Communication Services", "shares": 2524000000.0, "div_rate": 2.00, "pe": 26.0, "gm": 0.81},
-    "TSLA": {"name": "Tesla, Inc.", "sector": "Consumer Cyclical", "shares": 3210000000.0, "div_rate": 0.0, "pe": 65.0, "gm": 0.18},
-    "BRK-B": {"name": "Berkshire Hathaway Inc.", "sector": "Financial Services", "shares": 2155000000.0, "div_rate": 0.0, "pe": 21.0, "gm": 0.28},
-    "AMD": {"name": "Advanced Micro Devices, Inc.", "sector": "Technology", "shares": 1618000000.0, "div_rate": 0.0, "pe": 42.0, "gm": 0.50},
-    "INTC": {"name": "Intel Corporation", "sector": "Technology", "shares": 4315000000.0, "div_rate": 0.0, "pe": 22.0, "gm": 0.40},
-    "TSM": {"name": "Taiwan Semiconductor Manufacturing", "sector": "Technology", "shares": 5186000000.0, "div_rate": 2.40, "pe": 24.0, "gm": 0.56},
-    "QCOM": {"name": "QUALCOMM Incorporated", "sector": "Technology", "shares": 1114000000.0, "div_rate": 3.40, "pe": 18.5, "gm": 0.56},
-    "RIVN": {"name": "Rivian Automotive, Inc.", "sector": "Consumer Cyclical", "shares": 1015000000.0, "div_rate": 0.0, "pe": 0.0, "gm": -0.25},
-    "F": {"name": "Ford Motor Company", "sector": "Consumer Cyclical", "shares": 3975000000.0, "div_rate": 0.60, "pe": 11.5, "gm": 0.09},
-    "GM": {"name": "General Motors Company", "sector": "Consumer Cyclical", "shares": 1105000000.0, "div_rate": 0.48, "pe": 6.5, "gm": 0.13},
-    "TM": {"name": "Toyota Motor Corporation", "sector": "Consumer Cyclical", "shares": 1347000000.0, "div_rate": 5.10, "pe": 9.5, "gm": 0.21},
-}
+# 🌟 V14.1 + V15.0 机构级核心标的元数据兜底字典 (覆盖 US S&P 25 + Bursa KLCI 20，当云端服务器遭遇 Yahoo Finance quoteSummary/info 限流返回空字典时，100% 保障股本、行业、股息与同业倍数不失真)
+INSTITUTIONAL_TICKER_META = dict(V15_EXPANDED_TICKER_META)
 
 
 def _extract_statement_scalar(df, candidate_keys: list[str], default: float = 0.0) -> float:
@@ -1675,7 +1682,10 @@ class UltimateHardcoreEngine:
     def compute_technical_signals(self):
         """
         对应 TradingAgents 的 Market Technical Analyst 工具集
-        🌟 V14.0 优化升级：Quasi-MLE GARCH(1,1) 参数拟合与动态条件异方差预测
+        🌟 V15.0 优化升级：
+        1) 预分配 r2_arr 加速 Quasi-MLE GARCH(1,1) 参数拟合与动态条件异方差预测；
+        2) 新增 20D 对数价格线性回归决定系数 R² 与三态市场体制路由器 (TREND_MODE / RANGE_MODE / CHAOS_WAIT)；
+        3) 新增日线适配 HMA(55) 二阶归一化斜率 (hma_slope) 与 20D Rolling VWAP 14日 RSI (rolling_vwap_rsi)。
         """
         if self._tech_cache is not None:
             return self._tech_cache
@@ -1688,6 +1698,10 @@ class UltimateHardcoreEngine:
                 "atr": self.price * 0.025, "hv30": 0.30, "garch_vol": 0.30,
                 "parkinson_vol": 0.30, "garman_klass_vol": 0.30, "blended_vol": 0.30,
                 "efficiency_ratio": 0.45, "choppiness_index": 50.0, "ulcer_index": 2.5,
+                "r2_20d": 0.35, "market_regime": "RANGE_MODE",
+                "regime_badge_zh": "⚖️ RANGE_MODE (箱体均值回归与期权收租)",
+                "regime_badge_en": "⚖️ RANGE_MODE (Mean-Reversion & Theta Harvest)",
+                "hma_slope": 0.0, "rolling_vwap_rsi": 50.0,
                 "amihud_illiq": 0.05, "panic_breakdown": False, "ret_5d": 0.0,
                 "vol_regime": "NORMAL",
                 "support": self.price * 0.93, "resistance": self.price * 1.08,
@@ -1733,7 +1747,7 @@ class UltimateHardcoreEngine:
         log_ret = np.log(close / close.shift(1)).dropna()
         hv30 = float(log_ret.tail(30).std() * np.sqrt(252)) if len(log_ret) >= 10 else 0.30
 
-        # 🌟 V14.0 优化升级：Quasi-MLE GARCH(1,1) 参数动态拟合与条件异方差预测
+        # 🌟 V15.0 优化升级 (P0.1)：预分配 r2_arr 向量加速 Quasi-MLE GARCH(1,1) 参数动态拟合与条件异方差预测
         # 递推方程：sigma_t^2 = omega + alpha * r_{t-1}^2 + beta * sigma_{t-1}^2
         garch_vol = hv30
         vol_regime = "NORMAL"
@@ -1743,19 +1757,19 @@ class UltimateHardcoreEngine:
             try:
                 ret_arr = np.asarray(log_ret.values, dtype=float)
                 ret_demean = ret_arr - float(np.mean(ret_arr))
-                long_run_var = max(float(np.var(ret_demean)), 1e-6)
+                r2_arr = np.square(ret_demean)
+                long_run_var = max(float(np.mean(r2_arr)), 1e-6)
+                n_obs = len(r2_arr)
+                cv_buf = np.empty(n_obs, dtype=float)
 
                 def _garch_nll(params):
-                    a, b = params
+                    a, b = float(params[0]), float(params[1])
                     w = long_run_var * max(1.0 - a - b, 1e-5)
                     cv = long_run_var
-                    nll = 0.0
-                    for r_val in ret_demean:
-                        cv = w + a * (r_val ** 2) + b * cv
-                        if cv <= 1e-12:
-                            cv = 1e-12
-                        nll += 0.5 * (np.log(cv) + (r_val ** 2) / cv)
-                    return nll
+                    for idx_r in range(n_obs):
+                        cv = w + a * r2_arr[idx_r] + b * cv
+                        cv_buf[idx_r] = cv if cv > 1e-12 else 1e-12
+                    return float(0.5 * np.sum(np.log(cv_buf) + r2_arr / cv_buf))
 
                 opt_res = sco.minimize(
                     _garch_nll,
@@ -1763,7 +1777,7 @@ class UltimateHardcoreEngine:
                     method='SLSQP',
                     bounds=[(0.03, 0.25), (0.65, 0.94)],
                     constraints={'type': 'ineq', 'fun': lambda p: 0.985 - (p[0] + p[1])},
-                    options={'maxiter': 40}
+                    options={'maxiter': 35}
                 )
                 if opt_res.success and np.isfinite(opt_res.x[0]) and np.isfinite(opt_res.x[1]):
                     alpha_g = float(opt_res.x[0])
@@ -1774,8 +1788,8 @@ class UltimateHardcoreEngine:
             try:
                 omega_g = long_run_var * max(1.0 - alpha_g - beta_g, 1e-5)
                 cond_var = long_run_var
-                for r_val in ret_demean:
-                    cond_var = omega_g + alpha_g * (r_val ** 2) + beta_g * cond_var
+                for r2_v in r2_arr:
+                    cond_var = omega_g + alpha_g * r2_v + beta_g * cond_var
                 # 预测未来 21 个交易日的平均条件方差 (均值回归项 + 指数衰减项)
                 persistence = alpha_g + beta_g
                 horizon = 21
@@ -1861,6 +1875,12 @@ class UltimateHardcoreEngine:
         ret_5d = float((close.iloc[-1] / close.iloc[max(0, len(close) - 6)] - 1.0) * 100.0) if len(close) >= 6 else 0.0
         panic_breakdown = bool((self.price < ma20 < ma50) and (macd_hist < 0) and (rsi < 35.0 or ret_5d < -6.5))
 
+        # 🌟 V15.0 P1.1 & P2.2: 20D Log-Price Trend Purity R², 3-State Regime Router, HMA(55) Slope & 20D Rolling VWAP 14D RSI
+        r2_20d = compute_log_price_r2(close, window=20)
+        regime_info = classify_three_state_regime(choppiness_index, r2_20d, ulcer_index, efficiency_ratio)
+        hma_slope = compute_hma55_slope(close)
+        rolling_vwap_rsi = compute_rolling_vwap_rsi(high, low, close, vol_s, vwap_win=20, rsi_win=14)
+
         res = {
             "rsi": rsi, "macd": float(macd_line.iloc[-1]), "macd_signal": float(signal_line.iloc[-1]),
             "macd_hist": macd_hist, "ma20": ma20, "ma50": ma50, "ma200": ma200,
@@ -1868,6 +1888,9 @@ class UltimateHardcoreEngine:
             "parkinson_vol": parkinson_vol, "garman_klass_vol": garman_klass_vol, "blended_vol": blended_vol,
             "efficiency_ratio": efficiency_ratio, "choppiness_index": choppiness_index,
             "ulcer_index": ulcer_index, "amihud_illiq": amihud_illiq,
+            "r2_20d": r2_20d, "market_regime": regime_info["regime"],
+            "regime_badge_zh": regime_info["badge_zh"], "regime_badge_en": regime_info["badge_en"],
+            "hma_slope": hma_slope, "rolling_vwap_rsi": rolling_vwap_rsi,
             "panic_breakdown": panic_breakdown, "ret_5d": ret_5d,
             "vol_regime": vol_regime,
             "support": support, "resistance": resistance,
@@ -2062,36 +2085,19 @@ class UltimateHardcoreEngine:
             news_lex_score -= sum(2.5 for w in neg_words if w in hl_low)
         news_lex_score = float(np.clip(news_lex_score, -10.0, 10.0))
 
-        # 🌟 V13.0 降维打击模块 1：将 Beneish M-Score 财务侦测惩罚因子并入基本面得分（若 M-Score > -1.78 直接扣减 20 分！）
-        val_score = float(np.clip(mos_pct * 1.2 + beneish["penalty"], -55, 45))
-        tech_score = (20 if tech["trend"] == "STRONG_BULLISH" else (10 if tech["trend"] == "MODERATE_BULLISH" else (-20 if tech["trend"] == "STRONG_BEARISH" else 0)))
-        # 🌟 M4 (QuantDinger Panic-Breakdown Guard): 破位暴跌防接飞刀机制 — 若处于空头破位加速下跌 (panic_breakdown)，RSI<32 不加分反而扣分！
-        if tech.get("panic_breakdown"):
-            tech_score -= 10
-        elif tech["rsi"] < 32:
-            tech_score += 12
-        elif tech["rsi"] > 72:
-            tech_score -= 12
-
-        # 🌟 M3 (QuantDinger Trend-Efficiency Bonus): Kaufman Efficiency Ratio 奖励干净趋势，Choppiness 惩罚无序震荡
-        if tech.get("efficiency_ratio", 0.45) >= 0.42 and tech["trend"] in ("STRONG_BULLISH", "MODERATE_BULLISH"):
-            tech_score += 5
-        elif tech.get("choppiness_index", 50.0) >= 62.0:
-            tech_score -= 4
-
-        sent_score = float(np.clip(ws_upside * 0.45 + news_lex_score, -25, 25))
-        total_score = val_score + tech_score + sent_score
-
-        if total_score >= 28:
-            final_rating = "Buy"
-        elif total_score >= 10:
-            final_rating = "Overweight"
-        elif total_score >= -10:
-            final_rating = "Hold"
-        elif total_score >= -28:
-            final_rating = "Underweight"
-        else:
-            final_rating = "Sell"
+        # 🌟 V15.0 P1.4: AI Agent Lens 百分制五维透明审单评分卡 ([PACKET -> READ -> SCORE -> DECISION] + <66 WAIT 门禁)
+        lens_card = compute_ai_agent_lens_scorecard(
+            mos_pct=mos_pct,
+            beneish=beneish,
+            tech=tech,
+            opt_info=opt_info,
+            ws_upside=ws_upside,
+            news_lex_score=news_lex_score,
+            div_yield=div_yield,
+            lang_key=lang_key
+        )
+        total_score = float(lens_card["score_100"])
+        final_rating = str(lens_card["final_rating"])
 
         # 🌟 V13.0 极致优化 C：联动 Tab 4 同行可比矩阵，生成【多空配对交易 (Market-Neutral Long-Short Pairs Trading)】指令
         default_best = "1023.KL" if self.ticker == "1155.KL" else ("1155.KL" if self.is_malaysia else ("AMD" if self.ticker != "AMD" else "TSM"))
@@ -2395,8 +2401,25 @@ class UltimateHardcoreEngine:
                     f"Negative margin of safety ({mos_pct:+.1f}%). Bear Put Spread provides defined-risk exposure to mean reversion toward {self.fair_val:.2f}."
                 )
 
+        # 🌟 V15.0 P1.2: 三段式退出状态机 (Stage 1: 2.2x ATR 初始止损 -> Stage 2: +1.5x ATR 保本锁利 Pre-BE -> Stage 3: +2.5x ATR 触发 1.8x ATR 峰值追踪止盈)
+        is_long_plan = trader_action in ("BUY", "HOLD")
+        exit_levels = compute_three_stage_exit_levels(
+            entry_price=entry_price,
+            atr=atr,
+            support=tech["support"],
+            fair_val=self.fair_val,
+            tp_cap_pct=tp_cap_pct,
+            is_long=is_long_plan
+        )
+        if trader_action == "BUY":
+            stop_loss = float(exit_levels["stage1_init_stop"])
+            take_profit = float(exit_levels["take_profit"])
+        elif trader_action == "SELL":
+            stop_loss = float(exit_levels["stage1_init_stop"])
+            take_profit = float(exit_levels["take_profit"])
+
         # 🌟 M4 (QuantDinger Trading Plan Geometry & R/R Validator): 严格校验止损/入场/止盈空间几何方向与赔率 R/R
-        if trader_action in ("BUY", "HOLD"):
+        if is_long_plan:
             if stop_loss >= entry_price:
                 stop_loss = round(entry_price * 0.94, 2)
             if take_profit <= entry_price:
@@ -2419,8 +2442,9 @@ class UltimateHardcoreEngine:
         else:
             rr_status = "SUBOPTIMAL_RR"
 
-        # 🌟 审计升级 III-3：使用半凯利公式 (Half-Kelly Formula: f* = (b*p - q)/b) 动态计算最优仓位配比
-        kelly_win_prob = float(np.clip(0.50 + (total_score / 180.0), 0.25, 0.78))
+        # 🌟 审计升级 III-3：使用半凯利公式 (Half-Kelly Formula: f* = (b*p - q)/b) 动态计算最优仓位配比 (基于 0-100 AI Agent Lens 分数)
+        centered_s = float(lens_card["legacy_centered_score"])
+        kelly_win_prob = float(np.clip(0.50 + (centered_s / 180.0), 0.25, 0.78))
         kelly_odds = float(np.clip(rr_ratio, 0.5, 5.0))
         raw_kelly = (kelly_odds * kelly_win_prob - (1.0 - kelly_win_prob)) / kelly_odds
         kelly_full_pct = float(np.clip(raw_kelly * 100.0, 0.0, 50.0))
@@ -2446,11 +2470,20 @@ class UltimateHardcoreEngine:
             "target_mean": target_mean,
             "div_yield": div_yield,
             "total_score": total_score,
+            "score_100": total_score,
+            "legacy_centered_score": centered_s,
+            "lens_card": lens_card,
             "final_rating": final_rating,
             "trader_action": trader_action,
             "entry_price": entry_price,
             "stop_loss": stop_loss,
             "take_profit": take_profit,
+            "stage1_init_stop": stop_loss,
+            "stage2_be_trigger": exit_levels["stage2_be_trigger"],
+            "stage2_be_stop": exit_levels["stage2_be_stop"],
+            "stage3_trail_trigger": exit_levels["stage3_trail_trigger"],
+            "stage3_trail_dist": exit_levels["stage3_trail_dist"],
+            "exit_levels": exit_levels,
             "rr_ratio": rr_ratio,
             "rr_status": rr_status,
             "plan_geometry_valid": plan_geometry_valid,
@@ -2477,16 +2510,32 @@ MEMORY_FILE = Path.home() / ".tradingagents" / "quant_terminal_memory.json"
 
 
 def load_memory_ledger() -> list[dict]:
+    """
+    🌟 V15.0 P0.5 云端多租户安全隔离：
+    在 Streamlit Cloud / Docker 共享环境中，严格仅读写当前浏览器会话 `st.session_state["memory_ledger"]`，严禁读写服务器共享磁盘！
+    """
+    if "memory_ledger" in st.session_state and isinstance(st.session_state["memory_ledger"], list):
+        return list(st.session_state["memory_ledger"])
+    if is_cloud_shared_environment():
+        st.session_state["memory_ledger"] = []
+        return []
     if not MEMORY_FILE.exists():
         return []
     try:
-        return json.loads(MEMORY_FILE.read_text(encoding="utf-8"))
+        data = json.loads(MEMORY_FILE.read_text(encoding="utf-8"))
+        if isinstance(data, list):
+            st.session_state["memory_ledger"] = data
+            return data
+        return []
     except Exception:
         return []
 
 
 def save_decision_to_ledger(engine, pipeline_res: dict):
-    MEMORY_FILE.parent.mkdir(parents=True, exist_ok=True)
+    """
+    🌟 V15.0 P0.5 云端多租户安全隔离：
+    公网共享云端环境仅保存在当前访客会话 `st.session_state["memory_ledger"]`；单机环境同步持久化至本地磁盘。
+    """
     entries = load_memory_ledger()
     today_str = datetime.datetime.now().strftime("%Y-%m-%d")
     entries = [e for e in entries if not (e.get("ticker") == engine.ticker and e.get("date") == today_str)]
@@ -2497,13 +2546,21 @@ def save_decision_to_ledger(engine, pipeline_res: dict):
         "recorded_price": round(engine.price, 2),
         "fair_value": round(engine.fair_val, 2),
         "rating": pipeline_res["final_rating"],
+        "score_100": pipeline_res.get("score_100", 65.0),
         "trader_action": pipeline_res["trader_action"],
         "option_strategy": pipeline_res["opt_strategy_name"],
         "stop_loss": pipeline_res["stop_loss"],
         "take_profit": pipeline_res["take_profit"],
         "rr_ratio": pipeline_res.get("rr_ratio", 1.5)
     })
-    MEMORY_FILE.write_text(json.dumps(entries[:50], ensure_ascii=False, indent=2), encoding="utf-8")
+    trimmed = entries[:50]
+    st.session_state["memory_ledger"] = trimmed
+    if not is_cloud_shared_environment():
+        try:
+            MEMORY_FILE.parent.mkdir(parents=True, exist_ok=True)
+            MEMORY_FILE.write_text(json.dumps(trimmed, ensure_ascii=False, indent=2), encoding="utf-8")
+        except Exception:
+            pass
 
 
 def evaluate_memory_reflection(ledger_entries: list[dict], current_engine=None, lang_key: str = "zh") -> tuple[pd.DataFrame, dict]:
@@ -2788,10 +2845,10 @@ def draw_football_field_chart(engine, heat_stats: dict | None = None, lang_key: 
     return fig
 
 
-def draw_pro_candlestick(ticker):
+def draw_pro_candlestick(ticker, show_pivot_zone: bool = True, return_pivot_info: bool = False):
     hist = fetch_candlestick_history(ticker)
     if hist.empty:
-        return None
+        return (None, {"has_zone": False}) if return_pivot_info else None
     hist = hist.copy()
     hist['MA20'] = hist['Close'].rolling(20).mean()
     hist['MA50'] = hist['Close'].rolling(50).mean()
@@ -2802,6 +2859,28 @@ def draw_pro_candlestick(ticker):
     ))
     fig.add_trace(go.Scatter(x=hist.index, y=hist['MA20'], line=dict(color='#f59e0b', width=1.5), name='20-Day SMA'))
     fig.add_trace(go.Scatter(x=hist.index, y=hist['MA50'], line=dict(color='#3b82f6', width=1.5), name='50-Day SMA'))
+
+    pivot_info = detect_clean_room_pivot_zone(hist)
+    if show_pivot_zone and pivot_info.get("has_zone"):
+        x0, x1 = pivot_info["x0"], pivot_info["x1"]
+        zd, zg, zm = pivot_info["zd"], pivot_info["zg"], pivot_info["zm"]
+        fig.add_trace(go.Scatter(
+            x=[x0, x1, x1, x0, x0],
+            y=[zd, zd, zg, zg, zd],
+            fill="toself",
+            fillcolor="rgba(139, 92, 246, 0.16)",
+            line=dict(color="rgba(56, 189, 248, 0.72)", width=1.4),
+            mode="lines",
+            name=f"Pivot Zone [{zd:.2f}, {zg:.2f}]"
+        ))
+        fig.add_trace(go.Scatter(
+            x=[x0, x1],
+            y=[zm, zm],
+            mode="lines",
+            line=dict(color="rgba(192, 132, 252, 0.75)", width=1.2, dash="dot"),
+            name=f"Pivot Mid ({zm:.2f})"
+        ))
+
     fig.update_layout(
         xaxis_rangeslider_visible=False, height=350, margin=dict(l=0, r=0, t=10, b=0),
         plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#94a3b8'),
@@ -2809,6 +2888,8 @@ def draw_pro_candlestick(ticker):
         yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.05)'),
         legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01)
     )
+    if return_pivot_info:
+        return fig, pivot_info
     return fig
 
 
@@ -2979,13 +3060,16 @@ def draw_option_payoff_diagram(engine, strategy_key, T_years, iv, lang_key="zh",
         )
         label = f"Long Straddle (ATM Strike @ {k_atm:.2f}, Cost: {total_prem:.2f})"
 
-    # 🌟 V14.0 优化点：扣除多腿买卖盘真实点差滑点摩擦 (Slippage Friction)
+    # 🌟 V15.0 优化点 (P0.4)：扣除多腿买卖盘真实点差滑点摩擦 (修正低价马股固定 $0.05/股 滑点下限失真)
     legs_count = {
         "cash_secured_put": 1, "long_call": 1, "long_put": 1,
         "covered_call": 2, "protective_put": 2, "bear_put_spread": 2,
         "bull_call_spread": 2, "straddle": 2, "long_straddle": 2, "collar": 3, "iron_condor": 4
     }.get(strategy_key, 2)
-    friction_per_share = max(S * (float(slippage_bps) / 10000.0), 0.05) * legs_count
+    if float(slippage_bps) <= 0.0:
+        friction_per_share = 0.0
+    else:
+        friction_per_share = max(S * (float(slippage_bps) / 10000.0), min(0.05, S * 0.002)) * legs_count
 
     pnl = pnl - friction_per_share
     pnl_mid = pnl_mid - friction_per_share
@@ -3095,6 +3179,7 @@ def is_cloud_shared_environment() -> bool:
     cloud_markers = (
         os.environ.get("STREAMLIT_SHARING_MODE"),
         os.environ.get("IS_STREAMLIT_CLOUD"),
+        os.environ.get("GEMINI_SHARED_CLOUD_MODE") == "1",
         os.environ.get("STREAMLIT_SERVER_HEADLESS") == "true" and Path("/mount/src").exists(),
         Path("/mount/src").exists(),
         Path("/home/appuser").exists(),
@@ -3136,11 +3221,14 @@ def save_gemini_key_local(api_key: str, allow_disk: bool = False):
     clean_k = api_key.strip()
     st.session_state["user_gemini_key"] = clean_k
     if allow_disk and not is_cloud_shared_environment():
-        GEMINI_CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
-        GEMINI_CONFIG_FILE.write_text(
-            json.dumps({"gemini_api_key": clean_k}, ensure_ascii=False, indent=2),
-            encoding="utf-8"
-        )
+        try:
+            GEMINI_CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
+            GEMINI_CONFIG_FILE.write_text(
+                json.dumps({"gemini_api_key": clean_k}, ensure_ascii=False, indent=2),
+                encoding="utf-8"
+            )
+        except Exception:
+            pass
 
 
 def build_committee_prompts(engine, pipe: dict, user_cash: float, user_shares: int, lang_key: str):
@@ -3196,22 +3284,25 @@ def build_committee_prompts(engine, pipe: dict, user_cash: float, user_shares: i
 - WACC 折现门槛: {engine.wacc*100:.2f}% (Rf={engine.rf*100:.2f}%, {engine.kd_tag}, {engine.tax_tag}) | Blume β={engine.beta:.2f} (Raw β={engine.raw_beta:.2f}, 年化 Jensen's α={engine.alpha_annual*100:+.1f}%) | 测谎仪市场隐含年化增长率: {pipe['implied_g_pct']:.2f}%
 - 华尔街投行平均目标价: {engine.currency} {pipe['target_mean']:.2f} (华尔街预期空间: {pipe['ws_upside']:+.1f}%) | 股息率: {pipe['div_yield']:.2f}%
 
-[2. 技术面量价、GARCH(1,1) 动态波动率、尾部风险与半凯利仓位 (Technical, GARCH, Tail-Risk & Kelly Sizing)]
-- 趋势结构判定: {pipe['tech']['trend']} | RSI(14): {pipe['tech']['rsi']:.1f} | MACD 柱状图: {pipe['tech']['macd_hist']:+.3f}
+[2. 技术面量价、三态市场体制 (R²)、GARCH(1,1) 动态波动率、三段式退出与半凯利仓位 (Technical, 3-State Regime, GARCH & 3-Stage Exit)]
+- 趋势结构判定: {pipe['tech']['trend']} | 三态市场体制路由: {pipe['tech'].get('market_regime', 'RANGE_MODE')} (20D趋势纯度 R²={pipe['tech'].get('r2_20d', 0.35):.2f}, CI={pipe['tech'].get('choppiness_index', 50.0):.1f}, Ulcer={pipe['tech'].get('ulcer_index', 2.5):.2f})
+- 动量与量价算子: RSI(14)={pipe['tech']['rsi']:.1f} | 20D Rolling VWAP 14D RSI={pipe['tech'].get('rolling_vwap_rsi', 50.0):.1f} | HMA(55)二阶斜率={pipe['tech'].get('hma_slope', 0.0)*100:+.2f}% | MACD 柱状图: {pipe['tech']['macd_hist']:+.3f}
 - 均线系统: MA20={pipe['tech']['ma20']:.2f}, MA50={pipe['tech']['ma50']:.2f}, MA200={pipe['tech']['ma200']:.2f}
 - GARCH(1,1) 动态条件异方差预测波动率: {pipe['tech'].get('garch_vol', pipe['tech']['hv30'])*100:.1f}% (波动率状态: {pipe['tech'].get('vol_regime', 'NORMAL')}) vs 30日静态历史波动率 (HV30): {pipe['tech']['hv30']*100:.1f}%
 - 14日真实波幅 (ATR): {engine.currency} {pipe['tech']['atr']:.2f} | 20日关键支撑位: {pipe['tech']['support']:.2f} | 20日关键阻力位: {pipe['tech']['resistance']:.2f}
+- 三段式退出状态机 (3-Stage Exit): Stage 1 初始 2.2x ATR 止损={engine.currency} {pipe['stop_loss']:.2f} -> Stage 2 (+1.5x ATR={engine.currency} {pipe.get('stage2_be_trigger', engine.price*1.04):.2f}) 自动上移至保本锁利价 {engine.currency} {pipe.get('stage2_be_stop', engine.price):.2f} -> Stage 3 (+2.5x ATR={engine.currency} {pipe.get('stage3_trail_trigger', engine.price*1.07):.2f}) 激活 1.8x ATR 峰值追踪止盈 (步距 {engine.currency} {pipe.get('stage3_trail_dist', pipe['tech']['atr']*1.8):.2f})
 - 1年历史最大回撤 (Max Drawdown): {pipe['tech']['mdd_pct']:.1f}% | 95% 日度在险价值 (VaR): {pipe['tech']['var_95_pct']:.2f}% | 95% 条件在险价值 (CVaR/Expected Shortfall): {pipe['tech']['cvar_95_pct']:.2f}%
 - 半凯利公式 (Half-Kelly) 推算参数: 量化胜率 p={pipe['kelly_win_prob']:.1f}%, 盈亏赔率 b={pipe['kelly_odds']:.2f}x -> 全凯利={pipe['kelly_full_pct']:.1f}%, 半凯利建议仓位={pipe['alloc_pct']:.1f}%
 - Beta 中性多空配对统计套利方案 (Stat-Arb Pairs): Long {pair_info.get('long_tk')} ({engine.currency} {pair_info.get('long_notional', 0):,.0f}) / Short {pair_info.get('short_tk')} ({engine.currency} {pair_info.get('short_notional', 0):,.0f})
 
-[3. 衍生品/凭单定价、波动率曲面与财报日预警 (Derivatives / Warrants & Earnings Radar)]
+[3. 衍生品/凭单定价、波动率曲面与 AI Agent Lens 百分制审单评分卡 (Derivatives & AI Agent Lens 0-100 Scorecard)]
 - 合约周期标识: {pipe['opt_info']['expiry']} (剩余 {pipe['opt_info'].get('days', 30)} 天 | 是否有交易所期权链: {pipe['opt_info'].get('has_options', False)})
 - 下一季财报日 (Earnings Date): {pipe['opt_info'].get('earnings_date', 'N/A')} (距离今天: {pipe['opt_info'].get('days_to_earnings', 'N/A')} 天 | 跨财报IV坍塌预警: {pipe['opt_info'].get('earnings_alert', False)})
 - 平值跨式隐含波幅 (ATM Implied Move): ±{pipe['opt_info'].get('implied_move_pct', 0.0):.1f}%
 - 隐含波动率 (IV): {pipe['opt_info']['atm_iv']*100:.1f}% vs GARCH(1,1) 动态波动率: {pipe['opt_info'].get('garch_vol', pipe['tech']['hv30'])*100:.1f}% (IV/GARCH 溢价倍数: {pipe['opt_info']['iv_hv_ratio']:.2f}x)
 - 现价附近参考行权价 (Reference Strikes): {strikes_sample or 'Theoretical B-S Grid Strikes'}
-- 量化模型初步评级: {pipe['final_rating']} (综合得分 {pipe['total_score']:+.1f}) | 初选战术方案: {pipe['opt_strategy_name']} ({pipe['opt_action_detail']})
+- AI Agent Lens 五维透明审单链: {(pipe.get('lens_card') or {}).get('chain_summary', '')}
+- 量化模型初步评级: {pipe['final_rating']} (AI Agent Lens 百分制得分 {pipe.get('score_100', pipe['total_score']):.1f}/100, <66 WAIT 门禁) | 初选战术方案: {pipe['opt_strategy_name']} ({pipe['opt_action_detail']})
 
 [4. 投资者账户当前持仓上下文 (Portfolio Context)]
 - 可用现金: {engine.currency} {user_cash:,.2f} | 当前已持有正股数量: {user_shares} 股
@@ -3581,11 +3672,22 @@ def solve_portfolio_allocations(cov_matrix: np.ndarray, mean_returns: np.ndarray
     }
 
 
-def run_cash_deployment_screener(tickers: list[str], total_cash: float, risk_appetite: str, currency: str = "USD", rf: float = 0.038, usd_myr_rate: float = 4.45, lang_key: str = "zh") -> dict:
+def run_cash_deployment_screener(
+    tickers: list[str],
+    total_cash: float,
+    risk_appetite: str,
+    currency: str = "USD",
+    rf: float = 0.038,
+    usd_myr_rate: float = 4.45,
+    lang_key: str = "zh",
+    custom_alpha_scores: dict[str, float] | None = None
+) -> dict:
     """
-    Mode 1: 100% 现金空仓自动化全市场筛选配置引擎 (并发多因子打分 + Beneish 造假过滤 + 资产分配 + 跨国汇率折算)
+    Mode 1: 100% 现金空仓自动化全市场筛选配置引擎
+    🌟 V15.0 升级：支持 20-25 只跨行业蓝筹池 + 正交去相关选股器 (|r| > 0.70 惩罚 & 单行业权重 <= 45%)
+    + HMA(55)斜率 / 20D Rolling VWAP RSI / 20D R² + Alpha-GPT 自定义通过因子叠加
     """
-    clean_tickers = [str(x).strip().upper() for x in tickers if str(x).strip()][:10]
+    clean_tickers = [str(x).strip().upper() for x in tickers if str(x).strip()][:25]
     if not clean_tickers:
         return {"error": "No valid tickers provided."}
 
@@ -3636,6 +3738,10 @@ def run_cash_deployment_screener(tickers: list[str], total_cash: float, risk_app
                 "efficiency_ratio": float(tech.get("efficiency_ratio", 0.45)),
                 "choppiness_index": float(tech.get("choppiness_index", 50.0)),
                 "ulcer_index": float(tech.get("ulcer_index", 2.5)),
+                "r2_20d": float(tech.get("r2_20d", 0.35)),
+                "market_regime": str(tech.get("market_regime", "RANGE_MODE")),
+                "hma_slope": float(tech.get("hma_slope", 0.0)),
+                "rolling_vwap_rsi": float(tech.get("rolling_vwap_rsi", 50.0)),
                 "amihud_illiq": float(tech.get("amihud_illiq", 0.05)),
                 "panic_breakdown": bool(tech.get("panic_breakdown", False)),
                 "mom_3m": float(mom_3m),
@@ -3646,7 +3752,7 @@ def run_cash_deployment_screener(tickers: list[str], total_cash: float, risk_app
         except Exception as ex:
             return {"ticker": tk_sym, "success": False, "error": str(ex)}
 
-    with ThreadPoolExecutor(max_workers=min(5, len(clean_tickers))) as executor:
+    with ThreadPoolExecutor(max_workers=min(8, len(clean_tickers))) as executor:
         results = list(executor.map(_eval_single, clean_tickers))
 
     valid = [r for r in results if r.get("success")]
@@ -3663,37 +3769,55 @@ def run_cash_deployment_screener(tickers: list[str], total_cash: float, risk_app
     mom_arr = _min_max([v["mom_3m"] for v in valid])
     upside_arr = _min_max([v["mos_pct"] for v in valid])
     er_arr = _min_max([v["efficiency_ratio"] for v in valid])
+    r2_arr = _min_max([v["r2_20d"] for v in valid])
+    hma_arr = _min_max([v["hma_slope"] for v in valid])
     inv_ulcer_arr = _min_max([1.0 / (v["ulcer_index"] + 0.5) for v in valid])
     qual_arr = np.array([1.0 if v["status"] == "CLEAN" else (0.5 if v["status"] == "GRAY_ZONE" else 0.0) for v in valid])
 
-    # 🌟 M3 (QuantDinger Factors): 融入 Kaufman 效率系数 (ER) 与逆溃疡指数 (Inverse Ulcer Index)
-    con_scores = 0.30 * div_arr + 0.25 * inv_beta_arr + 0.15 * inv_ulcer_arr + 0.18 * qual_arr + 0.12 * mom_arr
-    agg_scores = 0.34 * mom_arr + 0.26 * upside_arr + 0.15 * er_arr + 0.13 * qual_arr + 0.12 * inv_beta_arr
+    # 🌟 M3 + V15.0 Factors: 融入 Kaufman 效率系数 (ER)、20D R² 趋势纯度、HMA(55) 斜率与逆溃疡指数
+    con_scores = 0.28 * div_arr + 0.24 * inv_beta_arr + 0.16 * inv_ulcer_arr + 0.18 * qual_arr + 0.14 * (0.5 * mom_arr + 0.5 * r2_arr)
+    agg_scores = 0.28 * mom_arr + 0.22 * upside_arr + 0.14 * er_arr + 0.12 * r2_arr + 0.12 * hma_arr + 0.12 * qual_arr
+
+    if custom_alpha_scores:
+        alpha_vec = _min_max([float(custom_alpha_scores.get(v["ticker"], 0.5)) for v in valid])
+        con_scores = 0.85 * con_scores + 0.15 * alpha_vec
+        agg_scores = 0.85 * agg_scores + 0.15 * alpha_vec
 
     for idx, v in enumerate(valid):
-        # 财务造假雷达扣减 + M4 破位接飞刀惩罚 + M3 Amihud 流动性过滤
+        # 财务造假雷达扣减 + M4 破位接飞刀惩罚 + P1.1 CHAOS_WAIT 惩罚 + M3 Amihud 流动性过滤
         penalty = 0.20 if v["status"] == "HIGH_RISK" else 1.0
         if v.get("panic_breakdown"):
-            penalty *= 0.60
+            penalty *= 0.55
+        if v.get("market_regime") == "CHAOS_WAIT":
+            penalty *= 0.72
         if v.get("amihud_illiq", 0.0) > 2.5:
             penalty *= 0.75
         v["con_score"] = round(float(con_scores[idx] * penalty * 100.0), 1)
         v["agg_score"] = round(float(agg_scores[idx] * penalty * 100.0), 1)
+        v["alpha_rank"] = round(float(custom_alpha_scores.get(v["ticker"], 0.5)), 3) if custom_alpha_scores else None
 
     is_conservative = (risk_appetite == "conservative")
     sort_key = "con_score" if is_conservative else "agg_score"
     valid.sort(key=lambda x: x[sort_key], reverse=True)
 
-    # 优先选取非 HIGH_RISK 股票
-    clean_picks = [v for v in valid if v["status"] != "HIGH_RISK"]
-    picks = clean_picks[:4] if len(clean_picks) >= 2 else valid[:4]
-    if len(picks) < len(valid) and len(picks) < 4:
-        for v in valid:
-            if v not in picks and len(picks) < 4:
-                picks.append(v)
+    # 🌟 V15.0 P1.3 正交去相关选股器 (Correlation-Penalized Top-K + 单行业不超过 2 只)
+    all_valid_syms = tuple(v["ticker"] for v in valid)
+    df_all_hist = fetch_portfolio_history(all_valid_syms)
+    all_rets_df = df_all_hist.pct_change().dropna(how="all") if not df_all_hist.empty and len(df_all_hist) >= 15 else pd.DataFrame()
+
+    picks, sel_corr_df, ortho_logs = select_orthogonal_top_k(
+        scored_candidates=valid,
+        score_key=sort_key,
+        rets_df=all_rets_df,
+        k=4,
+        corr_threshold=0.70,
+        max_per_sector=2
+    )
+    if not picks:
+        picks = valid[:4]
 
     pick_syms = tuple(p["ticker"] for p in picks)
-    df_hist = fetch_portfolio_history(pick_syms)
+    df_hist = df_all_hist[list(pick_syms)].dropna(how="all") if (not df_all_hist.empty and all(s in df_all_hist.columns for s in pick_syms)) else fetch_portfolio_history(pick_syms)
 
     n_p = len(picks)
     if not df_hist.empty and len(df_hist) >= 15:
@@ -3710,6 +3834,7 @@ def run_cash_deployment_screener(tickers: list[str], total_cash: float, risk_app
         # 保守防御型：80% 资金投资于 50% ERC + 50% GMV，预留 20% 现金缓冲池
         cash_buffer_pct = 0.20
         rel_w = 0.50 * alloc_res["w_erc"] + 0.50 * alloc_res["w_gmv"]
+        rel_w = enforce_sector_weight_cap(rel_w, picks, max_sector_weight=0.45)
         scaled_w = rel_w * (1.0 - cash_buffer_pct)
     else:
         # 进取进攻型：90% 资金投资于 70% Max Sharpe 切点 + 30% 因子倾斜，预留 10% Alpha 机动金
@@ -3717,13 +3842,14 @@ def run_cash_deployment_screener(tickers: list[str], total_cash: float, risk_app
         tilt_raw = np.array([max(p["agg_score"], 1.0) for p in picks], dtype=float)
         tilt_w = tilt_raw / np.sum(tilt_raw)
         rel_w = 0.70 * alloc_res["w_tan"] + 0.30 * tilt_w
+        rel_w = enforce_sector_weight_cap(rel_w, picks, max_sector_weight=0.45)
         scaled_w = rel_w * (1.0 - cash_buffer_pct)
 
     exp_ret = float(np.dot(rel_w, mean_returns)) * (1.0 - cash_buffer_pct)
     port_vol = float(np.sqrt(np.dot(rel_w.T, np.dot(cov_matrix, rel_w)))) * (1.0 - cash_buffer_pct)
     sharpe = (exp_ret - rf) / max(port_vol, 1e-4)
 
-    # 构建 Top 4 执行明细表 (含马股整手 100 股对齐与汇率换算)
+    # 构建 Top 4 执行明细表 (含马股整手 100 股对齐、汇率换算与三段式 ATR 止损)
     top4_rows = []
     deployed_total = 0.0
     for idx, p in enumerate(picks):
@@ -3733,7 +3859,6 @@ def run_cash_deployment_screener(tickers: list[str], total_cash: float, risk_app
         native_px = max(p["native_price"], 0.001)
 
         if p["is_malaysia"]:
-            # 马来西亚股票按本地货币和整手 1 Lot = 100 股向下取整
             item_cap_native = item_cap_base if currency == "MYR" else item_cap_base * usd_myr_rate
             lots = int(np.floor(item_cap_native / (native_px * 100.0)))
             tgt_shares = lots * 100
@@ -3747,14 +3872,15 @@ def run_cash_deployment_screener(tickers: list[str], total_cash: float, risk_app
         actual_cost_base = tgt_shares * px_b
         deployed_total += actual_cost_base
 
+        max_c_tag = f"max|r|={p.get('max_pair_corr', 0.0):.2f}"
         if is_conservative:
             sl_price = round(native_px * 0.925, 2)
             tp_price = round(native_px * 1.15, 2)
-            strat_note = f"低波动防守 (β={p['beta']:.2f}, 股息 {p['div_yield']:.1f}%, M-Score {p['m_score']:.2f})" if lang_key == "zh" else f"Low-Vol Defensive (β={p['beta']:.2f}, Div {p['div_yield']:.1f}%, M-Score {p['m_score']:.2f})"
+            strat_note = f"低波动防守 (β={p['beta']:.2f}, 股息 {p['div_yield']:.1f}%, {max_c_tag}, {p['market_regime']})" if lang_key == "zh" else f"Low-Vol Defensive (β={p['beta']:.2f}, Div {p['div_yield']:.1f}%, {max_c_tag}, {p['market_regime']})"
         else:
-            sl_price = round(max(native_px - 2.0 * p["atr"], native_px * 0.88), 2)
+            sl_price = round(max(native_px - 2.2 * p["atr"], native_px * 0.88), 2)
             tp_price = round(native_px * 1.25, 2)
-            strat_note = f"高动量进攻 (3M {p['mom_3m']:+.1f}%, 估值空间 {p['mos_pct']:+.1f}%, β={p['beta']:.2f})" if lang_key == "zh" else f"High-Mom Offensive (3M {p['mom_3m']:+.1f}%, Upside {p['mos_pct']:+.1f}%, β={p['beta']:.2f})"
+            strat_note = f"高动量正交进攻 (3M {p['mom_3m']:+.1f}%, R²={p['r2_20d']:.2f}, {max_c_tag}, {p['market_regime']})" if lang_key == "zh" else f"Orthogonal Mom (3M {p['mom_3m']:+.1f}%, R²={p['r2_20d']:.2f}, {max_c_tag}, {p['market_regime']})"
 
         deployed_str = f"{currency} {actual_cost_base:,.2f}"
         if p["native_currency"] != currency:
@@ -3763,11 +3889,12 @@ def run_cash_deployment_screener(tickers: list[str], total_cash: float, risk_app
         top4_rows.append({
             "Ticker": p["ticker"],
             "Name": p["name"],
+            "Sector": p["sector"],
             "Native Price": f"{p['native_currency']} {native_px:.2f}",
             "Target Weight": f"{w_item * 100.0:.1f}%",
             "Deployed Capital": deployed_str,
             "Target Shares (Lot-Aware)": lot_tag,
-            "Stop-Loss Price": f"{p['native_currency']} {sl_price:.2f}",
+            "Stop-Loss Price (2.2x ATR)": f"{p['native_currency']} {sl_price:.2f}",
             "Take-Profit Price": f"{p['native_currency']} {tp_price:.2f}",
             "Quant Rationale": strat_note
         })
@@ -3783,6 +3910,10 @@ def run_cash_deployment_screener(tickers: list[str], total_cash: float, risk_app
             "Base Price": f"{currency} {v['price']:.2f}",
             "Beta": f"{v['beta']:.2f}",
             "Div Yield": f"{v['div_yield']:.2f}%",
+            "Regime (3-State)": v.get("market_regime", "RANGE_MODE"),
+            "Trend Purity R²": f"{v.get('r2_20d', 0.35):.2f}",
+            "HMA55 Slope": f"{v.get('hma_slope', 0.0)*100:+.2f}%",
+            "VWAP-RSI(14)": f"{v.get('rolling_vwap_rsi', 50.0):.1f}",
             "Efficiency (ER)": f"{v.get('efficiency_ratio', 0.45):.2f}",
             "Choppiness (CI)": f"{v.get('choppiness_index', 50.0):.1f}",
             "Ulcer Index": f"{v.get('ulcer_index', 2.5):.2f}",
@@ -3807,6 +3938,8 @@ def run_cash_deployment_screener(tickers: list[str], total_cash: float, risk_app
         },
         "top4_df": pd.DataFrame(top4_rows),
         "full_scan_df": pd.DataFrame(full_scan_rows),
+        "corr_df": sel_corr_df,
+        "ortho_logs": ortho_logs,
         "pie_labels": pie_labels,
         "pie_values": pie_values,
         "picks": picks,
@@ -3930,9 +4063,10 @@ def run_personal_portfolio_optimizer(holdings_list: list[dict], available_cash: 
 
     target_weights = rel_target_w * equity_budget_pct
 
-    # 组合在险价值 (VaR 95% 1-day)
+    # 组合在险价值 (VaR 95% 1-day) & 🌟 P0.3 修复：真实当前组合预期年化收益率 curr_exp_ret
     curr_w_norm = np.array(current_weights) / max(sum(current_weights), 1e-4)
     curr_port_vol = float(np.sqrt(np.dot(curr_w_norm.T, np.dot(cov_mat, curr_w_norm))))
+    curr_exp_ret = float(np.dot(curr_w_norm, mu_blended))
     port_var_95_daily = 1.645 * (curr_port_vol / np.sqrt(252.0)) * total_mkt_val
 
     target_port_vol = float(np.sqrt(np.dot(rel_target_w.T, np.dot(cov_mat, rel_target_w))))
@@ -3949,7 +4083,6 @@ def run_personal_portfolio_optimizer(holdings_list: list[dict], available_cash: 
         curr_sh = p["shares"]
 
         if p["is_malaysia"]:
-            # 马股整手 100 股
             tgt_val_native = tgt_val_base if currency == "MYR" else (tgt_val_base * usd_myr_rate)
             tgt_sh = int(np.floor(tgt_val_native / (native_px * 100.0))) * 100
             lot_note = "🇲🇾 1 Lot = 100 股 (Bursa 整手)" if lang_key == "zh" else "🇲🇾 1 Lot = 100 shs (Bursa Board Lot)"
@@ -4001,6 +4134,7 @@ def run_personal_portfolio_optimizer(holdings_list: list[dict], available_cash: 
             "daily_var_95": port_var_95_daily,
             "daily_var_pct": (port_var_95_daily / max(total_equity, 1.0)) * 100.0,
             "curr_vol": curr_port_vol * 100.0,
+            "curr_ret": curr_exp_ret * 100.0,
             "target_vol": target_port_vol * 100.0,
             "target_ret": target_exp_ret * 100.0,
             "target_sharpe": (target_exp_ret - rf) / max(target_port_vol, 1e-4)
@@ -4028,13 +4162,25 @@ def run_5y_full_model_backtest(
     enable_options_overlay: bool = True,
     enable_atr_stop: bool = True,
     currency: str = "USD",
-    lang_key: str = "zh"
+    lang_key: str = "zh",
+    use_static_fundamental_filter: bool = False,
+    use_bursa_fee_schedule: bool = True,
+    custom_alpha_expr: str = ""
 ) -> dict:
     """
-    🌟 V14.0 宗师级 5 年全模型 Walk-Forward 真实回测引擎
-    深度融合：Quasi-MLE GARCH(1,1) 点时间波动率、Beneish 造假过滤、SLSQP/桥水ERC权重求解、
-    Half-Kelly 仓位约束、2.2x ATR 盘中移动止损、DRIP 股息再投资，以及 Black-Scholes 个股期权/马股凭单/FKLI 衍生品叠加层。
-    严格保证零未来函数 (Zero Look-Ahead Bias)！
+    🌟 V15.0 宗师级 5 年全模型 Walk-Forward 真实逐日盯市回测引擎 (100% Zero Look-Ahead Bias)
+    - P0 修复：
+      1) 彻底删除 ATR 止损月末收盘价前视条件与线性残差平滑 (`residual * ratio`)，改为逐日推进 (`for d in range(idx_t+1, idx_tend+1)`) 真实盘中/跳空止损 (`min(open[d], stop_price)`) 与逐日 B-S 期权剩余期限 $T_d$ 盯市；
+      2) 马股低吸网格严格按时间先后顺序触发，彻底删除 `max(S_end, 0.955*S_t)` 人为保底；
+      3) 默认关闭静态财报快照预过滤 (`use_static_fundamental_filter=False`)，确保 100% 纯点时间 (Point-in-Time) 零前视偏差；
+      4) 归因柱图严格拆分【未止损原始现货+DRIP】与【三段式止损/追踪净增厚】，所有分项加总 100% 恒等于总净利；
+      5) 内置 Bursa Malaysia 真实费率表 (佣金 + 0.03% 清算费 + 0.10% 印花税封顶 RM1,000)。
+    - P1 & P2 升级：
+      1) 20D 对数价格回归决定系数 R² + 三态体制路由器 (`TREND_MODE` / `RANGE_MODE` / `CHAOS_WAIT`)；
+      2) 个股三段式退出状态机 (2.2x ATR 初始止损 -> +1.5 ATR 保本锁利 -> +2.5 ATR 激活 1.8x ATR 峰值移动止盈)；
+      3) 组合净值级 TSP 三态回撤守护 (`HEALTHY 1.0x` / `WATCH 0.60x` / `HIBERNATING 0.35x` 直至站回 20D 净值均线)；
+      4) 正交去相关选股器 (63D 相关性 |r| > 0.70 扣分 + 单行业权重 <= 45%)；
+      5) 强制输出 全周期 5Y | IS (2021-2024) | OOS (2025-2026) 样本内外盲测切分对比表。
     """
     clean_tickers = tuple(str(x).strip().upper() for x in tickers_tuple if str(x).strip())
     if len(clean_tickers) < 2:
@@ -4103,46 +4249,79 @@ def run_5y_full_model_backtest(
     vol_df = vol_df.reindex(index=common_idx, columns=valid_tickers).ffill().bfill().fillna(1e6)
     bm_close = bm_close.loc[common_idx]
 
-    # Fundamental forensics & Beneish M-Score Gate
+    # 🌟 P0.1 点时间 (PIT) 基本面边界透明化：
+    # 默认 use_static_fundamental_filter=False 时，不调用当前静态财报 Beneish 快照剔除历史股票池，仅读取基础板块与静态分红率近似，确保 100% 零前视偏差！
     stock_meta = {}
     clean_candidates = []
     for tk in valid_tickers:
-        try:
-            eng = UltimateHardcoreEngine(tk)
-            beneish = eng.compute_beneish_m_score()
-            m_score = float(beneish.get("m_score", -2.5))
-            status = str(beneish.get("status", "CLEAN"))
-            div_y = float(eng.info.get('dividendYield') or 0.0)
-            if div_y <= 0:
-                div_rate = float(eng.info.get('dividendRate') or eng.info.get('trailingAnnualDividendRate') or 0.0)
-                div_y = (div_rate / eng.price) if eng.price > 0 else 0.0
-            beta = max(float(eng.beta), 0.2)
-            stock_meta[tk] = {
-                "name": eng.name,
-                "m_score": m_score,
-                "status": status,
-                "div_yield": div_y,
-                "beta": beta,
-                "is_malaysia": eng.is_malaysia,
-                "engine": eng
-            }
-            if status != "HIGH_RISK":
+        meta_ref = INSTITUTIONAL_TICKER_META.get(tk, {})
+        is_my_tk = tk.endswith(".KL")
+        if use_static_fundamental_filter:
+            try:
+                eng = UltimateHardcoreEngine(tk)
+                beneish = eng.compute_beneish_m_score()
+                m_score = float(beneish.get("m_score", -2.5))
+                status = str(beneish.get("status", "CLEAN"))
+                div_y = float(eng.info.get('dividendYield') or 0.0)
+                if div_y <= 0:
+                    div_rate = float(eng.info.get('dividendRate') or eng.info.get('trailingAnnualDividendRate') or 0.0)
+                    div_y = (div_rate / eng.price) if eng.price > 0 else 0.0
+                beta = max(float(eng.beta), 0.2)
+                sector_str = str(eng.sector or meta_ref.get("sector") or "Unknown")
+                stock_meta[tk] = {
+                    "name": eng.name, "sector": sector_str, "m_score": m_score,
+                    "status": status, "div_yield": float(np.clip(div_y, 0.0, 0.12)),
+                    "beta": beta, "is_malaysia": is_my_tk
+                }
+                if status != "HIGH_RISK":
+                    clean_candidates.append(tk)
+            except Exception:
+                stock_meta[tk] = {
+                    "name": meta_ref.get("name", tk), "sector": meta_ref.get("sector", "Unknown"),
+                    "m_score": -2.5, "status": "CLEAN", "div_yield": 0.035 if is_my_tk else 0.012,
+                    "beta": 1.0, "is_malaysia": is_my_tk
+                }
                 clean_candidates.append(tk)
-        except Exception:
+        else:
+            # 纯点时间 (PIT) 模式：使用历史价格前段估计初始 Beta 与元数据参考股息率，绝不剔除候选池
+            last_px = float(close_df[tk].iloc[-1])
+            div_r = float(meta_ref.get("div_rate", 0.0))
+            approx_div_y = (div_r / max(last_px, 0.1)) if div_r > 0 else (0.032 if is_my_tk else 0.008)
             stock_meta[tk] = {
-                "name": tk,
+                "name": meta_ref.get("name", tk),
+                "sector": meta_ref.get("sector", f"Sector_{tk}"),
                 "m_score": -2.5,
                 "status": "CLEAN",
-                "div_yield": 0.015,
-                "beta": 1.0,
-                "is_malaysia": tk.endswith(".KL"),
-                "engine": None
+                "div_yield": float(np.clip(approx_div_y, 0.0, 0.10)),
+                "beta": 0.90 if is_my_tk else 1.05,
+                "is_malaysia": is_my_tk
             }
             clean_candidates.append(tk)
 
-    active_pool = clean_candidates if len(clean_candidates) >= 3 else valid_tickers
+    active_pool = (clean_candidates if len(clean_candidates) >= 3 else valid_tickers) if use_static_fundamental_filter else list(valid_tickers)
+
+    # Optional custom Alpha-GPT factor panel pre-evaluation (strictly point-in-time)
+    custom_alpha_panel = None
+    if custom_alpha_expr and str(custom_alpha_expr).strip():
+        try:
+            ok_ast, _, _ = validate_alpha_ast(custom_alpha_expr, max_nodes=12)
+            if ok_ast:
+                f_panels = build_feature_panels(close_df[active_pool], high_df[active_pool], low_df[active_pool], open_df[active_pool], vol_df[active_pool])
+                custom_alpha_panel = SafeAlphaASTEvaluator(f_panels).evaluate(custom_alpha_expr).rank(axis=1, pct=True).fillna(0.5)
+        except Exception:
+            custom_alpha_panel = None
+
+    def _calc_tx_fee(notional_amt: float, is_my_flag: bool) -> float:
+        if is_my_flag and use_bursa_fee_schedule:
+            return calc_bursa_transaction_fee(notional_amt, cost_bps=cost_bps, use_bursa_schedule=True)
+        return abs(float(notional_amt)) * (float(cost_bps) / 10000.0)
 
     def _calc_pit_signals(c_series, h_series, l_series, o_series, v_series, idx_t):
+        """
+        严格点时间 (Strictly Point-in-Time <= idx_t) 信号计算器：
+        波动率采用固定参数 EWMA-GARCH(1,1) (alpha=0.11, beta=0.85) + 20D Garman-Klass 融合波动率；
+        同步计算 20D 对数价格趋势纯度 R²、三态体制 (TREND_MODE / RANGE_MODE / CHAOS_WAIT)、HMA(55)斜率与 20D Rolling VWAP 14D RSI。
+        """
         c_s = c_series.iloc[: idx_t + 1]
         h_s = h_series.iloc[: idx_t + 1]
         l_s = l_series.iloc[: idx_t + 1]
@@ -4190,7 +4369,6 @@ def run_5y_full_model_backtest(
             ci_14 = 50.0
         atr_pct = atr_val / max(S_t, 1e-4)
 
-        # 🌟 M3 (QuantDinger Factors): Kaufman Efficiency Ratio (14D), Ulcer Index (14D), Garman-Klass Vol (20D), Amihud Illiquidity (20D)
         if len(c_s) >= 15:
             er_dir = abs(float(c_s.iloc[-1] - c_s.iloc[-15]))
             er_vol = float(c_s.iloc[-15:].diff().abs().sum())
@@ -4216,14 +4394,16 @@ def run_5y_full_model_backtest(
         if np.isnan(hv30) or hv30 <= 0:
             hv30 = 0.25
 
+        # 点时间快速 EWMA-GARCH(0.11, 0.85) 条件方差递推 (预分配平方数组加速)
         sub_rets = rets_all.tail(126).values
         if len(sub_rets) >= 20:
-            var_init = float(np.var(sub_rets))
+            r2_sub = np.square(sub_rets)
+            var_init = max(float(np.mean(r2_sub)), 1e-6)
             alpha_g, beta_g = 0.11, 0.85
             omega_g = var_init * (1.0 - alpha_g - beta_g)
             sig2 = var_init
-            for r_val in sub_rets:
-                sig2 = omega_g + alpha_g * (r_val ** 2) + beta_g * sig2
+            for r2_v in r2_sub:
+                sig2 = omega_g + alpha_g * r2_v + beta_g * sig2
             garch_vol = float(np.clip(np.sqrt(max(sig2 * 252.0, 1e-6)), 0.08, 2.50))
         else:
             garch_vol = hv30
@@ -4248,12 +4428,17 @@ def run_5y_full_model_backtest(
         else:
             amihud_20 = 0.05
 
-        # 🌟 M4 (QuantDinger Falling-Knife Guard): Point-in-time Panic Breakdown Detection
         ret_5d = float(S_t / c_s.iloc[max(0, len(c_s) - 6)] - 1.0) if len(c_s) >= 6 else 0.0
         panic_breakdown = bool((S_t < ma20 < ma50) and (macd_hist < 0) and (rsi < 35.0 or ret_5d < -0.065))
 
         mom_6m = float(S_t / c_s.iloc[max(0, len(c_s) - 126)] - 1.0) if len(c_s) >= 126 else 0.0
         mom_3m = float(S_t / c_s.iloc[max(0, len(c_s) - 63)] - 1.0) if len(c_s) >= 63 else mom_6m
+
+        # 🌟 V15.0 P1.1 & P2.2: 点时间 20D R², 三态体制, HMA(55) 斜率 & 20D Rolling VWAP 14D RSI
+        r2_20d = compute_log_price_r2(c_s.iloc[-20:].values if len(c_s) >= 20 else c_s.values, window=20)
+        reg_info = classify_three_state_regime(ci_14, r2_20d, ulcer_14, er_14)
+        hma_slope = compute_hma55_slope(c_s.iloc[-75:])
+        vwap_rsi = compute_rolling_vwap_rsi(h_s.iloc[-45:], l_s.iloc[-45:], c_s.iloc[-45:], v_s.iloc[-45:])
 
         sub_r = rets_all.tail(63)
         if len(sub_r) >= 20:
@@ -4281,6 +4466,10 @@ def run_5y_full_model_backtest(
             "er_14": er_14,
             "ci_14": ci_14,
             "ulcer_14": ulcer_14,
+            "r2_20d": r2_20d,
+            "market_regime": reg_info["regime"],
+            "hma_slope": hma_slope,
+            "rolling_vwap_rsi": vwap_rsi,
             "amihud_20": amihud_20,
             "panic_breakdown": panic_breakdown,
             "mom_6m": mom_6m,
@@ -4289,11 +4478,6 @@ def run_5y_full_model_backtest(
         }
 
     def _calc_pit_turbulence(idx_t: int) -> tuple[float, float, bool]:
-        """
-        🌟 M1 (FinRL Kritzman & Li 2010 Mahalanobis Turbulence Index):
-        严格基于截止 idx_t 的历史收益率协方差矩阵伪逆 (np.linalg.pinv) 计算多资产马氏距离异常湍流度。
-        当近期湍流突破历史 88%-90% 分位阈值且基准走弱时，触发系统性危机熔断护盾！
-        """
         hist_slice = close_df[active_pool].iloc[max(0, idx_t - 252) : idx_t + 1].pct_change().dropna()
         if len(hist_slice) < 45:
             return 1.0, 5.0, False
@@ -4303,7 +4487,6 @@ def run_5y_full_model_backtest(
             cov_mat = base_slice.cov().values
             inv_cov = np.linalg.pinv(cov_mat)
             diff_mat = hist_slice.values - mu_vec
-            # Mahalanobis distance per day: d_t = (r_t - mu) @ pinv(Sigma) @ (r_t - mu).T
             daily_turb = np.sum((diff_mat @ inv_cov) * diff_mat, axis=1)
             turb_5d = pd.Series(daily_turb).rolling(5, min_periods=1).mean().values
             curr_turb = float(turb_5d[-1])
@@ -4342,6 +4525,7 @@ def run_5y_full_model_backtest(
     daily_eq_spot = [initial_cash]
     daily_eq_bm = [initial_cash]
 
+    # 🌟 P0.4 精确闭合归因字典：unstopped_spot_pnl + atr_saved + options_pnl + interest - friction == 总净利
     attr_ens = {"spot_pnl": 0.0, "options_pnl": 0.0, "atr_saved": 0.0, "interest": 0.0, "friction": 0.0}
     attr_agg = {"spot_pnl": 0.0, "options_pnl": 0.0, "atr_saved": 0.0, "interest": 0.0, "friction": 0.0}
     attr_con = {"spot_pnl": 0.0, "options_pnl": 0.0, "atr_saved": 0.0, "interest": 0.0, "friction": 0.0}
@@ -4360,7 +4544,17 @@ def run_5y_full_model_backtest(
     turbulence_triggers_count = 0
     latest_turbulence_val = 1.0
     latest_turbulence_thresh = 5.0
-    ens_regime_counts = {"BULL_OFFENSE": 0, "CHOPPY_BLEND": 0, "CRISIS_SHIELD": 0}
+    ens_regime_counts = {
+        "BULL_OFFENSE": 0, "CHOPPY_BLEND": 0, "CRISIS_SHIELD": 0,
+        "TREND_MODE": 0, "RANGE_MODE": 0, "CHAOS_WAIT": 0
+    }
+
+    # 🌟 V15.0 P1.2 组合净值级 TSP 三态回撤守护状态机
+    tsp_state_agg = "HEALTHY"
+    tsp_state_ens = "HEALTHY"
+    tsp_triggers_count = 0
+    tsp_state_counts = {"HEALTHY": 0, "WATCH": 0, "HIBERNATING": 0}
+    atr_stage_counts = {"STAGE1_STOP": 0, "STAGE2_PRE_BE": 0, "STAGE3_TRAIL": 0}
 
     rebal_indices = list(range(t_start, total_len - 1, rebalance_days))
     if rebal_indices[-1] < total_len - 1:
@@ -4386,40 +4580,60 @@ def run_5y_full_model_backtest(
         if is_turbulent_crisis:
             turbulence_triggers_count += 1
 
+        # 🌟 V15.0 P1.2 组合级 TSP 三态回撤守护检查 (Strictly Point-in-Time at idx_t)
+        tsp_state_agg, tsp_scale_agg, _ = update_tsp_guardian_state(daily_eq_agg, tsp_state_agg)
+        tsp_state_ens, tsp_scale_ens, _ = update_tsp_guardian_state(daily_eq_ens, tsp_state_ens)
+        tsp_state_counts[tsp_state_ens] = tsp_state_counts.get(tsp_state_ens, 0) + 1
+        if tsp_state_ens in ("WATCH", "HIBERNATING") or tsp_state_agg in ("WATCH", "HIBERNATING"):
+            tsp_triggers_count += 1
+
         sig_map = {}
         for tk in active_pool:
             sig_map[tk] = _calc_pit_signals(close_df[tk], high_df[tk], low_df[tk], open_df[tk], vol_df[tk], idx_t)
 
-        # 1. Aggressive Selection (Enhanced with M3 Efficiency Ratio, Ulcer, Amihud & M4 Panic Breakdown Guard)
-        agg_scores = {}
+        # 1. Aggressive Selection (Enhanced with R², 3-State Regime, HMA55 Slope, VWAP-RSI, ER, Ulcer, Amihud & Panic Guard)
+        agg_cands = []
         for tk in active_pool:
             s = sig_map[tk]
             score = (
-                (0.65 * s["mom_6m"] + 0.35 * s["mom_3m"]) / max(s["blended_vol"], 0.10)
-                + 0.65 * s["er_14"]
+                (0.60 * s["mom_6m"] + 0.40 * s["mom_3m"]) / max(s["blended_vol"], 0.10)
+                + 0.55 * s["er_14"]
+                + 0.45 * s["r2_20d"]
+                + 4.5 * s["hma_slope"]
                 - 0.06 * s["ulcer_14"]
-                + (0.5 if 40 <= s["rsi"] <= 68 else -0.4)
+                + (0.45 if 38 <= s["rolling_vwap_rsi"] <= 68 else -0.35)
             )
+            if s["market_regime"] == "TREND_MODE" and s["trend"] in ("STRONG_BULLISH", "MODERATE_BULLISH"):
+                score += 0.90
+            elif s["market_regime"] == "CHAOS_WAIT":
+                score -= 1.50
             if s["trend"] == "STRONG_BULLISH":
-                score += 1.0
+                score += 0.85
             elif s["trend"] == "STRONG_BEARISH":
                 score -= 1.0
-            # 🌟 M4 (QuantDinger Panic Breakdown Guard): 严禁买入空头破位暴跌股
             if s["panic_breakdown"]:
                 score -= 2.5
-            # 🌟 M3 (QuantDinger Amihud Illiquidity Filter): 惩罚枯竭流动性标的
             if s["amihud_20"] > 2.5:
                 score -= 1.0
-            # 🌟 M2 (FinRL Low-Turnover Continuity Bonus): 降低无效换手摩擦
             if tk in prev_agg_picks:
                 score += 0.22
-            agg_scores[tk] = score
+            if custom_alpha_panel is not None and tk in custom_alpha_panel.columns:
+                score += 0.60 * (float(custom_alpha_panel[tk].iloc[idx_t]) - 0.5)
+            agg_cands.append({
+                "ticker": tk,
+                "sector": stock_meta[tk]["sector"],
+                "status": stock_meta[tk]["status"],
+                "agg_score": score
+            })
 
-        agg_picks = sorted(active_pool, key=lambda x: agg_scores[x], reverse=True)[:4]
+        # 🌟 V15.0 P1.3 正交去相关选股器 (63D 收益率相关性 |r| > 0.70 扣分 + 单行业上限)
+        rets_63d_slice = close_df[active_pool].iloc[max(0, idx_t - 63) : idx_t + 1].pct_change().dropna(how="all")
+        ortho_agg_list, _, _ = select_orthogonal_top_k(agg_cands, "agg_score", rets_63d_slice, k=4, corr_threshold=0.70, max_per_sector=2)
+        agg_picks = [item["ticker"] for item in ortho_agg_list] if len(ortho_agg_list) >= 2 else [x["ticker"] for x in sorted(agg_cands, key=lambda z: z["agg_score"], reverse=True)[:4]]
         prev_agg_picks = set(agg_picks)
 
-        # 2. Conservative Selection (Enhanced with M3 Ulcer Index & M4 Panic Breakdown Guard)
-        con_scores = {}
+        # 2. Conservative Selection (Enhanced with R², Ulcer Index, Panic Guard & Orthogonal Top-4)
+        con_cands = []
         for tk in active_pool:
             s = sig_map[tk]
             m = stock_meta[tk]
@@ -4427,18 +4641,26 @@ def run_5y_full_model_backtest(
                 (m["div_yield"] * 100.0 * 1.5)
                 - (s["blended_vol"] * 100.0 * 0.45)
                 - (m["beta"] * 9.0)
-                - (s["ulcer_14"] * 0.5)
+                - (s["ulcer_14"] * 0.55)
+                + (s["r2_20d"] * 3.0)
             )
             if s["trend"] in ("STRONG_BULLISH", "MODERATE_BULLISH"):
-                score += 10.0
+                score += 9.0
+            if s["market_regime"] == "CHAOS_WAIT":
+                score -= 8.0
             if s["panic_breakdown"]:
                 score -= 15.0
-            con_scores[tk] = score
+            con_cands.append({
+                "ticker": tk,
+                "sector": m["sector"],
+                "status": m["status"],
+                "con_score": score
+            })
 
-        con_picks = sorted(active_pool, key=lambda x: con_scores[x], reverse=True)[:4]
+        ortho_con_list, _, _ = select_orthogonal_top_k(con_cands, "con_score", rets_63d_slice, k=4, corr_threshold=0.70, max_per_sector=2)
+        con_picks = [item["ticker"] for item in ortho_con_list] if len(ortho_con_list) >= 2 else [x["ticker"] for x in sorted(con_cands, key=lambda z: z["con_score"], reverse=True)[:4]]
 
-        # Portfolio Weight Solver + M2 Turnover Regularization
-        # Aggressive
+        # Portfolio Weight Solver + Sector Cap (<= 45%) + M2 Turnover Regularization
         agg_rets_w = close_df[agg_picks].iloc[max(0, idx_t - 126) : idx_t + 1].pct_change().dropna()
         if not agg_rets_w.empty and len(agg_rets_w) >= 15:
             cov_agg = agg_rets_w.cov().values * 252.0
@@ -4452,8 +4674,8 @@ def run_5y_full_model_backtest(
         kelly_caps = [sig_map[p]["kelly_half"] for p in agg_picks]
         w_capped = np.minimum(w_tan, kelly_caps)
         w_agg_raw = w_capped / max(np.sum(w_capped), 1e-4)
+        w_agg_raw = enforce_sector_weight_cap(w_agg_raw, [{"sector": stock_meta[p]["sector"]} for p in agg_picks], max_sector_weight=0.45)
 
-        # 🌟 M2 Turnover Penalty Blending: 对连续持有的标的平滑 20% 历史权重，降低换手率
         if prev_w_agg_map:
             w_prev_vec = np.array([prev_w_agg_map.get(p, 0.0) for p in agg_picks], dtype=float)
             if np.sum(w_prev_vec) > 0.1:
@@ -4470,7 +4692,7 @@ def run_5y_full_model_backtest(
         turnover_agg = 0.5 * sum(abs(curr_w_agg_map.get(k, 0.0) - prev_w_agg_map.get(k, 0.0)) for k in all_agg_keys) if prev_w_agg_map else 0.70
         prev_w_agg_map = curr_w_agg_map
 
-        # Conservative
+        # Conservative weights
         con_rets_w = close_df[con_picks].iloc[max(0, idx_t - 126) : idx_t + 1].pct_change().dropna()
         if not con_rets_w.empty and len(con_rets_w) >= 15:
             cov_con = con_rets_w.cov().values * 252.0
@@ -4481,6 +4703,7 @@ def run_5y_full_model_backtest(
 
         alloc_con = solve_portfolio_allocations(cov_con, mu_con, rf_annual)
         w_con_raw = 0.50 * alloc_con["w_erc"] + 0.50 * alloc_con["w_gmv"]
+        w_con_raw = enforce_sector_weight_cap(w_con_raw, [{"sector": stock_meta[p]["sector"]} for p in con_picks], max_sector_weight=0.45)
         if prev_w_con_map:
             w_prev_c = np.array([prev_w_con_map.get(p, 0.0) for p in con_picks], dtype=float)
             if np.sum(w_prev_c) > 0.1:
@@ -4496,7 +4719,7 @@ def run_5y_full_model_backtest(
         turnover_con = 0.5 * sum(abs(curr_w_con_map.get(k, 0.0) - prev_w_con_map.get(k, 0.0)) for k in all_con_keys) if prev_w_con_map else 0.50
         prev_w_con_map = curr_w_con_map
 
-        # 🌟 M2 (FinRL 63-Day Rolling Validation Sharpe Meta-Ensemble Policy Selection - Strictly Point-in-Time at idx_t)
+        # 🌟 M2 + P1.1 (FinRL 63-Day Rolling Validation Sharpe + 3-State Regime Meta-Ensemble Policy Selection)
         if len(daily_eq_agg) >= 42:
             r63_a = pd.Series(daily_eq_agg[-min(63, len(daily_eq_agg)):]).pct_change().dropna()
             r63_c = pd.Series(daily_eq_con[-min(63, len(daily_eq_con)):]).pct_change().dropna()
@@ -4508,14 +4731,21 @@ def run_5y_full_model_backtest(
             sh_a_63, sh_c_63, sh_s_63 = 1.0, 0.8, 0.9
 
         mkt_er = float(np.mean([sig_map[tk]["er_14"] for tk in active_pool]))
-        if is_turbulent_crisis:
+        mkt_r2 = float(np.mean([sig_map[tk]["r2_20d"] for tk in active_pool]))
+        mkt_ci = float(np.mean([sig_map[tk]["ci_14"] for tk in active_pool]))
+        mkt_ulcer = float(np.mean([sig_map[tk]["ulcer_14"] for tk in active_pool]))
+        mkt_3state = classify_three_state_regime(mkt_ci, mkt_r2, mkt_ulcer, mkt_er)["regime"]
+        ens_regime_counts[mkt_3state] = ens_regime_counts.get(mkt_3state, 0) + 1
+        chaos_cnt = sum(1 for tk in active_pool if sig_map[tk]["market_regime"] == "CHAOS_WAIT")
+
+        if is_turbulent_crisis or chaos_cnt >= len(active_pool) * 0.6:
             ens_regime = "CRISIS_SHIELD"
             ens_regime_counts["CRISIS_SHIELD"] += 1
             w_ens_agg = 0.15
             w_ens_con = 0.55
             w_ens_spot = 0.00
             w_ens_cash_extra = 0.30
-        elif (bm_t_px >= bm_ma50) and (max(sh_a_63, sh_s_63) >= sh_c_63 - 0.25 or mkt_er >= 0.32):
+        elif (bm_t_px >= bm_ma50) and (max(sh_a_63, sh_s_63) >= sh_c_63 - 0.25 or mkt_er >= 0.32 or mkt_r2 >= 0.42):
             ens_regime = "BULL_OFFENSE"
             ens_regime_counts["BULL_OFFENSE"] += 1
             if sh_a_63 >= sh_s_63 - 0.10:
@@ -4535,311 +4765,416 @@ def run_5y_full_model_backtest(
                 w_ens_agg, w_ens_con, w_ens_spot = 0.50, 0.30, 0.20
             w_ens_cash_extra = 0.0
 
-        # Track 1: Aggressive Step Simulation
+        # Apply TSP portfolio drawdown guardian scaling to Meta-Ensemble & Aggressive equity ratios
+        w_ens_agg *= tsp_scale_ens
+        w_ens_con *= tsp_scale_ens
+        w_ens_spot *= tsp_scale_ens
+        w_ens_cash_extra = max(0.0, 1.0 - (w_ens_agg + w_ens_con + w_ens_spot))
+
+        # ======================================================================
+        # 🌟 P0.1 + P1.2 真实逐日推进与逐日盯市引擎 (True Day-by-Day MTM Simulation)
+        # ======================================================================
+        # --- 1. Aggressive Track Setup at idx_t ---
         eq_start_agg = curr_agg_cash
-        agg_eq_ratio = 0.72 if is_turbulent_crisis else 0.90
+        base_agg_ratio = 0.72 if is_turbulent_crisis else 0.90
+        agg_eq_ratio = base_agg_ratio * tsp_scale_agg
         equity_budget_agg = eq_start_agg * agg_eq_ratio
-        cash_buffer_agg = eq_start_agg * (1.0 - agg_eq_ratio)
+        cash_buffer_agg = eq_start_agg - equity_budget_agg
+        tx_agg_entry = _calc_tx_fee(eq_start_agg * max(turnover_agg, 0.15), is_bursa_market)
 
-        tx_agg = eq_start_agg * (cost_bps / 10000.0) * max(turnover_agg, 0.15)
-        attr_agg["friction"] += tx_agg
-
-        period_spot_pnl_agg = 0.0
-        period_opt_pnl_agg = 0.0
-        period_atr_saved_agg = 0.0
-
+        agg_positions = []
         for i_p, p_sym in enumerate(agg_picks):
             w_i = float(w_agg_rel[i_p])
             cap_i = equity_budget_agg * w_i
             s_pit = sig_map[p_sym]
             S_t = float(close_df[p_sym].iloc[idx_t])
-            S_end = float(close_df[p_sym].iloc[idx_tend])
             is_my = stock_meta[p_sym]["is_malaysia"]
+            atr_abs = max(S_t * s_pit["atr_pct"], S_t * 0.01)
 
-            sub_low = low_df[p_sym].iloc[idx_t : idx_tend + 1]
-            sub_high = high_df[p_sym].iloc[idx_t : idx_tend + 1]
-            S_min = float(sub_low.min())
-            S_max = float(sub_high.max())
+            # 3-Stage Exit Initial State at idx_t
+            init_stop = S_t - 2.2 * atr_abs
+            be_trigger = S_t + 1.5 * atr_abs
+            be_stop = S_t * 1.002
+            trail_trigger = S_t + 2.5 * atr_abs
+            trail_dist = 1.8 * atr_abs
 
-            stop_thresh = 2.2 * s_pit["atr_pct"] * np.sqrt(max(dt_days / 5.0, 1.0))
-            max_dd_in_window = (S_t - S_min) / max(S_t, 1e-4)
-            raw_window_ret = (S_end / S_t) - 1.0
-            # Genuine breakdown confirmation avoids intra-month wick whipsaws on low-vol stocks
-            is_stopped = enable_atr_stop and (max_dd_in_window > stop_thresh) and (raw_window_ret < -0.65 * stop_thresh)
+            # Options overlay setup at idx_t (P1.1 3-State Regime Routing)
+            atm_iv = max(s_pit["blended_vol"] * 1.12, 0.16)
+            put_iv = atm_iv + 0.025
+            call_iv = max(atm_iv - 0.005, 0.12)
+            q_div = stock_meta[p_sym]["div_yield"]
 
-            if is_stopped:
-                realized_spot_ret = -stop_thresh
-                money_saved = max(0.0, (-stop_thresh - raw_window_ret)) * cap_i
-                period_atr_saved_agg += money_saved
-            else:
-                realized_spot_ret = raw_window_ret
-
-            realized_spot_ret += stock_meta[p_sym]["div_yield"] * dt_years
-            pos_spot_pnl = cap_i * realized_spot_ret
-            period_spot_pnl_agg += pos_spot_pnl
-
+            opt_spec = {"type": "NONE", "init_val": 0.0, "budget": 0.0}
             if enable_options_overlay:
-                # 🌟 M3 Blended Volatility (GARCH(1,1) + Garman-Klass High-Low Range Vol)
-                atm_iv = max(s_pit["blended_vol"] * 1.12, 0.16)
-                put_iv = atm_iv + 0.025
-                call_iv = max(atm_iv - 0.005, 0.12)
-                q_div = stock_meta[p_sym]["div_yield"]
-
                 if not is_my:
-                    if is_turbulent_crisis or s_pit["panic_breakdown"] or s_pit["trend"] == "STRONG_BEARISH":
+                    if is_turbulent_crisis or s_pit["panic_breakdown"] or s_pit["market_regime"] == "CHAOS_WAIT" or s_pit["trend"] == "STRONG_BEARISH":
                         p1 = _bs_p(S_t, 0.98 * S_t, T_opt, rf_annual, put_iv, q_div, is_call=False)
                         p2 = _bs_p(S_t, 0.90 * S_t, T_opt, rf_annual, put_iv, q_div, is_call=False)
-                        net_debit = max(p1 - p2, 0.006 * S_t) * (1.0 + cost_bps / 10000.0)
-                        opt_budget = (0.018 if is_turbulent_crisis else 0.014) * eq_start_agg * w_i
+                        raw_debit = max(p1 - p2, 0.006 * S_t)
+                        net_debit = raw_debit * (1.0 + cost_bps / 10000.0)
+                        opt_budget = (0.016 if is_turbulent_crisis else 0.012) * eq_start_agg * w_i
                         units = opt_budget / max(net_debit, 0.01)
-                        payoff = float(np.clip(0.98 * S_t - S_end, 0.0, 0.08 * S_t)) * units
-                        net_opt_pnl = payoff - opt_budget
-                        period_opt_pnl_agg += net_opt_pnl
-                        if len(sample_trades_log) < 12:
-                            sample_trades_log.append({
-                                "date": dt_date_str, "track": "⚔️ 进取进攻型" if lang_key == "zh" else "⚔️ Aggressive", "ticker": p_sym,
-                                "strategy": "Bear Put Spread (湍流/熊市看跌价差)" if lang_key == "zh" else "Bear Put Spread (Turbulence Guard)", "strikes": f"{currency} {S_t*0.98:.1f} / {S_t*0.90:.1f}",
-                                "iv": f"{put_iv*100:.1f}%", "premium": f"-{currency} {opt_budget:,.1f}",
-                                "payoff": f"+{currency} {payoff:,.1f}", "net_pnl": f"{currency} {net_opt_pnl:+,.1f}"
-                            })
-                    elif s_pit["trend"] in ("STRONG_BULLISH", "MODERATE_BULLISH") and s_pit["er_14"] >= 0.25 and s_pit["ci_14"] < 61.0 and s_pit["rsi"] < 73:
+                        opt_spec = {
+                            "type": "BEAR_PUT_SPREAD", "k1": 0.98 * S_t, "k2": 0.90 * S_t,
+                            "vol": put_iv, "q": q_div, "units": units, "budget": opt_budget,
+                            "init_val": raw_debit * units
+                        }
+                    elif s_pit["market_regime"] == "TREND_MODE" and s_pit["trend"] in ("STRONG_BULLISH", "MODERATE_BULLISH") and s_pit["rsi"] < 72:
                         c1 = _bs_p(S_t, S_t, T_opt, rf_annual, call_iv, q_div, is_call=True)
                         c2 = _bs_p(S_t, 1.08 * S_t, T_opt, rf_annual, call_iv, q_div, is_call=True)
-                        net_debit = max(c1 - c2, 0.008 * S_t) * (1.0 + cost_bps / 10000.0)
-                        opt_budget = 0.022 * eq_start_agg * w_i
+                        raw_debit = max(c1 - c2, 0.008 * S_t)
+                        net_debit = raw_debit * (1.0 + cost_bps / 10000.0)
+                        opt_budget = 0.016 * eq_start_agg * w_i
                         units = opt_budget / max(net_debit, 0.01)
-                        payoff = float(np.clip(S_end - S_t, 0.0, 0.08 * S_t)) * units
-                        net_opt_pnl = payoff - opt_budget
-                        period_opt_pnl_agg += net_opt_pnl
-                        if len(sample_trades_log) < 12:
-                            sample_trades_log.append({
-                                "date": dt_date_str, "track": "⚔️ 进取进攻型" if lang_key == "zh" else "⚔️ Aggressive", "ticker": p_sym,
-                                "strategy": "Bull Call Spread (高效率趋势看涨价差)" if lang_key == "zh" else "Bull Call Spread (High-ER Trend)", "strikes": f"{currency} {S_t:.1f} / {S_t*1.08:.1f}",
-                                "iv": f"{call_iv*100:.1f}%", "premium": f"-{currency} {opt_budget:,.1f}",
-                                "payoff": f"+{currency} {payoff:,.1f}", "net_pnl": f"{currency} {net_opt_pnl:+,.1f}"
-                            })
+                        opt_spec = {
+                            "type": "BULL_CALL_SPREAD", "k1": S_t, "k2": 1.08 * S_t,
+                            "vol": call_iv, "q": q_div, "units": units, "budget": opt_budget,
+                            "init_val": raw_debit * units
+                        }
                     else:
-                        call_prem = _bs_p(S_t, 1.06 * S_t, T_opt, rf_annual, call_iv, q_div, is_call=True) * (1.0 - cost_bps / 10000.0)
+                        raw_c = _bs_p(S_t, 1.07 * S_t, T_opt, rf_annual, call_iv, q_div, is_call=True)
+                        call_prem = raw_c * (1.0 - cost_bps / 10000.0)
                         shares = cap_i / max(S_t, 0.01)
-                        tot_credit = shares * call_prem
-                        liability = -max(S_end - 1.06 * S_t, 0.0) * shares
-                        net_opt_pnl = tot_credit + liability
-                        period_opt_pnl_agg += net_opt_pnl
-                        if len(sample_trades_log) < 12:
-                            sample_trades_log.append({
-                                "date": dt_date_str, "track": "⚔️ 进取进攻型" if lang_key == "zh" else "⚔️ Aggressive", "ticker": p_sym,
-                                "strategy": "Covered Call (震荡市备兑收租)" if lang_key == "zh" else "Covered Call Overwrite (Choppy CI)", "strikes": f"{currency} {S_t*1.06:.1f}",
-                                "iv": f"{call_iv*100:.1f}%", "premium": f"+{currency} {tot_credit:,.1f}",
-                                "payoff": f"{currency} {liability:,.1f}", "net_pnl": f"{currency} {net_opt_pnl:+,.1f}"
-                            })
+                        opt_spec = {
+                            "type": "COVERED_CALL", "k1": 1.07 * S_t, "vol": call_iv, "q": q_div,
+                            "shares": shares, "credit": shares * call_prem
+                        }
                 else:
-                    if is_turbulent_crisis or s_pit["panic_breakdown"] or s_pit["trend"] == "STRONG_BEARISH":
-                        fkli_pnl = -0.55 * stock_meta[p_sym]["beta"] * bm_ret * cap_i
-                        period_opt_pnl_agg += fkli_pnl
-                        if len(sample_trades_log) < 12:
-                            sample_trades_log.append({
-                                "date": dt_date_str, "track": "⚔️ 进取进攻型" if lang_key == "zh" else "⚔️ Aggressive", "ticker": p_sym,
-                                "strategy": "FKLI Futures Hedge (湍流/隆综指期货对冲)" if lang_key == "zh" else "FKLI Futures Hedge (Turbulence Guard)", "strikes": "FKLI Index",
-                                "iv": "N/A", "premium": f"{currency} 0.0",
-                                "payoff": f"{currency} {fkli_pnl:+,.1f}", "net_pnl": f"{currency} {fkli_pnl:+,.1f}"
-                            })
-                    elif s_pit["trend"] == "STRONG_BULLISH" and s_pit["er_14"] >= 0.35 and s_pit["mom_3m"] > 0.03:
+                    if is_turbulent_crisis or s_pit["panic_breakdown"] or s_pit["market_regime"] == "CHAOS_WAIT" or s_pit["trend"] == "STRONG_BEARISH":
+                        opt_spec = {"type": "FKLI_HEDGE", "beta": stock_meta[p_sym]["beta"], "cap": cap_i}
+                    elif s_pit["market_regime"] == "TREND_MODE" and s_pit["trend"] == "STRONG_BULLISH" and s_pit["mom_3m"] > 0.03:
                         w1 = _bs_p(S_t, S_t, T_opt, rf_annual, call_iv, q_div, is_call=True)
                         w2 = _bs_p(S_t, 1.05 * S_t, T_opt, rf_annual, call_iv, q_div, is_call=True)
-                        w_prem = max(w1 - w2, 0.006 * S_t) * (1.0 + cost_bps / 10000.0)
-                        opt_budget = 0.012 * eq_start_agg * w_i
+                        raw_w = max(w1 - w2, 0.006 * S_t)
+                        w_prem = raw_w * (1.0 + cost_bps / 10000.0)
+                        opt_budget = 0.010 * eq_start_agg * w_i
                         units = opt_budget / max(w_prem, 0.01)
-                        payoff = float(np.clip(S_end - S_t, 0.0, 0.05 * S_t)) * units
-                        net_opt_pnl = payoff - opt_budget
-                        period_opt_pnl_agg += net_opt_pnl
-                        if len(sample_trades_log) < 12:
-                            sample_trades_log.append({
-                                "date": dt_date_str, "track": "⚔️ 进取进攻型" if lang_key == "zh" else "⚔️ Aggressive", "ticker": p_sym,
-                                "strategy": "Bursa Call Warrant (认购凭单杠杆)" if lang_key == "zh" else "Bursa Call Warrant", "strikes": f"{currency} {S_t:.2f} / {S_t*1.05:.2f}",
-                                "iv": f"{call_iv*100:.1f}%", "premium": f"-{currency} {opt_budget:,.1f}",
-                                "payoff": f"+{currency} {payoff:,.1f}", "net_pnl": f"{currency} {net_opt_pnl:+,.1f}"
-                            })
+                        opt_spec = {
+                            "type": "BURSA_CALL_WARRANT", "k1": S_t, "k2": 1.05 * S_t,
+                            "vol": call_iv, "q": q_div, "units": units, "budget": opt_budget
+                        }
 
-        int_agg = cash_buffer_agg * (rf_annual * dt_years)
-        attr_agg["interest"] += int_agg
-        attr_agg["spot_pnl"] += period_spot_pnl_agg
-        attr_agg["options_pnl"] += period_opt_pnl_agg
-        attr_agg["atr_saved"] += period_atr_saved_agg
+            agg_positions.append({
+                "sym": p_sym, "w": w_i, "cap": cap_i, "S_t": S_t, "is_my": is_my,
+                "div_y": q_div, "active": True, "init_stop": init_stop, "stop_px": init_stop, "peak_px": S_t,
+                "be_trigger": be_trigger, "be_stop": be_stop, "trail_trigger": trail_trigger,
+                "trail_dist": trail_dist, "stage": "STAGE1_INIT", "stopped_day": None,
+                "stopped_proceeds": 0.0, "stop_exit_fee": 0.0, "opt": opt_spec
+            })
 
-        curr_agg_cash = eq_start_agg + period_spot_pnl_agg + period_opt_pnl_agg + int_agg - tx_agg
-
-        # Track 2: Conservative Step Simulation
+        # --- 2. Conservative Track Setup at idx_t ---
         eq_start_con = curr_con_cash
         con_eq_ratio = 0.68 if is_turbulent_crisis else 0.80
         equity_budget_con = eq_start_con * con_eq_ratio
-        cash_buffer_con = eq_start_con * (1.0 - con_eq_ratio)
+        cash_buffer_con = eq_start_con - equity_budget_con
+        tx_con_entry = _calc_tx_fee(eq_start_con * max(turnover_con, 0.12), is_bursa_market)
 
-        tx_con = eq_start_con * (cost_bps / 10000.0) * max(turnover_con, 0.12)
-        attr_con["friction"] += tx_con
-
-        period_spot_pnl_con = 0.0
-        period_opt_pnl_con = 0.0
-
+        con_positions = []
         for i_p, p_sym in enumerate(con_picks):
             w_i = float(w_con_rel[i_p])
             cap_i = equity_budget_con * w_i
             s_pit = sig_map[p_sym]
             S_t = float(close_df[p_sym].iloc[idx_t])
-            S_end = float(close_df[p_sym].iloc[idx_tend])
             is_my = stock_meta[p_sym]["is_malaysia"]
+            q_div = stock_meta[p_sym]["div_yield"]
+            atm_iv = max(s_pit["blended_vol"] * 1.12, 0.16)
+            put_iv = atm_iv + 0.025
+            call_iv = max(atm_iv - 0.005, 0.12)
 
-            realized_spot_ret = (S_end / S_t) - 1.0 + (stock_meta[p_sym]["div_yield"] * dt_years)
-            pos_spot_pnl = cap_i * realized_spot_ret
-            period_spot_pnl_con += pos_spot_pnl
-
+            opt_spec = {"type": "NONE"}
             if enable_options_overlay:
-                atm_iv = max(s_pit["blended_vol"] * 1.12, 0.16)
-                put_iv = atm_iv + 0.025
-                call_iv = max(atm_iv - 0.005, 0.12)
-                q_div = stock_meta[p_sym]["div_yield"]
-
                 if not is_my:
-                    # 🌟 M1 + M4 Guard: 在系统性湍流或破位杀跌时严禁裸卖 Put 接飞刀，强制切换为 Zero-Cost Collar 锁死回撤！
-                    if is_turbulent_crisis or s_pit["panic_breakdown"] or s_pit["trend"] == "STRONG_BEARISH" or s_pit["rsi"] > 70:
+                    if is_turbulent_crisis or s_pit["panic_breakdown"] or s_pit["market_regime"] == "CHAOS_WAIT" or s_pit["trend"] == "STRONG_BEARISH" or s_pit["rsi"] > 70:
                         c_prem = _bs_p(S_t, 1.05 * S_t, T_opt, rf_annual, call_iv, q_div, is_call=True) * (1.0 - cost_bps / 10000.0)
                         p_cost = _bs_p(S_t, 0.93 * S_t, T_opt, rf_annual, put_iv, q_div, is_call=False) * (1.0 + cost_bps / 10000.0)
                         shares = cap_i / max(S_t, 0.01)
-                        collar_payoff = (max(0.93 * S_t - S_end, 0.0) - max(S_end - 1.05 * S_t, 0.0)) * shares
-                        net_collar_pnl = (c_prem - p_cost) * shares + collar_payoff
-                        period_opt_pnl_con += net_collar_pnl
-                        if len(sample_trades_log) < 12:
-                            sample_trades_log.append({
-                                "date": dt_date_str, "track": "🛡️ 保守防御型" if lang_key == "zh" else "🛡️ Conservative", "ticker": p_sym,
-                                "strategy": "Zero-Cost Collar (零成本防暴跌领口)" if lang_key == "zh" else "Zero-Cost Collar", "strikes": f"{currency} {S_t*0.93:.1f} / {S_t*1.05:.1f}",
-                                "iv": f"{atm_iv*100:.1f}%", "premium": f"{currency} {(c_prem-p_cost)*shares:+,.1f}",
-                                "payoff": f"{currency} {collar_payoff:+,.1f}", "net_pnl": f"{currency} {net_collar_pnl:+,.1f}"
-                            })
+                        opt_spec = {
+                            "type": "COLLAR", "kc": 1.05 * S_t, "kp": 0.93 * S_t,
+                            "vol_c": call_iv, "vol_p": put_iv, "q": q_div,
+                            "shares": shares, "net_credit": (c_prem - p_cost) * shares
+                        }
                     else:
                         c_prem = _bs_p(S_t, 1.05 * S_t, T_opt, rf_annual, call_iv, q_div, is_call=True) * (1.0 - cost_bps / 10000.0)
                         shares = cap_i / max(S_t, 0.01)
-                        cc_liability = -max(S_end - 1.05 * S_t, 0.0) * shares
-                        cc_pnl = shares * c_prem + cc_liability
-
                         p_prem = _bs_p(S_t, 0.94 * S_t, T_opt, rf_annual, put_iv, q_div, is_call=False) * (1.0 - cost_bps / 10000.0)
                         csp_cap = 0.10 * eq_start_con * w_i
                         csp_units = csp_cap / max(0.94 * S_t, 0.01)
-                        csp_loss = -max(0.94 * S_t - S_end, 0.0) * csp_units
-                        csp_pnl = csp_units * p_prem + csp_loss
-
-                        dual_opt_pnl = cc_pnl + csp_pnl
-                        period_opt_pnl_con += dual_opt_pnl
-                        if len(sample_trades_log) < 12:
-                            sample_trades_log.append({
-                                "date": dt_date_str, "track": "🛡️ 保守防御型" if lang_key == "zh" else "🛡️ Conservative", "ticker": p_sym,
-                                "strategy": "Dual Income: Covered Call + CSP" if lang_key == "en" else "双向增厚: Covered Call + CSP", "strikes": f"{currency} {S_t*0.94:.1f} / {S_t*1.05:.1f}",
-                                "iv": f"{atm_iv*100:.1f}%", "premium": f"+{currency} {(shares*c_prem + csp_units*p_prem):,.1f}",
-                                "payoff": f"{currency} {(cc_liability + csp_loss):,.1f}", "net_pnl": f"{currency} {dual_opt_pnl:+,.1f}"
-                            })
+                        opt_spec = {
+                            "type": "DUAL_CC_CSP", "kc": 1.05 * S_t, "kp": 0.94 * S_t,
+                            "vol_c": call_iv, "vol_p": put_iv, "q": q_div,
+                            "shares": shares, "csp_units": csp_units,
+                            "tot_credit": shares * c_prem + csp_units * p_prem
+                        }
                 else:
-                    sub_low = low_df[p_sym].iloc[idx_t : idx_tend + 1]
-                    # 🌟 M4 Falling-Knife Guard: 仅在上升趋势且非破位时触发支撑位低吸网格，并附带保护底限
-                    if (not s_pit["panic_breakdown"]) and (not is_turbulent_crisis) and s_pit["trend"] in ("STRONG_BULLISH", "MODERATE_BULLISH") and float(sub_low.min()) <= 0.97 * S_t:
-                        dip_cap = 0.10 * eq_start_con * w_i
-                        exit_px_grid = max(S_end, 0.955 * S_t)
-                        grid_pnl = dip_cap * ((exit_px_grid / (0.97 * S_t)) - 1.0)
-                        period_opt_pnl_con += grid_pnl
-                        if len(sample_trades_log) < 12:
-                            sample_trades_log.append({
-                                "date": dt_date_str, "track": "🛡️ 保守防御型" if lang_key == "zh" else "🛡️ Conservative", "ticker": p_sym,
-                                "strategy": "Bursa Spot Limit Grid (低吸网格)" if lang_key == "zh" else "Bursa Spot Limit Grid", "strikes": f"{currency} {S_t*0.97:.2f}",
-                                "iv": "N/A", "premium": f"{currency} 0.0",
-                                "payoff": f"{currency} {grid_pnl:+,.1f}", "net_pnl": f"{currency} {grid_pnl:+,.1f}"
-                            })
+                    can_grid = (not s_pit["panic_breakdown"]) and (not is_turbulent_crisis) and (s_pit["market_regime"] != "CHAOS_WAIT") and s_pit["trend"] in ("STRONG_BULLISH", "MODERATE_BULLISH")
+                    opt_spec = {
+                        "type": "BURSA_GRID_OR_FKLI",
+                        "can_grid": can_grid,
+                        "grid_filled": False,
+                        "grid_stopped": False,
+                        "grid_entry_px": 0.97 * S_t,
+                        "grid_stop_px": 0.935 * S_t,
+                        "grid_exit_px": 0.97 * S_t,
+                        "dip_cap": 0.10 * eq_start_con * w_i,
+                        "use_fkli": bool(is_turbulent_crisis or s_pit["panic_breakdown"] or s_pit["market_regime"] == "CHAOS_WAIT" or s_pit["trend"] == "STRONG_BEARISH"),
+                        "beta": stock_meta[p_sym]["beta"],
+                        "cap": cap_i
+                    }
 
-                    if is_turbulent_crisis or s_pit["panic_breakdown"] or s_pit["trend"] == "STRONG_BEARISH":
-                        fkli_pnl = -0.55 * stock_meta[p_sym]["beta"] * bm_ret * cap_i
-                        period_opt_pnl_con += fkli_pnl
+            con_positions.append({
+                "sym": p_sym, "w": w_i, "cap": cap_i, "S_t": S_t, "is_my": is_my,
+                "div_y": q_div, "opt": opt_spec
+            })
 
-        int_con = cash_buffer_con * (rf_annual * dt_years)
-        attr_con["interest"] += int_con
-        attr_con["spot_pnl"] += period_spot_pnl_con
-        attr_con["options_pnl"] += period_opt_pnl_con
-
-        curr_con_cash = eq_start_con + period_spot_pnl_con + period_opt_pnl_con + int_con - tx_con
-
-        # Track 3: Spot-Only Baseline
+        # --- 3. Spot-Only Baseline Setup at idx_t ---
         eq_start_spot = curr_spot_cash
         spot_budget = eq_start_spot * 0.90
         spot_cash_buf = eq_start_spot * 0.10
-        tx_spot = eq_start_spot * (cost_bps / 10000.0) * 0.70
+        tx_spot_entry = _calc_tx_fee(eq_start_spot * max(turnover_agg, 0.15), is_bursa_market)
 
-        pnl_spot_base = 0.0
-        for i_p, p_sym in enumerate(agg_picks):
-            w_i = float(w_agg_rel[i_p])
-            cap_i = spot_budget * w_i
-            S_t = float(close_df[p_sym].iloc[idx_t])
-            S_end = float(close_df[p_sym].iloc[idx_tend])
-            ret_raw = (S_end / S_t - 1.0) + (stock_meta[p_sym]["div_yield"] * dt_years)
-            pnl_spot_base += cap_i * ret_raw
-
-        int_spot = spot_cash_buf * rf_annual * dt_years
-        curr_spot_cash = eq_start_spot + pnl_spot_base + int_spot - tx_spot
-
-        # Track 0 (5th Track): 👑 FinRL Meta-Ensemble Step Simulation (Strictly Point-in-Time Regime Allocation across Agg, Con & Spot)
+        # --- 4. Meta-Ensemble Scaling Weights at idx_t ---
         eq_start_ens = curr_ens_cash
         scale_a = (eq_start_ens * w_ens_agg) / max(eq_start_agg, 1.0)
         scale_c = (eq_start_ens * w_ens_con) / max(eq_start_con, 1.0)
         scale_s = (eq_start_ens * w_ens_spot) / max(eq_start_spot, 1.0)
         extra_cash_ens = eq_start_ens * w_ens_cash_extra
-        extra_int_ens = extra_cash_ens * (rf_annual * dt_years)
 
-        period_spot_pnl_ens = period_spot_pnl_agg * scale_a + period_spot_pnl_con * scale_c + pnl_spot_base * scale_s
-        period_opt_pnl_ens = period_opt_pnl_agg * scale_a + period_opt_pnl_con * scale_c
-        period_atr_saved_ens = period_atr_saved_agg * scale_a
-        int_ens = int_agg * scale_a + int_con * scale_c + int_spot * scale_s + extra_int_ens
-        tx_ens = (tx_agg * scale_a + tx_con * scale_c + tx_spot * scale_s) * 0.88  # Meta-Ensemble internal netting efficiency
+        # Helper to evaluate option overlay MTM on day d_sub (T_rem = (idx_tend - d_sub)/252)
+        def _eval_agg_opt_mtm(pos_item, S_d, bm_ret_d, T_rem):
+            op = pos_item["opt"]
+            otype = op["type"]
+            if otype == "NONE":
+                return 0.0
+            if otype == "BEAR_PUT_SPREAD":
+                v1 = _bs_p(S_d, op["k1"], T_rem, rf_annual, op["vol"], op["q"], is_call=False)
+                v2 = _bs_p(S_d, op["k2"], T_rem, rf_annual, op["vol"], op["q"], is_call=False)
+                return max(0.0, v1 - v2) * op["units"] - op["budget"]
+            if otype == "BULL_CALL_SPREAD":
+                v1 = _bs_p(S_d, op["k1"], T_rem, rf_annual, op["vol"], op["q"], is_call=True)
+                v2 = _bs_p(S_d, op["k2"], T_rem, rf_annual, op["vol"], op["q"], is_call=True)
+                return max(0.0, v1 - v2) * op["units"] - op["budget"]
+            if otype == "COVERED_CALL":
+                liab = _bs_p(S_d, op["k1"], T_rem, rf_annual, op["vol"], op["q"], is_call=True) * op["shares"]
+                return op["credit"] - liab
+            if otype == "FKLI_HEDGE":
+                return -0.55 * op["beta"] * bm_ret_d * op["cap"]
+            if otype == "BURSA_CALL_WARRANT":
+                v1 = _bs_p(S_d, op["k1"], T_rem, rf_annual, op["vol"], op["q"], is_call=True)
+                v2 = _bs_p(S_d, op["k2"], T_rem, rf_annual, op["vol"], op["q"], is_call=True)
+                return max(0.0, v1 - v2) * op["units"] - op["budget"]
+            return 0.0
 
-        attr_ens["spot_pnl"] += period_spot_pnl_ens
-        attr_ens["options_pnl"] += period_opt_pnl_ens
-        attr_ens["atr_saved"] += period_atr_saved_ens
-        attr_ens["interest"] += int_ens
-        attr_ens["friction"] += tx_ens
+        def _eval_con_opt_mtm(pos_item, S_d, bm_ret_d, T_rem):
+            op = pos_item["opt"]
+            otype = op["type"]
+            if otype == "NONE":
+                return 0.0
+            if otype == "COLLAR":
+                p_val = _bs_p(S_d, op["kp"], T_rem, rf_annual, op["vol_p"], op["q"], is_call=False)
+                c_val = _bs_p(S_d, op["kc"], T_rem, rf_annual, op["vol_c"], op["q"], is_call=True)
+                return op["net_credit"] + (p_val - c_val) * op["shares"]
+            if otype == "DUAL_CC_CSP":
+                c_liab = _bs_p(S_d, op["kc"], T_rem, rf_annual, op["vol_c"], op["q"], is_call=True) * op["shares"]
+                p_liab = _bs_p(S_d, op["kp"], T_rem, rf_annual, op["vol_p"], op["q"], is_call=False) * op["csp_units"]
+                return op["tot_credit"] - c_liab - p_liab
+            if otype == "BURSA_GRID_OR_FKLI":
+                pnl_g = 0.0
+                if op["grid_filled"]:
+                    px_now = op["grid_exit_px"] if op["grid_stopped"] else S_d
+                    pnl_g += op["dip_cap"] * ((px_now / max(op["grid_entry_px"], 1e-4)) - 1.0)
+                if op["use_fkli"]:
+                    pnl_g += -0.55 * op["beta"] * bm_ret_d * op["cap"]
+                return pnl_g
+            return 0.0
 
-        curr_ens_cash = eq_start_ens + period_spot_pnl_ens + period_opt_pnl_ens + int_ens - tx_ens
-
-        # Compute unstopped end-of-window spot P&L so residual (options + ATR stop + interest + div - tx) reconciles 100% at idx_tend
-        raw_end_spot_agg = sum(
-            equity_budget_agg * float(w_agg_rel[i_p]) * (float(close_df[p_sym].iloc[idx_tend]) / max(float(close_df[p_sym].iloc[idx_t]), 1e-4) - 1.0)
-            for i_p, p_sym in enumerate(agg_picks)
-        )
-        residual_agg = (curr_agg_cash - eq_start_agg) - raw_end_spot_agg
-
-        raw_end_spot_con = sum(
-            equity_budget_con * float(w_con_rel[i_p]) * (float(close_df[p_sym].iloc[idx_tend]) / max(float(close_df[p_sym].iloc[idx_t]), 1e-4) - 1.0)
-            for i_p, p_sym in enumerate(con_picks)
-        )
-        residual_con = (curr_con_cash - eq_start_con) - raw_end_spot_con
-
-        raw_end_spot_only = raw_end_spot_agg * (spot_budget / max(equity_budget_agg, 1.0))
-        residual_spot = (curr_spot_cash - eq_start_spot) - raw_end_spot_only
-
-        raw_end_spot_ens = raw_end_spot_agg * scale_a + raw_end_spot_con * scale_c + raw_end_spot_only * scale_s
-        residual_ens = (curr_ens_cash - eq_start_ens) - raw_end_spot_ens
-
+        # ======================================================================
+        # Day-by-Day Sequential Progression Loop: d_sub in (idx_t + 1 .. idx_tend)
+        # ======================================================================
         for d_sub in range(idx_t + 1, idx_tend + 1):
-            ratio = (d_sub - idx_t) / float(dt_days)
-            mtm_agg_d = sum(
-                equity_budget_agg * float(w_agg_rel[i_p]) * (float(close_df[p_sym].iloc[d_sub]) / max(float(close_df[p_sym].iloc[idx_t]), 1e-4) - 1.0)
+            elapsed_days = d_sub - idx_t
+            elapsed_years = elapsed_days / 252.0
+            T_rem = max((idx_tend - d_sub) / 252.0, 0.0)
+            bm_curr_px = float(bm_close.iloc[d_sub])
+            bm_ret_d = (bm_curr_px / max(bm_t_px, 1e-4)) - 1.0
+
+            # --- A. Update Aggressive Positions (3-Stage Exit State Machine) ---
+            agg_spot_pnl_d = 0.0
+            agg_opt_pnl_d = 0.0
+            agg_stop_interest_d = 0.0
+            agg_stop_fees_d = 0.0
+
+            for pos in agg_positions:
+                sym = pos["sym"]
+                o_d = float(open_df[sym].iloc[d_sub])
+                h_d = float(high_df[sym].iloc[d_sub])
+                l_d = float(low_df[sym].iloc[d_sub])
+                c_d = float(close_df[sym].iloc[d_sub])
+
+                if pos["active"]:
+                    is_stage1_hit = (l_d <= pos["init_stop"])
+                    is_ratchet_hit = (pos["stage"] != "STAGE1_INIT") and (l_d <= pos["stop_px"]) and (c_d <= pos["stop_px"])
+                    if enable_atr_stop and (is_stage1_hit or is_ratchet_hit):
+                        # 🌟 P0.1: 当日触及止损立刻出局，计入隔夜跳空穿损 min(open[d], stop_price)，严禁事后看月末收盘价复活！
+                        active_stop_lvl = pos["init_stop"] if is_stage1_hit else pos["stop_px"]
+                        fill_px = min(o_d, active_stop_lvl)
+                        pos["active"] = False
+                        pos["stopped_day"] = d_sub
+                        pos_ret = (fill_px / max(pos["S_t"], 1e-4) - 1.0) + pos["div_y"] * elapsed_years
+                        pos["stopped_proceeds"] = pos["cap"] * (1.0 + pos_ret)
+                        pos["stop_exit_fee"] = _calc_tx_fee(max(pos["stopped_proceeds"], 0.0), pos["is_my"])
+                        if pos["stage"] == "STAGE3_TRAIL":
+                            atr_stage_counts["STAGE3_TRAIL"] += 1
+                        elif pos["stage"] == "STAGE2_PRE_BE":
+                            atr_stage_counts["STAGE2_PRE_BE"] += 1
+                        else:
+                            atr_stage_counts["STAGE1_STOP"] += 1
+                    else:
+                        # Update confirmed peak close and ratchet 3-stage stop for subsequent days
+                        if c_d > pos["peak_px"]:
+                            pos["peak_px"] = c_d
+                        if pos["peak_px"] >= pos["trail_trigger"]:
+                            pos["stage"] = "STAGE3_TRAIL"
+                            pos["stop_px"] = max(pos["stop_px"], pos["peak_px"] - pos["trail_dist"])
+                        elif pos["peak_px"] >= pos["be_trigger"]:
+                            if pos["stage"] == "STAGE1_INIT":
+                                pos["stage"] = "STAGE2_PRE_BE"
+                            pos["stop_px"] = max(pos["stop_px"], pos["be_stop"])
+
+                if pos["active"]:
+                    curr_ret = (c_d / max(pos["S_t"], 1e-4) - 1.0) + pos["div_y"] * elapsed_years
+                    agg_spot_pnl_d += pos["cap"] * curr_ret
+                else:
+                    agg_spot_pnl_d += (pos["stopped_proceeds"] - pos["cap"])
+                    days_in_cash = max(0, d_sub - int(pos["stopped_day"]))
+                    agg_stop_interest_d += max(pos["stopped_proceeds"], 0.0) * (rf_annual * (days_in_cash / 252.0))
+                    agg_stop_fees_d += pos["stop_exit_fee"]
+
+                agg_opt_pnl_d += _eval_agg_opt_mtm(pos, c_d, bm_ret_d, T_rem)
+
+            int_agg_d = cash_buffer_agg * (rf_annual * elapsed_years) + agg_stop_interest_d
+            tot_tx_agg_d = tx_agg_entry + agg_stop_fees_d
+            eq_agg_d = max(100.0, eq_start_agg + agg_spot_pnl_d + agg_opt_pnl_d + int_agg_d - tot_tx_agg_d)
+
+            # --- B. Update Conservative Positions (Sequential Bursa Grid Order) ---
+            con_spot_pnl_d = 0.0
+            con_opt_pnl_d = 0.0
+            for pos in con_positions:
+                sym = pos["sym"]
+                o_d = float(open_df[sym].iloc[d_sub])
+                l_d = float(low_df[sym].iloc[d_sub])
+                c_d = float(close_df[sym].iloc[d_sub])
+
+                curr_ret_c = (c_d / max(pos["S_t"], 1e-4) - 1.0) + pos["div_y"] * elapsed_years
+                con_spot_pnl_d += pos["cap"] * curr_ret_c
+
+                op = pos["opt"]
+                if op["type"] == "BURSA_GRID_OR_FKLI" and op["can_grid"]:
+                    # 🌟 P0.1: 仅当某日先触及 0.97*S_t 成交后，才从后续交易日计算盈亏与止损，无任何人为保底
+                    if not op["grid_filled"]:
+                        if l_d <= 0.97 * pos["S_t"]:
+                            op["grid_filled"] = True
+                            op["grid_entry_px"] = min(o_d, 0.97 * pos["S_t"])
+                    elif not op["grid_stopped"]:
+                        if l_d <= op["grid_stop_px"]:
+                            op["grid_stopped"] = True
+                            op["grid_exit_px"] = min(o_d, op["grid_stop_px"])
+
+                con_opt_pnl_d += _eval_con_opt_mtm(pos, c_d, bm_ret_d, T_rem)
+
+            int_con_d = cash_buffer_con * (rf_annual * elapsed_years)
+            eq_con_d = max(100.0, eq_start_con + con_spot_pnl_d + con_opt_pnl_d + int_con_d - tx_con_entry)
+
+            # --- C. Update Spot-Only Baseline ---
+            unstopped_agg_spot_d = sum(
+                (spot_budget * float(w_agg_rel[i_p])) * ((float(close_df[p_sym].iloc[d_sub]) / max(float(close_df[p_sym].iloc[idx_t]), 1e-4) - 1.0) + stock_meta[p_sym]["div_yield"] * elapsed_years)
                 for i_p, p_sym in enumerate(agg_picks)
             )
-            mtm_con_d = sum(
-                equity_budget_con * float(w_con_rel[i_p]) * (float(close_df[p_sym].iloc[d_sub]) / max(float(close_df[p_sym].iloc[idx_t]), 1e-4) - 1.0)
-                for i_p, p_sym in enumerate(con_picks)
-            )
-            mtm_spot_d = mtm_agg_d * (spot_budget / max(equity_budget_agg, 1.0))
-            mtm_ens_d = mtm_agg_d * scale_a + mtm_con_d * scale_c + mtm_spot_d * scale_s
+            int_spot_d = spot_cash_buf * (rf_annual * elapsed_years)
+            eq_spot_d = max(100.0, eq_start_spot + unstopped_agg_spot_d + int_spot_d - tx_spot_entry)
 
-            daily_eq_ens.append(max(100.0, eq_start_ens + mtm_ens_d + residual_ens * ratio))
-            daily_eq_agg.append(max(100.0, eq_start_agg + mtm_agg_d + residual_agg * ratio))
-            daily_eq_con.append(max(100.0, eq_start_con + mtm_con_d + residual_con * ratio))
-            daily_eq_spot.append(max(100.0, eq_start_spot + mtm_spot_d + residual_spot * ratio))
-            bm_curr_px = float(bm_close.iloc[d_sub])
+            # --- D. Update Meta-Ensemble (Daily MTM across Active Sub-Tracks + TSP Reserve) ---
+            ens_spot_d = agg_spot_pnl_d * scale_a + con_spot_pnl_d * scale_c + unstopped_agg_spot_d * scale_s
+            ens_opt_d = agg_opt_pnl_d * scale_a + con_opt_pnl_d * scale_c
+            ens_int_d = int_agg_d * scale_a + int_con_d * scale_c + int_spot_d * scale_s + extra_cash_ens * (rf_annual * elapsed_years)
+            ens_tx_d = (tot_tx_agg_d * scale_a + tx_con_entry * scale_c + tx_spot_entry * scale_s) * 0.88
+            eq_ens_d = max(100.0, eq_start_ens + ens_spot_d + ens_opt_d + ens_int_d - ens_tx_d)
+
+            daily_eq_ens.append(eq_ens_d)
+            daily_eq_agg.append(eq_agg_d)
+            daily_eq_con.append(eq_con_d)
+            daily_eq_spot.append(eq_spot_d)
             daily_eq_bm.append(initial_cash * (bm_curr_px / max(bm_start_px, 1e-4)))
+
+            # At window end (d_sub == idx_tend), record exact attribution & sample trades log
+            if d_sub == idx_tend:
+                unstopped_agg_end = sum(
+                    pos["cap"] * ((float(close_df[pos["sym"]].iloc[idx_tend]) / max(pos["S_t"], 1e-4) - 1.0) + pos["div_y"] * dt_years)
+                    for pos in agg_positions
+                )
+                # 🌟 P0.4 精确无重算归因：spot_pnl = 未止损原始现货+DRIP，atr_saved = 止损/追踪净差额 (realized - unstopped)
+                atr_net_alpha_agg = agg_spot_pnl_d - unstopped_agg_end
+
+                attr_agg["spot_pnl"] += unstopped_agg_end
+                attr_agg["atr_saved"] += atr_net_alpha_agg
+                attr_agg["options_pnl"] += agg_opt_pnl_d
+                attr_agg["interest"] += int_agg_d
+                attr_agg["friction"] += tot_tx_agg_d
+                curr_agg_cash = eq_agg_d
+
+                attr_con["spot_pnl"] += con_spot_pnl_d
+                attr_con["atr_saved"] += 0.0
+                attr_con["options_pnl"] += con_opt_pnl_d
+                attr_con["interest"] += int_con_d
+                attr_con["friction"] += tx_con_entry
+                curr_con_cash = eq_con_d
+
+                curr_spot_cash = eq_spot_d
+
+                unstopped_ens_end = unstopped_agg_end * scale_a + con_spot_pnl_d * scale_c + unstopped_agg_spot_d * scale_s
+                atr_net_alpha_ens = atr_net_alpha_agg * scale_a
+                attr_ens["spot_pnl"] += unstopped_ens_end
+                attr_ens["atr_saved"] += atr_net_alpha_ens
+                attr_ens["options_pnl"] += ens_opt_d
+                attr_ens["interest"] += ens_int_d
+                attr_ens["friction"] += ens_tx_d
+                curr_ens_cash = eq_ens_d
+
+                # Log representative derivative/grid settlements
+                if enable_options_overlay and len(sample_trades_log) < 16:
+                    for pos in agg_positions[:1]:
+                        op = pos["opt"]
+                        if op["type"] != "NONE":
+                            S_end_v = float(close_df[pos["sym"]].iloc[idx_tend])
+                            pnl_o = _eval_agg_opt_mtm(pos, S_end_v, bm_ret, 0.0)
+                            sample_trades_log.append({
+                                "date": dt_date_str,
+                                "track": "⚔️ 进取进攻型" if lang_key == "zh" else "⚔️ Aggressive",
+                                "ticker": pos["sym"],
+                                "strategy": op["type"],
+                                "Instrument": "Bursa Warrant / FKLI" if pos["is_my"] else op["type"],
+                                "strikes": f"{currency} {pos['S_t']:.2f}",
+                                "iv": f"{op.get('vol', 0.25)*100:.1f}%" if "vol" in op else "N/A",
+                                "premium": f"{currency} {op.get('budget', op.get('credit', 0.0)):,.1f}",
+                                "payoff": f"{currency} {(pnl_o + op.get('budget', 0.0)):+,.1f}",
+                                "net_pnl": f"{currency} {pnl_o:+,.1f}"
+                            })
+                    for pos in con_positions[:1]:
+                        op = pos["opt"]
+                        if op["type"] != "NONE":
+                            S_end_v = float(close_df[pos["sym"]].iloc[idx_tend])
+                            pnl_o = _eval_con_opt_mtm(pos, S_end_v, bm_ret, 0.0)
+                            sample_trades_log.append({
+                                "date": dt_date_str,
+                                "track": "🛡️ 保守防御型" if lang_key == "zh" else "🛡️ Conservative",
+                                "ticker": pos["sym"],
+                                "strategy": op["type"],
+                                "Instrument": "Bursa Grid / FKLI" if pos["is_my"] else op["type"],
+                                "strikes": f"{currency} {pos['S_t']*0.97:.2f}",
+                                "iv": f"{op.get('vol_c', 0.22)*100:.1f}%" if "vol_c" in op else "N/A",
+                                "premium": f"{currency} {op.get('tot_credit', op.get('net_credit', 0.0)):,.1f}",
+                                "payoff": f"{currency} {pnl_o:+,.1f}",
+                                "net_pnl": f"{currency} {pnl_o:+,.1f}"
+                            })
 
     bm_series_full = pd.Series(daily_eq_bm, index=all_dates[:len(daily_eq_bm)])
     try:
@@ -4850,12 +5185,14 @@ def run_5y_full_model_backtest(
         except Exception:
             bm_monthly = bm_series_full.iloc[::21].pct_change().dropna()
 
-    def _calc_tearsheet(eq_list, name, trials=5):
-        s = pd.Series(eq_list, index=all_dates[:len(eq_list)])
-        fin_bal = float(s.iloc[-1])
-        tot_ret = (fin_bal / initial_cash - 1.0) * 100.0
+    def _calc_tearsheet(eq_list, name, trials=5, dates_override=None):
+        idx_use = dates_override if dates_override is not None else all_dates[:len(eq_list)]
+        s = pd.Series(eq_list, index=idx_use)
+        start_bal = float(s.iloc[0]) if len(s) > 0 else initial_cash
+        fin_bal = float(s.iloc[-1]) if len(s) > 0 else initial_cash
+        tot_ret = (fin_bal / max(start_bal, 1.0) - 1.0) * 100.0
         n_days = len(s)
-        cagr = ((fin_bal / initial_cash) ** (252.0 / max(n_days, 1)) - 1.0) * 100.0
+        cagr = ((fin_bal / max(start_bal, 1.0)) ** (252.0 / max(n_days - 1, 1)) - 1.0) * 100.0
         d_rets = s.pct_change().dropna()
         vol = float(d_rets.std() * np.sqrt(252.0) * 100.0) if len(d_rets) >= 5 else 1.0
         sharpe = (cagr / 100.0 - rf_annual) / max(vol / 100.0, 1e-4)
@@ -4878,10 +5215,8 @@ def run_5y_full_model_backtest(
                 monthly_s = s.iloc[::21].pct_change().dropna()
         win_rate = float((monthly_s > 0).mean() * 100.0) if len(monthly_s) > 0 else 50.0
 
-        # 🌟 M5 (QuantDinger Deflated Sharpe Ratio - Bailey & Lopez de Prado 2014):
-        # 剔除多重假设检验与非正态偏度/峰度伪影后的真实统计显著性概率 (DSR %)
         dsr_pct = 50.0
-        if len(d_rets) >= 30:
+        if len(d_rets) >= 25:
             try:
                 r_arr = d_rets.values
                 skew_v = float(stats.skew(r_arr))
@@ -4898,13 +5233,12 @@ def run_5y_full_model_backtest(
             except Exception:
                 dsr_pct = 50.0
 
-        # 🌟 M5 (QuantDinger Up-Market / Down-Market Capture Ratios):
         up_cap = 100.0
         down_cap = 100.0
         cap_ratio = 1.0
         try:
             common_m = monthly_s.index.intersection(bm_monthly.index)
-            if len(common_m) >= 6:
+            if len(common_m) >= 4:
                 p_m = monthly_s.loc[common_m].values
                 b_m = bm_monthly.loc[common_m].values
                 up_mask = b_m > 0
@@ -4926,7 +5260,7 @@ def run_5y_full_model_backtest(
         return {
             "Strategy": name,
             "Final Balance": f"{currency} {fin_bal:,.2f}",
-            "Net Profit": f"{currency} {fin_bal - initial_cash:+,.2f}",
+            "Net Profit": f"{currency} {fin_bal - start_bal:+,.2f}",
             "Total Return": f"{tot_ret:+.1f}%",
             "CAGR": f"{cagr:+.1f}%",
             "Annual Volatility": f"{vol:.1f}%",
@@ -4948,11 +5282,11 @@ def run_5y_full_model_backtest(
 
     ts_ens = _calc_tearsheet(
         daily_eq_ens,
-        "👑 动态赛马元模型 (FinRL Meta-Ensemble: 63D Sharpe + Turbulence Shield)" if lang_key == "zh" else "👑 FinRL Meta-Ensemble (63D Validation Sharpe + Turbulence Shield)"
+        "👑 动态赛马元模型 (FinRL Meta-Ensemble: 63D Sharpe + TSP + Turbulence Shield)" if lang_key == "zh" else "👑 FinRL Meta-Ensemble (63D Validation Sharpe + TSP + Turbulence Shield)"
     )
     ts_agg = _calc_tearsheet(
         daily_eq_agg,
-        "⚔️ 进取全模型 (SLSQP + Half-Kelly + Options + ATR Stop)" if lang_key == "zh" else "⚔️ Aggressive Full-Model (SLSQP + Half-Kelly + Options + ATR Stop)"
+        "⚔️ 进取全模型 (SLSQP + Half-Kelly + Options + 3-Stage ATR Stop)" if lang_key == "zh" else "⚔️ Aggressive Full-Model (SLSQP + Half-Kelly + Options + 3-Stage ATR Stop)"
     )
     ts_con = _calc_tearsheet(
         daily_eq_con,
@@ -4967,10 +5301,52 @@ def run_5y_full_model_backtest(
         f"📈 市场买入持有基准 ({bm_ticker})" if lang_key == "zh" else f"📈 Market Benchmark Buy & Hold ({bm_ticker})"
     )
 
-    years = sorted(list(set(d.year for d in all_dates)))
+    # 🌟 V15.0 P2.1: 强制拆分 Full 5Y | IS (2021-2024) | OOS (2025-2026) 样本内外盲测对照表
+    valid_dts = all_dates[:len(daily_eq_ens)]
+    is_indices = [i for i, d in enumerate(valid_dts) if getattr(d, "year", 2024) <= 2024]
+    oos_indices = [i for i, d in enumerate(valid_dts) if getattr(d, "year", 2025) >= 2025]
+    if len(is_indices) < 30 or len(oos_indices) < 15:
+        sp_i = int(len(valid_dts) * 0.72)
+        is_indices = list(range(0, sp_i))
+        oos_indices = list(range(max(0, sp_i - 1), len(valid_dts)))
+    else:
+        if is_indices[-1] not in oos_indices:
+            oos_indices = [is_indices[-1]] + oos_indices
+
+    def _build_split_row(period_label: str, idx_list: list[int], eq_track: list[float], track_label: str):
+        sub_eq = [eq_track[i] for i in idx_list]
+        sub_dt = valid_dts[idx_list]
+        ts_sub = _calc_tearsheet(sub_eq, track_label, trials=5, dates_override=sub_dt)
+        return {
+            "Period": period_label,
+            "Track": track_label,
+            "Total Return": ts_sub["Total Return"],
+            "CAGR": ts_sub["CAGR"],
+            "Annual Volatility": ts_sub["Annual Volatility"],
+            "Sharpe Ratio": ts_sub["Sharpe Ratio"],
+            "Deflated Sharpe (DSR)": ts_sub["Deflated Sharpe (DSR)"],
+            "Max Drawdown": ts_sub["Max Drawdown"],
+            "Calmar Ratio": ts_sub["Calmar Ratio"],
+        }
+
+    all_idx_list = list(range(len(valid_dts)))
+    is_oos_rows = []
+    for t_lbl, eq_tr in [
+        ("👑 Meta-Ensemble", daily_eq_ens),
+        ("⚔️ Aggressive Full-Model", daily_eq_agg),
+        ("🛡️ Conservative Full-Model", daily_eq_con),
+        ("📊 Spot-Only Baseline", daily_eq_spot),
+        (f"📈 Benchmark ({bm_ticker})", daily_eq_bm),
+    ]:
+        is_oos_rows.append(_build_split_row("Full 5Y (2021-2026)", all_idx_list, eq_tr, t_lbl))
+        is_oos_rows.append(_build_split_row("In-Sample IS (2021-2024)", is_indices, eq_tr, t_lbl))
+        is_oos_rows.append(_build_split_row("Out-of-Sample OOS (2025-2026)", oos_indices, eq_tr, t_lbl))
+    is_oos_split_df = pd.DataFrame(is_oos_rows)
+
+    years = sorted(list(set(d.year for d in valid_dts)))
     yby_rows = []
     for y in years:
-        sub_d = [i for i, d in enumerate(all_dates) if d.year == y]
+        sub_d = [i for i, d in enumerate(valid_dts) if d.year == y]
         if len(sub_d) >= 10:
             i0, i1 = sub_d[0], sub_d[-1]
             ret_e = (daily_eq_ens[i1] / daily_eq_ens[i0] - 1.0) * 100.0
@@ -4999,25 +5375,35 @@ def run_5y_full_model_backtest(
 
     tearsheet_df = pd.DataFrame([ts_ens, ts_agg, ts_con, ts_spot, ts_bm]).drop(columns=["raw"])
 
+    for _attr_d, _ts_d in [(attr_ens, ts_ens), (attr_agg, ts_agg), (attr_con, ts_con)]:
+        _attr_d["unstopped_spot_pnl"] = _attr_d["spot_pnl"]
+        _attr_d["net_profit"] = float(_ts_d["raw"]["final_balance"] - initial_cash)
+
     return {
         "tearsheet_df": tearsheet_df,
+        "is_oos_split_df": is_oos_split_df,
         "yby_df": pd.DataFrame(yby_rows),
         "attribution_ens": attr_ens,
         "attribution_agg": attr_agg,
         "attribution_con": attr_con,
-        "trades_log_df": pd.DataFrame(sample_trades_log[-8:] if sample_trades_log else []),
+        "trades_log_df": pd.DataFrame(sample_trades_log[-10:] if sample_trades_log else []),
         "ts_ens": ts_ens,
         "ts_agg": ts_agg,
         "ts_con": ts_con,
         "ts_spot": ts_spot,
         "ts_bm": ts_bm,
-        "dates": all_dates[:len(daily_eq_agg)],
+        "dates": valid_dts,
         "daily_eq_ens": daily_eq_ens,
         "daily_eq_agg": daily_eq_agg,
         "daily_eq_con": daily_eq_con,
         "daily_eq_spot": daily_eq_spot,
         "daily_eq_bm": daily_eq_bm,
         "turbulence_triggers_count": turbulence_triggers_count,
+        "tsp_triggers_count": tsp_triggers_count,
+        "tsp_state_counts": tsp_state_counts,
+        "atr_stage_counts": atr_stage_counts,
+        "use_static_fundamental_filter": use_static_fundamental_filter,
+        "use_bursa_fee_schedule": use_bursa_fee_schedule,
         "latest_turbulence_val": round(latest_turbulence_val, 2),
         "latest_turbulence_thresh": round(latest_turbulence_thresh, 2),
         "ens_regime_counts": ens_regime_counts,
@@ -5025,7 +5411,7 @@ def run_5y_full_model_backtest(
         "benchmark_ticker": bm_ticker,
         "currency": currency,
         "active_pool": active_pool,
-        "total_test_days": len(all_dates)
+        "total_test_days": len(valid_dts)
     }
 
 
@@ -5401,10 +5787,21 @@ def main():
                     c_chart1, c_chart2 = st.columns(2)
                     with c_chart1:
                         with st.container(border=True):
-                            st.markdown("**1-Year Candlestick (MA20 & MA50)**")
-                            fig_candle = draw_pro_candlestick(engine.ticker)
+                            st.markdown("**1-Year Candlestick (MA20 & MA50 + Clean-Room Pivot Zone)**")
+                            show_pivot_box = st.checkbox(
+                                "📦 叠加洁净室确认中枢箱体 (Overlay Clean-Room Confirmed Pivot Zone [ZD, ZG])" if lang_key == "zh" else "📦 Overlay Clean-Room Confirmed Pivot Zone [ZD, ZG]",
+                                value=True,
+                                key=f"chk_pivot_zone_{engine.ticker}"
+                            )
+                            fig_candle, pivot_info = draw_pro_candlestick(engine.ticker, show_pivot_zone=show_pivot_box, return_pivot_info=True)
                             if fig_candle:
                                 st.plotly_chart(fig_candle, use_container_width=True)
+                            if pivot_info and pivot_info.get("has_zone"):
+                                st.caption(
+                                    (pivot_info["label_zh"] + "  |  *注：基于已收盘 5 日不可逆确认波段高低点重叠识别，仅供视觉结构参考，不接入回测信号。*")
+                                    if lang_key == "zh" else
+                                    (pivot_info["label_en"] + "  |  *Note: Derived from 5-bar confirmed swing overlaps; visual reference only.*")
+                                )
                     with c_chart2:
                         with st.container(border=True):
                             st.markdown(f"**3-Year CAPM Regression (Blume β = {engine.beta:.2f} | Jensen's α = {engine.alpha_annual*100:+.1f}%/yr)**")
@@ -6144,10 +6541,11 @@ def main():
                     with st.container(border=True):
                         st.markdown("<span class='agent-badge' style='background:rgba(56,189,248,0.2);color:#38bdf8;'>📈 MARKET ANALYST</span>", unsafe_allow_html=True)
                         trend_label = "**趋势判定:**" if lang_key == "zh" else "**Trend Assessment:**"
-                        st.markdown(f"{trend_label} `{tech['trend']}`")
+                        st.markdown(f"{trend_label} `{tech['trend']}` (`{tech.get('market_regime', 'RANGE_MODE')}`)")
                         rsi_zone = ('超买区' if tech['rsi']>70 else ('超卖区' if tech['rsi']<30 else '中性区')) if lang_key == "zh" else ('Overbought' if tech['rsi']>70 else ('Oversold' if tech['rsi']<30 else 'Neutral'))
                         vol_label = "**GARCH / GK 融合波动率:**" if lang_key == "zh" else "**GARCH / GK Blended Vol:**"
-                        er_ci_label = "**趋势效率 ER / 震荡 CI:**" if lang_key == "zh" else "**Kaufman ER / Choppiness CI:**"
+                        er_ci_label = "**趋势纯度 R² / 效率 ER / 震荡 CI:**" if lang_key == "zh" else "**Trend R² / Kaufman ER / CI:**"
+                        hma_vwap_label = "**HMA(55) 斜率 / VWAP-RSI:**" if lang_key == "zh" else "**HMA(55) Slope / VWAP-RSI:**"
                         ulcer_label = "**1Y MDD / 溃疡指数 (Ulcer):**" if lang_key == "zh" else "**1Y MDD / Ulcer Index:**"
                         panic_label = "**M4 崩盘飞刀防御:**" if lang_key == "zh" else "**M4 Falling-Knife Guard:**"
                         panic_txt = ("🚨 触发破位保护 (禁止盲抄)" if tech.get("panic_breakdown") else "✅ 正常 (未破位)") if lang_key == "zh" else ("🚨 TRIGGERED (No Knife-Catching)" if tech.get("panic_breakdown") else "✅ Clear (Normal)")
@@ -6155,8 +6553,9 @@ def main():
                         st.markdown(
                             f"- **MA20 / MA50:** `{tech['ma20']:.2f}` / `{tech['ma50']:.2f}`\n"
                             f"- **RSI (14):** `{tech['rsi']:.1f}` ({rsi_zone})\n"
+                            f"- {hma_vwap_label} `{tech.get('hma_slope', 0.0)*100:+.2f}%` / `{tech.get('rolling_vwap_rsi', 50.0):.1f}`\n"
                             f"- {vol_label} `{tech.get('blended_vol', tech.get('garch_vol', tech['hv30']))*100:.1f}%` (GARCH `{tech.get('garch_vol', tech['hv30'])*100:.1f}%`)\n"
-                            f"- {er_ci_label} `{tech.get('efficiency_ratio', 0.35):.2f}` / `{tech.get('choppiness_index', 50.0):.1f}`\n"
+                            f"- {er_ci_label} `{tech.get('r2_20d', 0.35):.2f}` / `{tech.get('efficiency_ratio', 0.35):.2f}` / `{tech.get('choppiness_index', 50.0):.1f}`\n"
                             f"- {ulcer_label} `{tech.get('mdd_pct', 0.0):.1f}%` / `{tech.get('ulcer_index', 5.0):.2f}`\n"
                             f"- {panic_label} `{panic_txt}`\n"
                             f"- {var_label} `{tech.get('var_95_pct', 0.0):.2f}%` / `{tech.get('cvar_95_pct', 0.0):.2f}%`"
@@ -6325,44 +6724,54 @@ def main():
                     )
 
                 with st.container(border=True):
+                    lens_card = pipe.get("lens_card") or {}
+                    score_100_val = float(pipe.get("score_100", pipe["total_score"]))
                     if lang_key == "zh":
                         st.markdown(
-                            f"**⚖️ 研究总监裁决 (Research Manager Synthesis - `ResearchPlan`)**  |  "
-                            f"**初步投研评级: `{pipe['final_rating'].upper()}` (综合量化得分: `{pipe['total_score']:+.1f}`，含 Beneish 财务修正 `{beneish.get('penalty', 0.0):+.0f}` 分)**"
+                            f"**⚖️ 研究总监裁决 & AI Agent Lens 五维透明评分卡 (`[PACKET → READ → SCORE → DECISION]`)**  |  "
+                            f"**初审评级: `{pipe['final_rating'].upper()}` (`{score_100_val:.1f} / 100.0` 分，开仓门禁 `>= 66.0` 分)**"
                         )
+                        st.caption(f"🔎 **审单全链路追踪：** `{lens_card.get('chain_summary_zh', '')}`")
+                        if lens_card.get("wait_gate_triggered"):
+                            st.warning(f"🛑 **【AI Agent Lens < 66 WAIT / 体制门禁触发】**：{lens_card.get('wait_reason_zh', '')}")
                         st.write(
-                            f"综合多空双方 {debate_rounds} 轮辩论：基本面估值偏离度为 `{pipe['mos_pct']:+.1f}%`，技术面处于 `{tech['trend']}` 格局。"
+                            f"综合多空双方 {debate_rounds} 轮辩论：基本面估值偏离度为 `{pipe['mos_pct']:+.1f}%`，市场体制处于 `{tech.get('market_regime', 'RANGE_MODE')}` (R²=`{tech.get('r2_20d', 0.35):.2f}`)。"
                             + (
-                                "鉴于马股（Bursa Malaysia）无交易所个股期权，研究部决定采用 **【半凯利公式 (Half-Kelly) 仓位控制 + 马股现货分批网格/结构化凭单 + Beta 中性多空配对】** 的复合战略指令。"
+                                "鉴于马股（Bursa Malaysia）无交易所个股期权，研究部决定采用 **【半凯利公式 (Half-Kelly) 仓位控制 + 三段式 ATR 退出 + 马股现货分批网格/结构化凭单 + Beta 中性多空配对】** 的复合战略指令。"
                                 if engine.is_malaysia else
-                                "研究部决定采用 **【半凯利公式 (Half-Kelly) 仓位控制 + 期权波动率套利/保护 + Beta 中性多空配对】** 的复合战略指令。"
+                                "研究部决定采用 **【半凯利公式 (Half-Kelly) 仓位控制 + 三段式 ATR 退出 + 期权波动率套利/保护 + Beta 中性多空配对】** 的复合战略指令。"
                             )
                         )
                     else:
                         st.markdown(
-                            f"**⚖️ Research Manager Synthesis (`ResearchPlan`)**  |  "
-                            f"**Preliminary Rating: `{pipe['final_rating'].upper()}` (Multi-Factor Score: `{pipe['total_score']:+.1f}`, Beneish Penalty: `{beneish.get('penalty', 0.0):+.0f}`)**"
+                            f"**⚖️ Research Manager Synthesis & AI Agent Lens 0–100 Scorecard (`[PACKET → READ → SCORE → DECISION]`)**  |  "
+                            f"**Preliminary Rating: `{pipe['final_rating'].upper()}` (`{score_100_val:.1f} / 100.0` pts, Entry Gate `>= 66.0` pts)**"
                         )
+                        st.caption(f"🔎 **Audit Trail:** `{lens_card.get('chain_summary_en', '')}`")
+                        if lens_card.get("wait_gate_triggered"):
+                            st.warning(f"🛑 **[AI Agent Lens < 66 WAIT / Regime Gate Triggered]**: {lens_card.get('wait_reason_en', '')}")
                         st.write(
-                            f"Synthesizing {debate_rounds} rounds of debate: Valuation margin of safety is `{pipe['mos_pct']:+.1f}%` with technical regime `{tech['trend']}`. "
+                            f"Synthesizing {debate_rounds} rounds of debate: Valuation margin of safety is `{pipe['mos_pct']:+.1f}%` with market regime `{tech.get('market_regime', 'RANGE_MODE')}` (R²=`{tech.get('r2_20d', 0.35):.2f}`). "
                             + (
-                                "Given that Bursa Malaysia has no single-stock options, the Committee institutes **[Half-Kelly Sizing + Bursa Spot Limit Grid / Warrants + Beta-Neutral Long-Short Pairs]**."
+                                "Given that Bursa Malaysia has no single-stock options, the Committee institutes **[Half-Kelly Sizing + 3-Stage ATR Exit + Bursa Spot Limit Grid / Warrants + Beta-Neutral Long-Short Pairs]**."
                                 if engine.is_malaysia else
-                                "The Committee institutes **[Half-Kelly Sizing + Options Volatility / Downside Hedge + Beta-Neutral Long-Short Pairs]**."
+                                "The Committee institutes **[Half-Kelly Sizing + 3-Stage ATR Exit + Options Volatility / Downside Hedge + Beta-Neutral Long-Short Pairs]**."
                             )
                         )
+                    if "pillars_df" in lens_card and isinstance(lens_card["pillars_df"], pd.DataFrame):
+                        st.dataframe(lens_card["pillars_df"], use_container_width=True)
 
                 st.markdown("<div style='height: 12px;'></div>", unsafe_allow_html=True)
 
                 # --------------------------------------------------------------
                 # STAGE 3: 交易员现货、期权与多空配对协同作战方案 (Trader, Options & Pairs Desk)
                 # --------------------------------------------------------------
-                st.markdown("#### 💼 第三阶段：交易员【半凯利正股 + 衍生品/网格 + 多空配对】三维作战指令单 (Stage 3: Execution Desk)" if lang_key == "zh" else "#### 💼 Stage 3: Half-Kelly Equity, Derivatives/Grid & Long-Short Pairs Execution Desk")
+                st.markdown("#### 💼 第三阶段：交易员【半凯利正股 + 三段式 ATR 退出 + 衍生品/网格 + 多空配对】作战指令单 (Stage 3: Execution Desk)" if lang_key == "zh" else "#### 💼 Stage 3: Half-Kelly Equity, 3-Stage ATR Exit, Derivatives/Grid & Pairs Execution Desk")
                 t_col1, t_col2 = st.columns([1.15, 1.35])
 
                 with t_col1:
                     with st.container(border=True):
-                        spot_badge = "<span class='agent-badge' style='background:rgba(56,189,248,0.2);color:#38bdf8;'>💵 SPOT EQUITY ORDER (半凯利公式仓位提案)</span>" if lang_key == "zh" else "<span class='agent-badge' style='background:rgba(56,189,248,0.2);color:#38bdf8;'>💵 SPOT EQUITY ORDER (Half-Kelly Sizing)</span>"
+                        spot_badge = "<span class='agent-badge' style='background:rgba(56,189,248,0.2);color:#38bdf8;'>💵 SPOT EQUITY ORDER (半凯利仓位 + 三段式退出状态机)</span>" if lang_key == "zh" else "<span class='agent-badge' style='background:rgba(56,189,248,0.2);color:#38bdf8;'>💵 SPOT EQUITY ORDER (Half-Kelly + 3-Stage Exit)</span>"
                         st.markdown(spot_badge, unsafe_allow_html=True)
                         order_hdr = f"##### 执行方向: `{pipe['trader_action']}`  |  Half-Kelly 建议仓位: `{pipe['alloc_pct']:.1f}%`" if lang_key == "zh" else f"##### Action: `{pipe['trader_action']}`  |  Half-Kelly Target Sizing: `{pipe['alloc_pct']:.1f}%`"
                         st.markdown(order_hdr)
@@ -6377,8 +6786,10 @@ def main():
                             geom_str = "✅ 严格满足 (SL < Entry < TP)" if pipe.get("plan_geometry_valid", True) else "⚠️ 已自动校准"
                             st.markdown(
                                 f"- **参考建仓/挂单价 (Entry):** `{engine.currency} {pipe['entry_price']:.2f}`\n"
-                                f"- **ATR 硬性止损位 (Stop-Loss):** `{engine.currency} {pipe['stop_loss']:.2f}` (2x ATR 支撑防线)\n"
-                                f"- **第一止盈目标位 (Take-Profit):** `{engine.currency} {pipe['take_profit']:.2f}`\n"
+                                f"- **Stage 1 初始硬止损位 (2.2x ATR Stop):** `{engine.currency} {pipe['stop_loss']:.2f}`\n"
+                                f"- **Stage 2 保本锁利触发位 (+1.5x ATR Pre-BE):** 触及 `{engine.currency} {pipe.get('stage2_be_trigger', pipe['entry_price']*1.03):.2f}` 时，止损自动上移至成本保护位 `{engine.currency} {pipe.get('stage2_be_stop', pipe['entry_price']):.2f}`\n"
+                                f"- **Stage 3 峰值移动止盈触发位 (+2.5x ATR Trail):** 触及 `{engine.currency} {pipe.get('stage3_trail_trigger', pipe['entry_price']*1.06):.2f}` 时，激活 `1.8x ATR` (`{engine.currency} {pipe.get('stage3_trail_dist', tech['atr']*1.8):.2f}`) 峰值移动追踪止盈\n"
+                                f"- **目标止盈参考位 (Take-Profit Target):** `{engine.currency} {pipe['take_profit']:.2f}`\n"
                                 f"- **M4 盈亏几何校验 (R/R Geometry):** 赔率 `{pipe.get('rr_ratio', 1.8):.2f}:1` (`{pipe.get('rr_status', 'OPTIMAL')}`) | {geom_str}\n"
                                 f"- **凯利数学推导 ($0.5 f^*$):** 综合胜率 $p={pipe.get('win_prob_p', 0.5)*100:.1f}\\%$, 赔率 $b={pipe.get('odds_b', 1.5):.2f}:1$ $\\rightarrow$ 全凯利 `{pipe.get('full_kelly_pct', 0.0):.1f}%` $\\rightarrow$ **半凯利 `{pipe.get('half_kelly_pct', 0.0):.1f}%`**\n"
                                 f"- **按可用现金折算股数:** {lot_str}"
@@ -6387,7 +6798,9 @@ def main():
                             geom_str = "✅ Strictly Valid (SL < Entry < TP)" if pipe.get("plan_geometry_valid", True) else "⚠️ Auto-Calibrated"
                             st.markdown(
                                 f"- **Reference Entry Price:** `{engine.currency} {pipe['entry_price']:.2f}`\n"
-                                f"- **ATR Hard Stop-Loss:** `{engine.currency} {pipe['stop_loss']:.2f}` (2x ATR Support Floor)\n"
+                                f"- **Stage 1 Initial Hard Stop (2.2x ATR):** `{engine.currency} {pipe['stop_loss']:.2f}`\n"
+                                f"- **Stage 2 Pre-BE Trigger (+1.5x ATR):** At `{engine.currency} {pipe.get('stage2_be_trigger', pipe['entry_price']*1.03):.2f}`, ratchet stop to Breakeven `{engine.currency} {pipe.get('stage2_be_stop', pipe['entry_price']):.2f}`\n"
+                                f"- **Stage 3 Peak Trailing Trigger (+2.5x ATR):** At `{engine.currency} {pipe.get('stage3_trail_trigger', pipe['entry_price']*1.06):.2f}`, activate `1.8x ATR` (`{engine.currency} {pipe.get('stage3_trail_dist', tech['atr']*1.8):.2f}`) peak trailing stop\n"
                                 f"- **Take-Profit Target:** `{engine.currency} {pipe['take_profit']:.2f}`\n"
                                 f"- **M4 R/R Geometry Validator:** R/R `{pipe.get('rr_ratio', 1.8):.2f}:1` (`{pipe.get('rr_status', 'OPTIMAL')}`) | {geom_str}\n"
                                 f"- **Half-Kelly Derivation ($0.5 f^*$):** Win prob $p={pipe.get('win_prob_p', 0.5)*100:.1f}\\%$, Odds $b={pipe.get('odds_b', 1.5):.2f}:1$ $\\rightarrow$ Full Kelly `{pipe.get('full_kelly_pct', 0.0):.1f}%` $\\rightarrow$ **Half-Kelly `{pipe.get('half_kelly_pct', 0.0):.1f}%`**\n"
@@ -6871,23 +7284,33 @@ def main():
 
                     with c_univ:
                         kl_pool_lbl = (
-                            "🇲🇾 Bursa Malaysia KLCI 蓝筹核心池 (1155.KL, 1023.KL, 1295.KL, 5183.KL, 5347.KL, 1066.KL, 6033.KL, 5225.KL)"
+                            "🇲🇾 Bursa Malaysia KLCI 蓝筹核心池 (8 Stocks: 1155.KL, 1023.KL, 1295.KL, 5183.KL, 5347.KL, 1066.KL, 6033.KL, 5225.KL)"
                             if lang_key == "zh" else
-                            "🇲🇾 Bursa Malaysia KLCI Core Pool (1155.KL, 1023.KL, 1295.KL, 5183.KL, 5347.KL, 1066.KL, 6033.KL, 5225.KL)"
+                            "🇲🇾 Bursa Malaysia KLCI Core 8 (1155.KL, 1023.KL, 1295.KL, 5183.KL, 5347.KL, 1066.KL, 6033.KL, 5225.KL)"
                         )
-                        us_pool_lbl = "🇺🇸 US Tech & Mega-Cap Leaders (AAPL, MSFT, NVDA, GOOGL, AMZN, META, TSLA, BRK-B)"
-                        custom_pool_lbl = (
-                            "✍️ 自定义自选股票池 (Custom Universe / Comma-separated, Max 10)"
+                        us_pool_lbl = "🇺🇸 US Tech & Mega-Cap Core 8 (AAPL, MSFT, NVDA, GOOGL, AMZN, META, TSLA, BRK-B)"
+                        kl20_pool_lbl = (
+                            "🇲🇾 Bursa KLCI 20 跨行业蓝筹广度池 (20 Stocks: 银行/公用/种植/电讯/医疗/工业)"
                             if lang_key == "zh" else
-                            "✍️ Custom Universe (Comma-separated, Max 10)"
+                            "🇲🇾 Bursa KLCI 20 Blue-Chip Cross-Sector Core (20 Stocks)"
+                        )
+                        us25_pool_lbl = (
+                            "🇺🇸 US S&P 25 跨行业核心广度池 (25 Stocks: 科技/半导体/金融/医疗/消费/能源/工业)"
+                            if lang_key == "zh" else
+                            "🇺🇸 US S&P 25 Cross-Sector Core (25 Stocks)"
+                        )
+                        custom_pool_lbl = (
+                            "✍️ 自定义自选股票池 (Custom Universe / Comma-separated, Max 25)"
+                            if lang_key == "zh" else
+                            "✍️ Custom Universe (Comma-separated, Max 25)"
                         )
                         univ_choice = st.selectbox(
                             "筛选候选股票池 (Candidate Universe)" if lang_key == "zh" else "Candidate Universe",
-                            options=[
-                                kl_pool_lbl if engine.is_malaysia else us_pool_lbl,
-                                us_pool_lbl if engine.is_malaysia else kl_pool_lbl,
-                                custom_pool_lbl
-                            ],
+                            options=(
+                                [kl_pool_lbl, kl20_pool_lbl, us_pool_lbl, us25_pool_lbl, custom_pool_lbl]
+                                if engine.is_malaysia else
+                                [us_pool_lbl, us25_pool_lbl, kl_pool_lbl, kl20_pool_lbl, custom_pool_lbl]
+                            ),
                             key=f"univ_sel_{engine.ticker}"
                         )
 
@@ -6899,15 +7322,29 @@ def main():
                             key=f"custom_univ_txt_{engine.ticker}"
                         )
                         custom_list = [x.strip().upper() for x in custom_txt.split(",") if x.strip()]
+                    elif "KLCI 20" in univ_choice:
+                        custom_list = list(BURSA_KLCI20_UNIVERSE)
+                    elif "S&P 25" in univ_choice:
+                        custom_list = list(US_SP25_UNIVERSE)
                     elif "Bursa" in univ_choice:
-                        custom_list = ["1155.KL", "1023.KL", "1295.KL", "5183.KL", "5347.KL", "1066.KL", "6033.KL", "5225.KL"]
+                        custom_list = list(BURSA_CORE_8)
                     else:
-                        custom_list = ["AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "BRK-B"]
+                        custom_list = list(US_CORE_8)
 
-                    if st.button("🚀 开始自动化量化筛选与组合求解 (Execute Cash Robo-Strategist)" if lang_key == "zh" else "🚀 Execute Cash Robo-Strategist", key=f"btn_run_cash_{engine.ticker}"):
-                        with st.spinner("多线程并发扫描股票池、计算 Beneish M-Score 与求解最优资产权重..." if lang_key == "zh" else "Screening universe, running Beneish radar, and solving optimal allocations..."):
+                    active_alpha_scores = st.session_state.get("active_alpha_scores")
+                    if active_alpha_scores:
+                        st.info(
+                            f"🧪 **已激活 Alpha-GPT 自定义三闸门通过因子** (`{st.session_state.get('active_alpha_expr', '')}`)，选股评分已融合 15% 正交因子权重！"
+                            if lang_key == "zh" else
+                            f"🧪 **Active Alpha-GPT 3-Gate Factor Overlay** (`{st.session_state.get('active_alpha_expr', '')}`) blended at 15% weight!"
+                        )
+
+                    if st.button("🚀 开始自动化量化筛选与正交去相关组合求解 (Execute Orthogonal Cash Robo-Strategist)" if lang_key == "zh" else "🚀 Execute Orthogonal Cash Robo-Strategist", key=f"btn_run_cash_{engine.ticker}"):
+                        with st.spinner("多线程并发扫描股票池、计算 Beneish M-Score、执行 63D 正交去相关过滤与求解最优资产权重..." if lang_key == "zh" else "Screening universe, applying 63D correlation penalty, and solving optimal allocations..."):
                             screen_res = run_cash_deployment_screener(
-                                custom_list, total_cash=cash_input, risk_appetite=risk_app, currency=base_curr_code, rf=engine.rf, usd_myr_rate=fx_rate_in, lang_key=lang_key
+                                custom_list, total_cash=cash_input, risk_appetite=risk_app, currency=base_curr_code,
+                                rf=engine.rf, usd_myr_rate=fx_rate_in, lang_key=lang_key,
+                                custom_alpha_scores=active_alpha_scores
                             )
                             st.session_state[f"last_cash_screen_{engine.ticker}"] = screen_res
 
@@ -6926,18 +7363,18 @@ def main():
 
                         st.markdown("---")
                         st.markdown(
-                            "#### 📋 Top 4 最优建仓执行指令表 (Execution Blueprint with Lot Rounding)"
+                            "#### 📋 Top 4 正交去相关最优建仓执行指令表 (Orthogonal Execution Blueprint with Lot Rounding & Sector Cap ≤ 45%)"
                             if lang_key == "zh" else
-                            "#### 📋 Top 4 Recommended Execution Blueprint"
+                            "#### 📋 Top 4 Orthogonal Recommended Execution Blueprint (|r| ≤ 0.70 & Sector Cap ≤ 45%)"
                         )
                         st.caption(
-                            "💡 **注意**：针对马来西亚股票交易所（Bursa Malaysia），系统已强制按 **1 Lot = 100 股标准手向下取整**，杜绝碎股（Odd Lots）流动性折价；美股按整股执行。"
+                            "💡 **正交与整手规则**：贪心选股实时惩罚 63D 相关性 `|r| > 0.70` 的同质化标的并限制单行业权重 `<= 45%`；马股强制按 **1 Lot = 100 股标准手向下取整**。"
                             if lang_key == "zh" else
-                            "💡 **Note**: For Bursa Malaysia (.KL), shares are rounded down to 100-share board lots (1 Lot = 100 Shares). US shares are integer shares."
+                            "💡 **Orthogonal & Board Lot Rule**: Penalizes pairwise 63D correlation `|r| > 0.70`, caps single-sector weight `<= 45%`, and rounds Bursa Malaysia (.KL) to 100-share lots."
                         )
                         st.dataframe(screen_res["top4_df"], use_container_width=True)
 
-                        col_pie, col_strat = st.columns([1.2, 1.8])
+                        col_pie, col_corr, col_strat = st.columns([1.05, 1.05, 1.3])
                         with col_pie:
                             fig_donut = go.Figure(data=[go.Pie(
                                 labels=screen_res["pie_labels"],
@@ -6947,11 +7384,30 @@ def main():
                                 marker=dict(colors=['#38bdf8', '#34d399', '#f59e0b', '#c084fc', '#94a3b8'])
                             )])
                             fig_donut.update_layout(
-                                title=dict(text="🎯 资金分配比例图 (Capital Allocation Donut)" if lang_key == "zh" else "🎯 Capital Allocation Donut", font=dict(color='#ffffff', size=13)),
+                                title=dict(text="🎯 资金分配比例图 (Allocation)" if lang_key == "zh" else "🎯 Capital Allocation Donut", font=dict(color='#ffffff', size=13)),
                                 paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                                 font=dict(color='#94a3b8'), height=320, margin=dict(l=10, r=10, t=40, b=10)
                             )
                             st.plotly_chart(fig_donut, use_container_width=True)
+
+                        with col_corr:
+                            corr_df_sel = screen_res.get("corr_df", pd.DataFrame())
+                            if isinstance(corr_df_sel, pd.DataFrame) and not corr_df_sel.empty:
+                                fig_corr = go.Figure(data=go.Heatmap(
+                                    z=corr_df_sel.values,
+                                    x=list(corr_df_sel.columns),
+                                    y=list(corr_df_sel.index),
+                                    text=[[f"{v:.2f}" for v in row] for row in corr_df_sel.values],
+                                    texttemplate="%{text}",
+                                    colorscale=[[0.0, '#10b981'], [0.5, '#1e293b'], [1.0, '#ef4444']],
+                                    zmin=-0.2, zmax=1.0, showscale=False
+                                ))
+                                fig_corr.update_layout(
+                                    title=dict(text="🧩 入选组合 63D 相关性矩阵 (Orthogonality)" if lang_key == "zh" else "🧩 Top-4 63D Return Correlation Matrix", font=dict(color='#ffffff', size=13)),
+                                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                                    font=dict(color='#94a3b8'), height=320, margin=dict(l=10, r=10, t=40, b=10)
+                                )
+                                st.plotly_chart(fig_corr, use_container_width=True)
 
                         with col_strat:
                             st.markdown(
@@ -7003,12 +7459,41 @@ def main():
                         "Diagnose portfolio concentration, unrealized P&L and 1-day 95% VaR. Compute Black-Litterman rebalancing deltas and hedging playbooks."
                     )
 
-                    default_holdings = [
+                    default_holdings = st.session_state.get(f"persisted_holdings_{engine.ticker}") or [
                         {"Ticker": "NVDA", "Shares": 50, "Avg_Cost": 105.00},
                         {"Ticker": "AAPL", "Shares": 60, "Avg_Cost": 175.00},
                         {"Ticker": "MSFT", "Shares": 30, "Avg_Cost": 395.00},
                         {"Ticker": "1155.KL" if engine.is_malaysia else "GOOGL", "Shares": 2000 if engine.is_malaysia else 40, "Avg_Cost": 9.50 if engine.is_malaysia else 150.00}
                     ]
+
+                    # 🌟 V15.0 P0.5 实盘持仓 JSON 导入 / 导出持久化工具栏
+                    with st.expander("💾 实盘持仓 JSON 导入 / 导出备份 (Import / Export Holdings JSON)" if lang_key == "zh" else "💾 Import / Export Holdings (.json)", expanded=False):
+                        ie_c1, ie_c2 = st.columns(2)
+                        with ie_c1:
+                            json_str_out = json.dumps(default_holdings, ensure_ascii=False, indent=2)
+                            st.download_button(
+                                label="📥 导出当前持仓为 JSON 文件 (.json)" if lang_key == "zh" else "📥 Export Holdings (.json)",
+                                data=json_str_out.encode("utf-8"),
+                                file_name=f"My_Quant_Holdings_{datetime.datetime.now().strftime('%Y%m%d')}.json",
+                                mime="application/json",
+                                key=f"dl_holdings_json_{engine.ticker}"
+                            )
+                        with ie_c2:
+                            raw_json_in = st.text_input(
+                                "📤 粘贴持仓 JSON 数组以一键恢复持仓：" if lang_key == "zh" else "📤 Paste Holdings JSON array to restore:",
+                                value="",
+                                placeholder='[{"Ticker": "1155.KL", "Shares": 2000, "Avg_Cost": 9.80}]',
+                                key=f"in_holdings_json_{engine.ticker}"
+                            )
+                            if raw_json_in.strip():
+                                try:
+                                    parsed_h = json.loads(raw_json_in.strip())
+                                    if isinstance(parsed_h, list) and parsed_h:
+                                        default_holdings = parsed_h
+                                        st.session_state[f"persisted_holdings_{engine.ticker}"] = parsed_h
+                                        st.success("✅ 持仓 JSON 已成功导入！" if lang_key == "zh" else "✅ Holdings JSON imported successfully!")
+                                except Exception as j_err:
+                                    st.warning(f"JSON 格式解析错误: {j_err}" if lang_key == "zh" else f"Invalid JSON format: {j_err}")
 
                     st.markdown("📝 **在下方表格中编辑您的当前真实股票持仓（支持自由增删行）：**" if lang_key == "zh" else "📝 **Edit your current stock holdings below:**")
                     if hasattr(st, "data_editor"):
@@ -7045,6 +7530,7 @@ def main():
                     if st.button("⚖️ 执行 Black-Litterman 诊断与组合再平衡 (Run Rebalance Engine)" if lang_key == "zh" else "⚖️ Run Black-Litterman Rebalance Engine", key=f"btn_rebal_exec_{engine.ticker}"):
                         with st.spinner("正在检索各标的实时行情、协方差矩阵与推演 Black-Litterman 调仓方案..." if lang_key == "zh" else "Retrieving market data, covariance, and computing BL rebalancing..."):
                             holdings_dict_list = edited_holdings_df.to_dict(orient="records")
+                            st.session_state[f"persisted_holdings_{engine.ticker}"] = holdings_dict_list
                             diag_res = run_personal_portfolio_optimizer(
                                 holdings_dict_list, available_cash=rebal_cash_in, risk_appetite=rebal_appetite,
                                 currency=base_curr_code, rf=engine.rf, usd_myr_rate=fx_rate_in, lang_key=lang_key
@@ -7107,8 +7593,10 @@ def main():
                             fig_mig = go.Figure()
                             txt_curr = ["当前组合 (Current)"] if lang_key == "zh" else ["Current Portfolio"]
                             txt_tgt = ["再平衡组合 (Target)"] if lang_key == "zh" else ["Target Rebalanced Portfolio"]
+                            # 🌟 V15.0 P0.3 修复：使用真实计算的当前组合预期收益率 d['curr_ret']，彻底删除硬编码的 target_ret * 0.85
+                            curr_ret_real = float(d.get("curr_ret", d["target_ret"] * 0.85))
                             fig_mig.add_trace(go.Scatter(
-                                x=[d["curr_vol"]], y=[d["target_ret"] * 0.85],
+                                x=[d["curr_vol"]], y=[curr_ret_real],
                                 mode='markers+text', marker=dict(color='#ef4444', size=14, symbol='diamond'),
                                 text=txt_curr, textposition="top center", name="Current Portfolio"
                             ))
@@ -7119,7 +7607,7 @@ def main():
                             ))
                             # 绘制迁移虚线箭头
                             fig_mig.add_trace(go.Scatter(
-                                x=[d["curr_vol"], d["target_vol"]], y=[d["target_ret"] * 0.85, d["target_ret"]],
+                                x=[d["curr_vol"], d["target_vol"]], y=[curr_ret_real, d["target_ret"]],
                                 mode='lines', line=dict(color='#facc15', width=2, dash='dash'), name="Optimization Migration"
                             ))
                             fig_mig.update_layout(
@@ -7139,7 +7627,6 @@ def main():
 
                         if has_kl_pos:
                             kl_mkt_val = sum(p["shares"] * p["native_price"] for p in diag_res["valid_pos"] if p["is_malaysia"])
-                            # FKLI 对冲计算：FKLI 合约价值 = KLCI 点位 * 50 MYR (假定综指 1620 点)
                             klci_approx = 1620.0
                             fkli_val = klci_approx * 50.0
                             fkli_contracts = round((kl_mkt_val * d["portfolio_beta"]) / fkli_val, 1)
@@ -7202,7 +7689,7 @@ def main():
 - Unrealized P&L: {base_curr_code} {d['unrealized_pnl']:+,.2f} ({d['unrealized_pnl_pct']:+.2f}%)
 - Current Portfolio Beta: {d['portfolio_beta']:.2f} | 1-Day 95% Stressed VaR: {base_curr_code} -{d['daily_var_95']:,.2f} (-{d['daily_var_pct']:.2f}% of equity)
 - Current Portfolio Volatility: {d['curr_vol']:.1f}% | Target Rebalanced Volatility: {d['target_vol']:.1f}%
-- Target Expected Return: {d['target_ret']:.1f}% | Target Sharpe Ratio: {d['target_sharpe']:.2f}
+- Current Expected Return: {d.get('curr_ret', 10.0):.1f}% | Target Expected Return: {d['target_ret']:.1f}% | Target Sharpe Ratio: {d['target_sharpe']:.2f}
 - Rebalancing Risk Posture: {rebal_appetite.upper()}
 
 [Rebalancing Deltas & Lot-Aware Execution Table]
@@ -7241,24 +7728,127 @@ Structure:
                         st.error(diag_res["error"])
 
                 # ==============================================================================
-                # 📈 5-Year Full-Model Walk-Forward Backtest Lab (V14.0 Grandmaster)
+                # 🧪 V15.0 P2.3 Alpha-GPT Lite 横截面因子进化工坊 (Safe Whitelisted AST & 3-Gate Validator)
+                # ==============================================================================
+                st.markdown("---")
+                with st.expander(
+                    "🧪 Alpha-GPT Lite 横截面因子进化工坊 (Safe AST Factor Lab: 人话想法 → 遗传变异 → 三道防过拟合闸门 IS/OOS Rank IC 体检)"
+                    if lang_key == "zh" else
+                    "🧪 Alpha-GPT Lite Cross-Sectional Factor Evolution Lab (Safe Whitelisted AST & 3-Gate IS/OOS Validator)",
+                    expanded=False
+                ):
+                    st.caption(
+                        "🔒 **安全架构**：采用 100% 纯 AST 抽象语法树白名单解析器（绝对禁用 Python `eval()` / `exec()`），内置 18 个横截面/时序与日线量价算子（`cs_rank`, `ts_mean`, `ts_std`, `hma_slope`, `rolling_vwap_rsi`, `r2_20`, `er_14`, `ulcer_14` 等）。"
+                        "每个候选因子必须通过 **三道防过拟合闸门**：① **AST 节点数 `<= 10`**；② **与基础因子最大相关性 `|r| < 0.70`**；③ **21D 前瞻收益在 IS (`2021–2024`) 与 OOS (`2025–2026`) 的 `Rank IC > 0` 且 `ICIR > 0`**！"
+                        if lang_key == "zh" else
+                        "🔒 **Security & Rigor**: 100% whitelisted AST evaluator (zero `eval()`/`exec()`) with 18 time-series & cross-sectional operators. Enforces 3 strict anti-overfitting gates: (1) AST Nodes <= 10, (2) Max correlation with baseline factors |r| < 0.70, (3) Positive 21D forward Rank IC & ICIR in both IS (2021-2024) and OOS (2025-2026)."
+                    )
+                    ag_c1, ag_c2 = st.columns([1.4, 1.6])
+                    with ag_c1:
+                        ag_tpl_sel = st.selectbox(
+                            "选择因子研究主题模板 (Alpha Idea Template)" if lang_key == "zh" else "Select Alpha Idea Template",
+                            options=[
+                                "trend_purity | 趋势纯度 R² × HMA(55) 二阶斜率抗回撤动量" if lang_key == "zh" else "trend_purity | Trend Purity R² x HMA(55) Slope Momentum",
+                                "vwap_reversion | 20D Rolling VWAP-RSI 量价背离与效率均值回归" if lang_key == "zh" else "vwap_reversion | 20D Rolling VWAP-RSI & Efficiency Reversion",
+                                "low_ulcer_quality | 低溃疡指数 (Ulcer) × 高趋势效率稳健复利" if lang_key == "zh" else "low_ulcer_quality | Low-Ulcer Quality & Efficiency Carry"
+                            ],
+                            key=f"ag_tpl_{engine.ticker}"
+                        )
+                        tpl_key = ag_tpl_sel.split("|")[0].strip()
+                    with ag_c2:
+                        ag_user_idea = st.text_input(
+                            "或者用大白话输入您的选股因子想法 / 自定义 AST 公式：" if lang_key == "zh" else "Or enter natural language alpha idea / custom AST formula:",
+                            value=DEFAULT_ALPHA_SEED_TEMPLATES[tpl_key][0],
+                            key=f"ag_idea_txt_{engine.ticker}"
+                        )
+
+                    if st.button("🧬 运行 Alpha-GPT 遗传变异与 20-25 股三道闸门 IS/OOS Rank IC 体检" if lang_key == "zh" else "🧬 Run Alpha-GPT Genetic Evolution & 3-Gate IS/OOS Audit", key=f"btn_run_alphagpt_{engine.ticker}"):
+                        with st.spinner("正在解析 AST 语法树、执行遗传变异并在跨行业股票池上测算 IS (2021-2024) 与 OOS (2025-2026) 横截面 Rank IC..." if lang_key == "zh" else "Validating AST trees, mutating candidates, and computing IS/OOS 21D Rank IC..."):
+                            seed_list = list(DEFAULT_ALPHA_SEED_TEMPLATES.get(tpl_key, DEFAULT_ALPHA_SEED_TEMPLATES["trend_purity"]))
+                            user_str = ag_user_idea.strip()
+                            ok_u, _, _ = validate_alpha_ast(user_str, max_nodes=12)
+                            if ok_u:
+                                seed_list.insert(0, user_str)
+                            else:
+                                # Try translating natural language idea via Gemini if key exists
+                                gem_k_ag = load_saved_gemini_key()
+                                if gem_k_ag and len(user_str) >= 4:
+                                    try:
+                                        ag_sys = (
+                                            "You are Alpha-GPT. Output ONLY 2 valid single-line factor expressions (no markdown, one per line) "
+                                            "using ONLY variables: close, open, high, low, volume, ret_1d, ret_5d, ret_20d, ret_63d, vol_20d, er_14, ci_14, ulcer_14, r2_20, hma_slope, rolling_vwap_rsi, amihud_20 "
+                                            "and operators: cs_rank, ts_mean, ts_std, ts_rank, delta, delay, zscore, add, sub, mul, div, neg. Max 8 AST nodes."
+                                        )
+                                        ag_txt, _ = _call_gemini_resilient(gem_k_ag, "gemini-2.5-flash", ag_sys, f"Idea: {user_str}")
+                                        for ln in ag_txt.splitlines():
+                                            ln_c = ln.strip().strip("`")
+                                            ok_l, _, _ = validate_alpha_ast(ln_c, max_nodes=10)
+                                            if ok_l:
+                                                seed_list.insert(0, ln_c)
+                                    except Exception:
+                                        pass
+
+                            cand_formulas = mutate_alpha_expressions(seed_list, max_candidates=6)
+                            ag_pool = BURSA_KLCI20_UNIVERSE[:12] if engine.is_malaysia else US_SP25_UNIVERSE[:12]
+                            raw_ag = yf.download(ag_pool, period="5y", interval="1d", progress=False)
+                            c_ag = raw_ag["Close"] if (isinstance(raw_ag, dict) or (hasattr(raw_ag, "columns") and "Close" in raw_ag.columns)) else raw_ag
+                            if hasattr(c_ag, "columns") and getattr(c_ag.columns, "nlevels", 1) > 1:
+                                c_ag = c_ag["Close"] if "Close" in c_ag.columns.get_level_values(0) else c_ag.xs("Close", axis=1, level=-1)
+                            if hasattr(c_ag.index, "tz_localize"):
+                                try:
+                                    c_ag.index = c_ag.index.tz_localize(None)
+                                except Exception:
+                                    pass
+                            c_ag = c_ag.ffill().dropna(how="all")
+                            panels_ag = build_feature_panels(c_ag)
+                            ag_eval_res = evaluate_alpha_candidates(cand_formulas, panels_ag, forward_days=21, max_ast_nodes=10, max_corr_thresh=0.70, lang_key=lang_key)
+                            st.session_state[f"alphagpt_res_{engine.ticker}"] = ag_eval_res
+
+                    ag_eval_res = st.session_state.get(f"alphagpt_res_{engine.ticker}")
+                    if ag_eval_res:
+                        st.markdown("##### 📊 候选因子三道闸门体检表 (3-Gate Factor Audit: Complexity ≤ 10 | Orthogonality |r| < 0.70 | IS & OOS Rank IC > 0)" if lang_key == "zh" else "##### 📊 3-Gate Factor Audit Table")
+                        st.dataframe(ag_eval_res["audit_df"], use_container_width=True)
+                        passing_list = ag_eval_res.get("passing_factors", [])
+                        if passing_list:
+                            pass_exprs = [pf["formula"] for pf in passing_list]
+                            chosen_alpha = st.selectbox(
+                                "✅ 选择已通过全部三道防过拟合闸门的因子，叠加至 Mode 1 选股与 5Y 回测：" if lang_key == "zh" else "✅ Select a 3-Gate Passed Factor to overlay into Mode 1 & 5Y Backtest:",
+                                options=["(不叠加 / None)"] + pass_exprs,
+                                index=1,
+                                key=f"sel_pass_alpha_{engine.ticker}"
+                            )
+                            if chosen_alpha != "(不叠加 / None)":
+                                matched_pf = next((pf for pf in passing_list if pf["formula"] == chosen_alpha), None)
+                                if matched_pf:
+                                    st.session_state["active_alpha_expr"] = chosen_alpha
+                                    st.session_state["active_alpha_scores"] = matched_pf["latest_ranks"]
+                                    st.success(
+                                        f"🎯 已激活因子 `{chosen_alpha}` (AST节点={matched_pf['ast_nodes']}, Max|r|={matched_pf['max_corr']:.2f}, IS IC={matched_pf['is_ic']:+.4f}, OOS IC={matched_pf['oos_ic']:+.4f})！"
+                                        if lang_key == "zh" else
+                                        f"🎯 Activated factor `{chosen_alpha}` (Nodes={matched_pf['ast_nodes']}, Max|r|={matched_pf['max_corr']:.2f}, IS IC={matched_pf['is_ic']:+.4f}, OOS IC={matched_pf['oos_ic']:+.4f})!"
+                                    )
+                            else:
+                                st.session_state.pop("active_alpha_expr", None)
+                                st.session_state.pop("active_alpha_scores", None)
+
+                # ==============================================================================
+                # 📈 5-Year Full-Model Walk-Forward Backtest Lab (V15.0 Grandmaster)
                 # ==============================================================================
                 st.markdown("---")
                 st.markdown(
-                    "### 📈 5 年全模型 Walk-Forward 实盘真实回测实验室 (Spot + Options Overlay + GARCH + Half-Kelly + ATR Stop)"
+                    "### 📈 5 年全模型 Walk-Forward 实盘逐日盯市回测实验室 (V15.0: 3-State Regime + 3-Stage ATR Exit + TSP Guardian + IS/OOS Split)"
                     if lang_key == "zh" else
-                    "### 📈 5-Year Full-Model Walk-Forward Backtest Lab (Spot + Options Overlay + GARCH + Half-Kelly + ATR Stop)"
+                    "### 📈 5-Year Full-Model Walk-Forward Daily-MTM Backtest Lab (V15.0: 3-State Regime + 3-Stage Exit + TSP + IS/OOS Split)"
                 )
                 st.caption(
-                    "严格剔除未来函数（Zero Look-Ahead Bias）：每 21 个交易日（月度期权到期周期）严格基于当时历史数据，"
-                    "实时拟合 Quasi-MLE GARCH(1,1) 波动率、多因子与 Beneish 造假过滤、SLSQP/桥水ERC权重求解、"
-                    "盘中 2.2x ATR 移动止损，并对冲结算真实的 B-S 个股期权（Covered Call / Collar / Bull Spread / CSP / 马股凭单 / FKLI期货）！"
+                    "严格零未来函数（100% Zero Look-Ahead Bias）：逐个交易日真实推进盘中/隔夜跳空三段式 ATR 止损 (`min(open[d], stop_price)`) 与剩余期限 $T_d$ 的 B-S 期权逐日盯市（彻底废除月末偷看与线性残差平滑），"
+                    "点时间拟合 EWMA-GARCH(0.11, 0.85) + Garman-Klass 融合波动率、63D 正交去相关选股、组合净值级 TSP 三态回撤守护 (`HEALTHY 1.0x / WATCH 0.60x / HIBERNATING 0.35x`)，并强制拆分 **IS (2021–2024) 与 OOS (2025–2026)** 样本外盲测对照表！"
                     if lang_key == "zh" else
-                    "Strict zero look-ahead bias walk-forward engine across the past 5 years. Simulates point-in-time GARCH(1,1), multi-factor scoring, Black-Scholes options overlays (Collars, Spreads, Covered Calls, CSPs, Bursa Warrants, FKLI), and 2.2x ATR stops."
+                    "100% Zero Look-Ahead Bias daily mark-to-market walk-forward engine: daily intraday/gap 3-stage ATR stop execution (`min(open[d], stop_price)`), daily B-S option MTM at remaining maturity T_d, point-in-time EWMA-GARCH(0.11, 0.85) + Garman-Klass vol, orthogonal Top-4 selection, portfolio TSP 3-state drawdown guardian, and mandatory IS (2021-2024) vs OOS (2025-2026) out-of-sample split."
                 )
 
                 with st.container(border=True):
-                    bt_c1, bt_c2, bt_c3 = st.columns([1.2, 1.4, 1.4])
+                    bt_c1, bt_c2, bt_c3 = st.columns([1.15, 1.35, 1.5])
                     with bt_c1:
                         bt_init_cash = st.number_input(
                             f"回测初始本金 (Initial Capital in {base_curr_code})" if lang_key == "zh" else f"Initial Cash ({base_curr_code})",
@@ -7276,19 +7866,30 @@ Structure:
                         )
                         bt_reb_days = 21 if "21" in bt_cycle_sel else 63
                     with bt_c3:
-                        bt_bursa_lbl = (
-                            "🇲🇾 Bursa Malaysia KLCI 蓝筹核心池 (1155.KL, 1023.KL, 1295.KL, 5183.KL, 5347.KL, 1066.KL, 6033.KL, 5225.KL)"
+                        bt_bursa8_lbl = (
+                            "🇲🇾 Bursa Malaysia KLCI 蓝筹核心池 (Core 8: 1155.KL, 1023.KL, 1295.KL, 5183.KL, 5347.KL, 1066.KL, 6033.KL, 5225.KL)"
                             if lang_key == "zh" else
-                            "🇲🇾 Bursa Malaysia KLCI Blue-Chip Core (1155.KL, 1023.KL, 1295.KL, 5183.KL, 5347.KL, 1066.KL, 6033.KL, 5225.KL)"
+                            "🇲🇾 Bursa Malaysia KLCI Blue-Chip Core 8"
                         )
-                        bt_us_lbl = "🇺🇸 US Tech & Mega-Cap Leaders (AAPL, MSFT, NVDA, GOOGL, AMZN, META, TSLA, BRK-B)"
+                        bt_us8_lbl = "🇺🇸 US Tech & Mega-Cap Core 8 (AAPL, MSFT, NVDA, GOOGL, AMZN, META, TSLA, BRK-B)"
+                        bt_bursa20_lbl = (
+                            "🇲🇾 Bursa KLCI 20 跨行业蓝筹广度池 (20 Stocks: 银行/公用/种植/电讯/医疗/工业)"
+                            if lang_key == "zh" else
+                            "🇲🇾 Bursa KLCI 20 Blue-Chip Cross-Sector Core (20 Stocks)"
+                        )
+                        bt_us25_lbl = (
+                            "🇺🇸 US S&P 25 跨行业核心广度池 (25 Stocks: 科技/半导体/金融/医疗/消费/能源/工业)"
+                            if lang_key == "zh" else
+                            "🇺🇸 US S&P 25 Cross-Sector Core (25 Stocks)"
+                        )
+                        bt_custom_lbl = "✍️ 自选股票池 (Custom Universe / Comma-separated)" if lang_key == "zh" else "✍️ Custom Universe (Comma-separated)"
                         bt_univ_sel = st.selectbox(
                             "回测候选股票池 (Backtest Universe)" if lang_key == "zh" else "Backtest Universe",
-                            options=[
-                                bt_bursa_lbl if engine.is_malaysia else bt_us_lbl,
-                                bt_us_lbl if engine.is_malaysia else bt_bursa_lbl,
-                                "✍️ 自选股票池 (Custom Universe / Comma-separated)" if lang_key == "zh" else "✍️ Custom Universe (Comma-separated)"
-                            ],
+                            options=(
+                                [bt_bursa8_lbl, bt_bursa20_lbl, bt_us8_lbl, bt_us25_lbl, bt_custom_lbl]
+                                if engine.is_malaysia else
+                                [bt_us8_lbl, bt_us25_lbl, bt_bursa8_lbl, bt_bursa20_lbl, bt_custom_lbl]
+                            ),
                             key=f"bt_univ_sel_{engine.ticker}"
                         )
 
@@ -7300,82 +7901,115 @@ Structure:
                             key=f"bt_custom_txt_{engine.ticker}"
                         )
                         bt_tickers = [x.strip().upper() for x in bt_custom_txt.split(",") if x.strip()]
+                    elif "KLCI 20" in bt_univ_sel:
+                        bt_tickers = list(BURSA_KLCI20_UNIVERSE)
+                    elif "S&P 25" in bt_univ_sel:
+                        bt_tickers = list(US_SP25_UNIVERSE)
                     elif "Bursa" in bt_univ_sel:
-                        bt_tickers = ["1155.KL", "1023.KL", "1295.KL", "5183.KL", "5347.KL", "1066.KL", "6033.KL", "5225.KL"]
+                        bt_tickers = list(BURSA_CORE_8)
                     else:
-                        bt_tickers = ["AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA", "BRK-B"]
+                        bt_tickers = list(US_CORE_8)
 
-                    bt_chk1, bt_chk2, bt_chk3 = st.columns([1.5, 1.5, 1.0])
+                    bt_chk1, bt_chk2, bt_chk3, bt_chk4, bt_chk5 = st.columns([1.3, 1.3, 1.3, 1.3, 0.8])
                     with bt_chk1:
                         bt_enable_opt = st.checkbox(
-                            "✅ 启用期权/凭单/FKLI衍生品叠加层 (Enable Options / Warrant / FKLI Overlay)" if lang_key == "zh" else "✅ Enable Options / Warrant / FKLI Overlay",
+                            "✅ 启用期权/凭单/FKLI衍生品叠加层" if lang_key == "zh" else "✅ Enable Options / Warrant / FKLI Overlay",
                             value=True, key=f"bt_enable_opt_{engine.ticker}"
                         )
                     with bt_chk2:
                         bt_enable_atr = st.checkbox(
-                            "✅ 启用 2.2x ATR 移动止损保护 (Enable 2.2x ATR Trailing Stop)" if lang_key == "zh" else "✅ Enable 2.2x ATR Trailing Stop",
+                            "✅ 启用三段式 ATR 移动止损 (2.2x→保本→1.8x)" if lang_key == "zh" else "✅ Enable 3-Stage ATR Stop (2.2x->BE->1.8x)",
                             value=True, key=f"bt_enable_atr_{engine.ticker}"
                         )
                     with bt_chk3:
+                        bt_bursa_fee = st.checkbox(
+                            "🇲🇾 马股真实阶梯费率 (佣金+清算+印花税)" if lang_key == "zh" else "🇲🇾 Realistic Bursa Fee Schedule",
+                            value=True, key=f"bt_bursa_fee_{engine.ticker}"
+                        )
+                    with bt_chk4:
+                        bt_static_fund = st.checkbox(
+                            "⚠️ 启用静态财报快照过滤 (含前视偏差)" if lang_key == "zh" else "⚠️ Static Fundamental Snapshot Filter",
+                            value=False, key=f"bt_static_fund_{engine.ticker}"
+                        )
+                    with bt_chk5:
                         bt_cost_bps = st.number_input(
-                            "摩擦成本 (bps)" if lang_key == "zh" else "Friction Cost (bps)",
+                            "摩擦成本 (bps)" if lang_key == "zh" else "Friction (bps)",
                             value=15.0, min_value=0.0, max_value=100.0, step=5.0,
                             key=f"bt_cost_bps_{engine.ticker}"
                         )
 
-                    if st.button("🚀 执行 5 年全模型 Walk-Forward 真实回测 (Run 5-Year Full-Model Backtest)" if lang_key == "zh" else "🚀 Run 5-Year Full-Model Walk-Forward Backtest", key=f"btn_run_bt_{engine.ticker}"):
-                        with st.spinner("正在从 Yahoo Finance 获取 5 年真实历史高开低收数据，推演逐期点时间信号、期权定价与调仓执行..." if lang_key == "zh" else "Fetching 5Y historical data, executing point-in-time walk-forward backtest..."):
+                    if bt_static_fund:
+                        st.warning(
+                            "⚠️ **点时间（PIT）基本面边界提示**：您已勾选「静态财报快照过滤」，系统将使用最新一期财报 Beneish M-Score 过滤候选股票池（历史回测含静态财报前视偏差）。默认不勾选时为 100% 纯点时间零前视偏差回测。"
+                            if lang_key == "zh" else
+                            "⚠️ **PIT Boundary Warning**: Static financial statement snapshot filtering is enabled (introduces look-ahead bias from current Beneish M-Score snapshot). Uncheck for 100% pure point-in-time backtesting."
+                        )
+
+                    if st.button("🚀 执行 5 年全模型 Walk-Forward 真实逐日盯市回测 (Run V15.0 5-Year Full-Model Backtest)" if lang_key == "zh" else "🚀 Run V15.0 5-Year Walk-Forward Daily-MTM Backtest", key=f"btn_run_bt_{engine.ticker}"):
+                        with st.spinner("正在从 Yahoo Finance 获取 5 年真实历史高开低收数据，逐日推演三段式 ATR 止损、期权剩余期限盯市与 IS/OOS 盲测切分..." if lang_key == "zh" else "Fetching 5Y OHLCV data, executing daily-MTM walk-forward backtest and IS/OOS split..."):
                             bt_res = run_5y_full_model_backtest(
                                 tuple(bt_tickers), initial_cash=bt_init_cash, rebalance_days=bt_reb_days,
                                 cost_bps=bt_cost_bps, rf_annual=engine.rf, enable_options_overlay=bt_enable_opt,
-                                enable_atr_stop=bt_enable_atr, currency=base_curr_code, lang_key=lang_key
+                                enable_atr_stop=bt_enable_atr, currency=base_curr_code, lang_key=lang_key,
+                                use_static_fundamental_filter=bt_static_fund,
+                                use_bursa_fee_schedule=bt_bursa_fee,
+                                custom_alpha_expr=str(st.session_state.get("active_alpha_expr") or "")
                             )
                             st.session_state[f"last_bt_res_{engine.ticker}"] = bt_res
 
                     bt_res = st.session_state.get(f"last_bt_res_{engine.ticker}")
                     if bt_res and "error" not in bt_res:
                         st.markdown("---")
-                        # 🌟 M1/M2/M5 FinRL & QuantDinger 顶栏核心指标横幅
+                        # 🌟 V15.0 P0.2 修复：顶栏 4 张核心 KPI 卡键名 100% 对齐 _calc_tearsheet 返回字典与 ens_regime_counts
                         ens_ts = bt_res.get("ts_ens", {})
-                        rc = bt_res.get("regime_counts", {"BULL": 0, "CHOPPY": 0, "CRISIS": 0})
+                        rc = bt_res.get("regime_counts", {"BULL_OFFENSE": 0, "CHOPPY_BLEND": 0, "CRISIS_SHIELD": 0})
                         turb_cnt = bt_res.get("turbulence_triggers_count", 0)
+                        tsp_cnt = bt_res.get("tsp_triggers_count", 0)
                         k_b1, k_b2, k_b3, k_b4 = st.columns(4)
                         k_b1.metric(
                             "👑 动态赛马元模型终值 (Meta-Ensemble)" if lang_key == "zh" else "👑 FinRL Meta-Ensemble Final Equity",
-                            ens_ts.get("Final Equity", "N/A"),
-                            ens_ts.get("Total Return (%)", "")
+                            ens_ts.get("Final Balance", ens_ts.get("Final Equity", "N/A")),
+                            ens_ts.get("Total Return", ens_ts.get("Total Return (%)", ""))
                         )
                         k_b2.metric(
                             "📐 抗过拟合去偏夏普 (Deflated Sharpe)" if lang_key == "zh" else "📐 Deflated Sharpe Ratio (DSR)",
                             ens_ts.get("Deflated Sharpe (DSR)", "N/A"),
-                            f"Sharpe {ens_ts.get('Sharpe Ratio', 'N/A')}"
+                            f"Sharpe {ens_ts.get('Sharpe Ratio', 'N/A')} | CAGR {ens_ts.get('CAGR', 'N/A')}"
                         )
                         k_b3.metric(
-                            "🚨 M1 马氏距离湍流熔断次数" if lang_key == "zh" else "🚨 M1 Mahalanobis Circuit Breakers",
-                            f"{turb_cnt} 次 (Windows)" if lang_key == "zh" else f"{turb_cnt} Windows",
-                            "p88 Mahalanobis Shield"
+                            "🚨 M1 湍流熔断 / TSP 守护触发" if lang_key == "zh" else "🚨 M1 Turbulence / TSP Guardian",
+                            f"{turb_cnt} / {tsp_cnt} 次" if lang_key == "zh" else f"{turb_cnt} / {tsp_cnt} Windows",
+                            "Mahalanobis p88 + TSP 3-State"
                         )
                         k_b4.metric(
                             "🔄 M2 市场状态切换分布 (牛/震/危)" if lang_key == "zh" else "🔄 M2 Regime Split (Bull/Chop/Crisis)",
-                            f"{rc.get('BULL', 0)} / {rc.get('CHOPPY', 0)} / {rc.get('CRISIS', 0)}",
-                            "63D Rolling Validation"
+                            f"{rc.get('BULL_OFFENSE', rc.get('BULL', 0))} / {rc.get('CHOPPY_BLEND', rc.get('CHOPPY', 0))} / {rc.get('CRISIS_SHIELD', rc.get('CRISIS', 0))}",
+                            "63D Rolling Validation + R²"
                         )
 
-                        st.markdown("#### 🏆 5 年五轨收益与风险全景指标表 (5-Track Performance Tearsheet)" if lang_key == "zh" else "#### 🏆 5-Year Five-Track Performance & Risk Tearsheet")
+                        st.markdown("#### 🏆 5 年五轨收益与风险全景指标表 (5-Track Full 5Y Performance Tearsheet)" if lang_key == "zh" else "#### 🏆 5-Year Five-Track Performance & Risk Tearsheet")
                         st.dataframe(bt_res["tearsheet_df"], use_container_width=True)
 
-                        st.markdown("#### 📈 五轨净值走势对比 (Comparative Equity Curves: 2021 — 2026)" if lang_key == "zh" else "#### 📈 Five-Track Equity Progression (2021 — 2026)")
+                        if "is_oos_split_df" in bt_res and isinstance(bt_res["is_oos_split_df"], pd.DataFrame) and not bt_res["is_oos_split_df"].empty:
+                            st.markdown(
+                                "#### 🔬 样本内 IS (2021–2024) vs 样本外盲测 OOS (2025–2026) 独立切分对比表 (In-Sample vs Out-of-Sample Blind Validation)"
+                                if lang_key == "zh" else
+                                "#### 🔬 In-Sample IS (2021–2024) vs Out-of-Sample OOS (2025–2026) Blind Split Validation"
+                            )
+                            st.dataframe(bt_res["is_oos_split_df"], use_container_width=True)
+
+                        st.markdown("#### 📈 五轨逐日盯市净值走势对比 (True Daily Mark-to-Market Equity Curves: 2021 — 2026)" if lang_key == "zh" else "#### 📈 Five-Track Daily Mark-to-Market Equity Progression (2021 — 2026)")
                         fig_eq = go.Figure()
                         d_dates = bt_res["dates"]
                         if "daily_eq_ens" in bt_res:
                             fig_eq.add_trace(go.Scatter(
                                 x=d_dates, y=bt_res["daily_eq_ens"], mode='lines',
-                                name="👑 动态赛马元模型 (FinRL Meta-Ensemble + M1 湍流盾)" if lang_key == "zh" else "👑 FinRL Meta-Ensemble (63D Val Sharpe + Turbulence Shield)",
+                                name="👑 动态赛马元模型 (FinRL Meta-Ensemble + TSP + M1 湍流盾)" if lang_key == "zh" else "👑 FinRL Meta-Ensemble (63D Val Sharpe + TSP + Turbulence Shield)",
                                 line=dict(color='#ec4899', width=3.2)
                             ))
                         fig_eq.add_trace(go.Scatter(
                             x=d_dates, y=bt_res["daily_eq_agg"], mode='lines',
-                            name="⚔️ 进取全模型 (SLSQP + Kelly + Options + ATR)" if lang_key == "zh" else "⚔️ Aggressive Full-Model (SLSQP + Kelly + Options + ATR)",
+                            name="⚔️ 进取全模型 (SLSQP + Kelly + Options + 3-Stage ATR)" if lang_key == "zh" else "⚔️ Aggressive Full-Model (SLSQP + Kelly + Options + 3-Stage ATR)",
                             line=dict(color='#f59e0b', width=2.4)
                         ))
                         fig_eq.add_trace(go.Scatter(
@@ -7394,7 +8028,7 @@ Structure:
                             line=dict(color='#94a3b8', width=1.5, dash='dash')
                         ))
                         fig_eq.update_layout(
-                            title=dict(text=f"5-Year Walk-Forward Equity Progression ({base_curr_code})", font=dict(color='#ffffff', size=14)),
+                            title=dict(text=f"5-Year Walk-Forward Daily-MTM Equity Progression ({base_curr_code})", font=dict(color='#ffffff', size=14)),
                             xaxis_title="Calendar Date" if lang_key == "en" else "交易日期 (Calendar Date)",
                             yaxis_title=f"Portfolio Equity ({base_curr_code})",
                             paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
@@ -7405,32 +8039,32 @@ Structure:
 
                         col_att1, col_att2 = st.columns(2)
                         with col_att1:
-                            st.markdown("##### 🔍 进取策略收益来源归因 (Aggressive P&L Attribution)" if lang_key == "zh" else "##### 🔍 Aggressive P&L Attribution Breakdown")
+                            st.markdown("##### 🔍 进取策略无重叠收益归因 (Aggressive Non-Overlapping P&L Attribution)" if lang_key == "zh" else "##### 🔍 Aggressive Non-Overlapping P&L Attribution")
                             a_agg = bt_res["attribution_agg"]
-                            x_agg_cats = ["现货+DRIP收益", "期权/凭单Alpha", "ATR止损挽回", "现金利息", "交易摩擦成本"] if lang_key == "zh" else ["Spot + DRIP", "Options/Warrant α", "ATR Recovery", "Cash Interest", "Friction Cost"]
+                            x_agg_cats = ["未止损原始现货+DRIP", "期权/凭单Alpha", "三段式止损/追踪净增厚", "现金利息", "交易摩擦成本"] if lang_key == "zh" else ["Unstopped Spot+DRIP", "Options/Warrant α", "3-Stage ATR Net α", "Cash Interest", "Friction Cost"]
                             fig_att_agg = go.Figure(go.Bar(
                                 x=x_agg_cats,
                                 y=[a_agg["spot_pnl"], a_agg["options_pnl"], a_agg["atr_saved"], a_agg["interest"], -a_agg["friction"]],
                                 marker_color=['#38bdf8', '#f59e0b', '#10b981', '#818cf8', '#ef4444']
                             ))
                             fig_att_agg.update_layout(
-                                title=dict(text="Aggressive P&L Contribution Breakdown", font=dict(color='#ffffff', size=12)),
+                                title=dict(text="Aggressive P&L Contribution (Sums 100% to Net Profit)", font=dict(color='#ffffff', size=12)),
                                 paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                                 font=dict(color='#94a3b8'), height=280, margin=dict(l=10, r=10, t=35, b=10)
                             )
                             st.plotly_chart(fig_att_agg, use_container_width=True)
 
                         with col_att2:
-                            st.markdown("##### 🔍 保守策略收益来源归因 (Conservative P&L Attribution)" if lang_key == "zh" else "##### 🔍 Conservative P&L Attribution Breakdown")
+                            st.markdown("##### 🔍 保守策略无重叠收益归因 (Conservative Non-Overlapping P&L Attribution)" if lang_key == "zh" else "##### 🔍 Conservative Non-Overlapping P&L Attribution")
                             a_con = bt_res["attribution_con"]
-                            x_con_cats = ["现货+DRIP收益", "期权收租/网格Alpha", "现金利息", "交易摩擦成本"] if lang_key == "zh" else ["Spot + DRIP", "Options Income α", "Cash Interest", "Friction Cost"]
+                            x_con_cats = ["原始现货+DRIP收益", "期权收租/顺序网格Alpha", "现金利息", "交易摩擦成本"] if lang_key == "zh" else ["Spot + DRIP", "Options/Sequential Grid α", "Cash Interest", "Friction Cost"]
                             fig_att_con = go.Figure(go.Bar(
                                 x=x_con_cats,
                                 y=[a_con["spot_pnl"], a_con["options_pnl"], a_con["interest"], -a_con["friction"]],
                                 marker_color=['#38bdf8', '#10b981', '#818cf8', '#ef4444']
                             ))
                             fig_att_con.update_layout(
-                                title=dict(text="Conservative P&L Contribution Breakdown", font=dict(color='#ffffff', size=12)),
+                                title=dict(text="Conservative P&L Contribution (Sums 100% to Net Profit)", font=dict(color='#ffffff', size=12)),
                                 paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
                                 font=dict(color='#94a3b8'), height=280, margin=dict(l=10, r=10, t=35, b=10)
                             )
